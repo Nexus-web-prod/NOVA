@@ -1,0 +1,155 @@
+# Nova 7.0 - Cloudflare Pages _headers
+
+# ── Global security headers ────────────────────────────────────────────────────
+/*
+  ! Access-Control-Allow-Origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https: https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev; connect-src 'self' wss://unified-wisp-epoxy.fly.dev https://unified-wisp-epoxy.fly.dev https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  X-Permitted-Cross-Domain-Policies: none
+  X-Download-Options: noopen
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), autoplay=(self), camera=(self), display-capture=(self), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), payment=(), publickey-credentials-create=(), publickey-credentials-get=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Resource-Policy: same-origin
+
+# ── WASM ───────────────────────────────────────────────────────────────────────
+/vortex.wasm.wasm
+  Content-Type: application/wasm
+  Cross-Origin-Resource-Policy: cross-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+# ── Vortex engine files ────────────────────────────────────────────────────────
+/vortex.all.js
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Versioned importScripts() call from sw.js — same rules, no caching
+/vortex.all.js?*
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/vortex.sync.js
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/vortex.bundle.js
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# ── Epoxy transport ────────────────────────────────────────────────────────────
+/epoxy.mjs
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+# ── Service Worker ─────────────────────────────────────────────────────────────
+/sw.js
+  Content-Type: application/javascript; charset=utf-8
+  Service-Worker-Allowed: /
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# ── BareMux ────────────────────────────────────────────────────────────────────
+/baremux/index.js
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/baremux/worker.js
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# ── Config (never cache) ───────────────────────────────────────────────────────
+/config.js
+  Cache-Control: no-store
+
+/nova-config.js
+  Cache-Control: no-store
+
+# ── Nova UI files ──────────────────────────────────────────────────────────────
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/css/nova.css
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/css/nova-settings-v7.css
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-db-shim.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-admin.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-v7-api.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-v7-account.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-v7-profile.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-settings-v7-ui.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-settings-control.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-v7-admin.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-update.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-ip-guard.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/social.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/js/nova-social-vc.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/info.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/whats-new.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/games.json
+  Cache-Control: no-cache, must-revalidate
+
+/apps.json
+  Cache-Control: no-cache, must-revalidate
+
+/movies.json
+  Cache-Control: no-cache, must-revalidate
+
+# ── Static assets ──────────────────────────────────────────────────────────────
+/assets/media/icons/rs5.webp
+  Content-Type: image/avif
+  Cache-Control: public, max-age=86400
+
+/assets/*
+  Cache-Control: public, max-age=86400
+
+/css/*
+  Cache-Control: no-cache, must-revalidate
+
+/js/*
+  Cache-Control: no-cache, must-revalidate

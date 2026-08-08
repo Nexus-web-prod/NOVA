@@ -1,0 +1,11 @@
+{
+  "event": "final-fifteen",
+  "title": "THE FINAL FIFTEEN",
+  "tagline": "One game drops every day. 15 days. Don't miss a drop.",
+  "start": "2026-04-29T00:00:00",
+  "end": "2026-05-13T23:59:59",
+  "badge_label": "FF EVENT",
+  "accent_color": "#f5c542",
+  "active": false,
+  "expired": true
+}
