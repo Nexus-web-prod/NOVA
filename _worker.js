@@ -56,6 +56,8 @@ const PRIVATE_DEPLOYMENT_FILES = new Set([
   "/cloudflare_d1_readme.md",
   "/nova_7_release_audit_2026-07-15.md",
   "/nova_7_release_stabilization_2026-07-16.md",
+  "/nova-full-prototype.html",
+  "/nova-island-prototype.html",
   "/nova-redesign-prototype.html",
   "/playground.html",
   "/playground.js",
@@ -187,7 +189,6 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/admin/staff" && method === "GET") return adminStaff(request, env.DB);
   if (pathname === "/api/admin/users/status" && method === "POST") return adminSetUserStatus(request, env.DB);
   if (pathname === "/api/admin/users/password" && method === "POST") return adminResetUserPassword(request, env.DB);
-  if (pathname === "/api/admin/users/delete" && method === "POST") return adminDeleteUser(request, env.DB);
   if (pathname === "/api/admin/chat/messages" && method === "GET") return adminChatMessages(request, url, env.DB);
   if (pathname === "/api/admin/chat/restrictions" && method === "GET") return adminChatRestrictions(request, url, env.DB);
   if (pathname === "/api/admin/chat/restrictions" && method === "POST") return adminCreateChatRestriction(request, env.DB);
@@ -256,14 +257,8 @@ async function register(request, env) {
   if (!username) return apiError("INVALID_USERNAME", "Use 3-20 letters, numbers, or underscores", 400);
   if (weakPassword(password, username)) return apiError("WEAK_PASSWORD", "Use at least 8 characters and avoid common passwords", 400);
 
-  const existing = await env.DB.prepare("SELECT id,username,account_status FROM users WHERE username = ? COLLATE NOCASE LIMIT 1").bind(username).first();
-  if (existing && existing.account_status === "deleted") {
-    // Deleted accounts are permanently removed. This cleanup also releases
-    // usernames from older soft-deleted records created before hard deletion.
-    await env.DB.prepare("DELETE FROM users WHERE id=? AND account_status='deleted'").bind(existing.id).run();
-  } else if (existing) {
-    return apiError("USERNAME_TAKEN", "That username is already in use", 409);
-  }
+  const existing = await env.DB.prepare("SELECT username FROM users WHERE username = ? COLLATE NOCASE LIMIT 1").bind(username).first();
+  if (existing) return apiError("USERNAME_TAKEN", "That username is already in use", 409);
 
   const id = randomId();
   const salt = randomToken(16);
@@ -2432,18 +2427,13 @@ async function adminSetUserStatus(request, db) {
 
 async function adminResetUserPassword(request, db) {
   requireSameOrigin(request);
-  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const auth = await requireRole(request, db, new Set(["owner"]));
   const body = await readJson(request);
   const target = await loadUserByUsername(db, normalizeUsername(body.username));
   const password = String(body.newPassword || "");
   const reason = cleanText(body.reason, 240);
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
   if (target.id === auth.id) return apiError("SELF_ACTION_FORBIDDEN", "Change your own password from your account settings", 400);
-  const targetRole = highestRole(target.roles || ["user"]);
-  const actorRole = highestRole(auth.roles || ["user"]);
-  if (targetRole === "owner" || (actorRole !== "owner" && ["admin", "developer"].includes(targetRole))) {
-    return apiError("PROTECTED_ACCOUNT", "Only the owner can manage staff accounts", 403);
-  }
   if (weakPassword(password, target.username)) return apiError("WEAK_PASSWORD", "Use at least 8 characters and avoid common passwords", 400);
   if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
   const salt = randomToken(16);
@@ -2455,37 +2445,6 @@ async function adminResetUserPassword(request, db) {
   ]);
   await audit(db, auth.id, "user.password_reset", "user", target.id, reason, { username: target.username });
   return apiJson({ ok: true });
-}
-
-async function adminDeleteUser(request, db) {
-  requireSameOrigin(request);
-  const auth = await requireRole(request, db, ADMIN_ROLES);
-  const body = await readJson(request);
-  const target = await loadUserByUsername(db, normalizeUsername(body.username));
-  const reason = cleanText(body.reason, 240);
-  if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
-  if (target.id === auth.id) return apiError("SELF_ACTION_FORBIDDEN", "You cannot delete your own account from Admin", 400);
-  const targetRole = highestRole(target.roles || ["user"]);
-  const actorRole = highestRole(auth.roles || ["user"]);
-  if (targetRole === "owner" || (actorRole !== "owner" && ["admin", "developer"].includes(targetRole))) {
-    return apiError("PROTECTED_ACCOUNT", "Only the owner can delete staff accounts", 403);
-  }
-  if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
-  if (target.account_status === "deleted") return apiError("ALREADY_DELETED", "That account is already deleted", 400);
-  const now = Date.now();
-  const deletedUsername = target.username;
-  const deletedUserId = target.id;
-
-  // Record the action before removing the user. The audit table uses
-  // ON DELETE SET NULL for target_user_id, while the metadata preserves
-  // the handle for the audit record.
-  await db.batch([
-    db.prepare("INSERT INTO admin_audit_logs(actor_id,action,target_type,target_id,reason,metadata_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)")
-      .bind(auth.id, "user.deleted", "user", deletedUserId, reason, JSON.stringify({ username: deletedUsername, previousStatus: target.account_status, permanent: true }), now, now + AUDIT_LOG_MS),
-    db.prepare("DELETE FROM users WHERE id=? AND account_status<>'deleted'").bind(deletedUserId)
-  ]);
-
-  return apiJson({ ok: true, status: "deleted", permanent: true, usernameReleased: true });
 }
 
 function canRestrictChatTarget(actor, target) {

@@ -417,9 +417,9 @@
     var protectedAccount = user.role === "owner" || user.username === currentUser.username || (!isOwner() && ["admin", "developer"].includes(user.role));
     var accountControls = canManageAccounts() && !protectedAccount ? '<section><label>Account status</label><div class="nova-admin-form-row"><select id="nova-admin-status-value"><option value="active" ' + (user.accountStatus === "active" ? "selected" : "") + '>Active</option><option value="suspended" ' + (user.accountStatus === "suspended" ? "selected" : "") + '>Suspended</option><option value="banned" ' + (user.accountStatus === "banned" ? "selected" : "") + ' >Banned</option></select><button type="button" class="nova-admin-primary" id="nova-admin-status-apply">Apply</button></div><textarea id="nova-admin-status-reason" placeholder="Reason required for restrictions"></textarea></section>' : "";
     var roleControls = isOwner() && user.role !== "owner" ? '<section><label>Staff access</label><div class="nova-admin-form-row"><select id="nova-admin-role-value"><option value="developer">Developer</option><option value="admin">Admin</option></select><button type="button" class="nova-admin-primary" id="nova-admin-role-grant">Grant</button></div><input id="nova-admin-role-reason" placeholder="Audit reason"><button type="button" class="nova-admin-danger-text" id="nova-admin-role-revoke">Revoke current staff role</button></section>' : "";
-    var passwordControls = canManageAccounts() && user.username !== currentUser.username && !protectedAccount && user.accountStatus !== "deleted" ? '<section class="nova-admin-action-section"><div class="nova-admin-section-heading"><div><label>Security</label><p class="nova-admin-drawer-copy">Set a new temporary password and sign the account out everywhere.</p></div><button type="button" class="nova-admin-secondary" id="nova-admin-reset-password-open">Change password</button></div></section>' : "";
-    var deleteControls = canManageAccounts() && !protectedAccount && user.accountStatus !== "deleted" ? '<section class="nova-admin-danger-section"><label>Delete account</label><p class="nova-admin-drawer-copy">Permanently deletes this account and releases the handle for someone else to use. This action is recorded in the audit log.</p><button type="button" class="nova-admin-danger" id="nova-admin-delete-user">Delete account</button></section>' : ""; var chatControls = canManageAccounts() ? '<section><label>Chat access</label><p class="nova-admin-drawer-copy">Review this account\'s messages or manage a chat ban.</p><button type="button" class="nova-admin-secondary" id="nova-admin-open-user-chat">Open chat moderation</button></section>' : "";
-    layer.innerHTML = '<div class="nova-admin-layer-backdrop" data-close-layer></div><aside class="nova-admin-drawer"><header><div class="nova-admin-person">' + avatar(user) + '<span><strong>' + esc(user.displayName || user.username) + '</strong><small>@' + esc(user.username) + '</small></span></div><button type="button" class="nova-admin-icon-btn" data-close-layer title="Close" aria-label="Close">' + icons.close + '</button></header><div class="nova-admin-drawer-meta"><div><span>Role</span><strong>' + esc(user.role) + '</strong></div><div><span>Status</span><strong>' + esc(user.accountStatus) + '</strong></div><div><span>Plan</span><strong>' + (user.supernova ? "Supernova Pro" : "Free") + '</strong></div><div><span>Joined</span><strong>' + esc(fmtTime(user.joinedAt)) + '</strong></div></div>' + chatControls + accountControls + roleControls + passwordControls + deleteControls + "</aside>";
+    var passwordControls = isOwner() && user.username !== currentUser.username ? '<section><label>Reset password</label><p class="nova-admin-drawer-copy">Sets a temporary password, signs this account out everywhere, and records the reason.</p><input id="nova-admin-reset-password-value" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Temporary password"><input id="nova-admin-reset-password-reason" maxlength="240" placeholder="Audit reason"><button type="button" class="nova-admin-secondary" id="nova-admin-reset-password-apply">Reset password</button></section>' : "";
+    var chatControls = canManageAccounts() ? '<section><label>Chat access</label><p class="nova-admin-drawer-copy">Review this account\'s messages or manage a chat ban.</p><button type="button" class="nova-admin-secondary" id="nova-admin-open-user-chat">Open chat moderation</button></section>' : "";
+    layer.innerHTML = '<div class="nova-admin-layer-backdrop" data-close-layer></div><aside class="nova-admin-drawer"><header><div class="nova-admin-person">' + avatar(user) + '<span><strong>' + esc(user.displayName || user.username) + '</strong><small>@' + esc(user.username) + '</small></span></div><button type="button" class="nova-admin-icon-btn" data-close-layer title="Close" aria-label="Close">' + icons.close + '</button></header><div class="nova-admin-drawer-meta"><div><span>Role</span><strong>' + esc(user.role) + '</strong></div><div><span>Status</span><strong>' + esc(user.accountStatus) + '</strong></div><div><span>Plan</span><strong>' + (user.supernova ? "Supernova Pro" : "Free") + '</strong></div><div><span>Joined</span><strong>' + esc(fmtTime(user.joinedAt)) + '</strong></div></div>' + chatControls + accountControls + roleControls + passwordControls + "</aside>";
     layer.classList.add("open");
     layer.querySelectorAll("[data-close-layer]").forEach(function (button) { button.onclick = closeLayer; });
     var statusButton = document.getElementById("nova-admin-status-apply");
@@ -430,46 +430,8 @@
     var revoke = document.getElementById("nova-admin-role-revoke");
     if (grant) grant.onclick = function () { applyUserRole(user, "grant", grant); };
     if (revoke) { revoke.style.display = ["developer", "admin"].includes(user.role) ? "inline-flex" : "none"; revoke.onclick = function () { applyUserRole(user, "revoke", revoke); }; }
-    var resetPasswordOpen = document.getElementById("nova-admin-reset-password-open");
-    if (resetPasswordOpen) resetPasswordOpen.onclick = function () { openResetPasswordDialog(user); };
-    var deleteUserButton = document.getElementById("nova-admin-delete-user");
-    if (deleteUserButton) deleteUserButton.onclick = function () { openDeleteUserDialog(user); };
-  }
-
-  function openResetPasswordDialog(user) {
-    var layer = document.getElementById("nova-admin-layer");
-    if (!layer) return;
-    layer.innerHTML = '<div class="nova-admin-layer-backdrop" data-close-layer></div><div class="nova-admin-dialog" role="dialog" aria-modal="true"><header><div><span>Account security</span><h2>Change password</h2></div><button type="button" class="nova-admin-icon-btn" data-close-layer aria-label="Close">' + icons.close + '</button></header><p>Set a new temporary password for <strong>@' + esc(user.username) + '</strong>. The account will be signed out everywhere after the change.</p><label for="nova-admin-reset-password-value">New password</label><input id="nova-admin-reset-password-value" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters"><label for="nova-admin-reset-password-reason">Audit reason</label><textarea id="nova-admin-reset-password-reason" maxlength="240" placeholder="Why is the password being changed?"></textarea><footer><button type="button" class="nova-admin-secondary" data-close-layer>Cancel</button><button type="button" class="nova-admin-primary" id="nova-admin-reset-password-apply">Change password</button></footer></div>';
-    layer.classList.add("open");
-    layer.querySelectorAll("[data-close-layer]").forEach(function (button) { button.onclick = closeLayer; });
-    var apply = document.getElementById("nova-admin-reset-password-apply");
-    if (apply) apply.onclick = function () { resetUserPassword(user, apply); };
-    setTimeout(function () { var input = document.getElementById("nova-admin-reset-password-value"); if (input) input.focus(); }, 40);
-  }
-
-  function openDeleteUserDialog(user) {
-    var layer = document.getElementById("nova-admin-layer");
-    if (!layer) return;
-    layer.innerHTML = '<div class="nova-admin-layer-backdrop" data-close-layer></div><div class="nova-admin-dialog" role="dialog" aria-modal="true"><header><div><span>Danger zone</span><h2>Delete account</h2></div><button type="button" class="nova-admin-icon-btn" data-close-layer aria-label="Close">' + icons.close + '</button></header><p>This permanently deletes <strong>@' + esc(user.username) + '</strong>. The account and its account data are removed, and the handle becomes available for someone else to use.</p><label for="nova-admin-delete-user-reason">Audit reason</label><textarea id="nova-admin-delete-user-reason" maxlength="240" placeholder="Why is this account being deleted?"></textarea><footer><button type="button" class="nova-admin-secondary" data-close-layer>Cancel</button><button type="button" class="nova-admin-danger" id="nova-admin-delete-user-confirm">Delete account</button></footer></div>';
-    layer.classList.add("open");
-    layer.querySelectorAll("[data-close-layer]").forEach(function (button) { button.onclick = closeLayer; });
-    var confirmButton = document.getElementById("nova-admin-delete-user-confirm");
-    if (confirmButton) confirmButton.onclick = function () { deleteUser(user, confirmButton); };
-  }
-
-  async function deleteUser(user, button) {
-    var reason = document.getElementById("nova-admin-delete-user-reason").value.trim();
-    if (!reason) return toast("Add an audit reason before deleting the account", "error");
-    setBusy(button, true, "Deleting");
-    try {
-      await NovaAPI.adminDeleteUser({ username: user.username, reason: reason });
-      toast("Account permanently deleted. The handle is available again.", "success");
-      closeLayer();
-      await searchUsers();
-    } catch (error) {
-      toast(error.message, "error");
-      setBusy(button, false);
-    }
+    var resetPassword = document.getElementById("nova-admin-reset-password-apply");
+    if (resetPassword) resetPassword.onclick = function () { resetUserPassword(user, resetPassword); };
   }
 
   function closeLayer() {

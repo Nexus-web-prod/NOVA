@@ -18,7 +18,7 @@ self.addEventListener("activate", event => {
   event.waitUntil(self.clients.claim());
 });
 
-const NOVA_RUNTIME_PREFIXES = ["/api/", "/assets/", "/css/", "/js/", "/baremux/"];
+const NOVA_RUNTIME_PREFIXES = ["/api/", "/assets/", "/css/", "/js/", "/baremux/", "/epoxy/"];
 const NOVA_RUNTIME_FILES = new Set([
   "/",
   "/index.html",

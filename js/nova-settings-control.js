@@ -79,7 +79,6 @@
     remoteTimer = null;
   }
   async function loadRemote(){
-    if (sessionStorage.getItem('nova_reset_in_progress')) return;
     if (remoteLoading || !window.__novaV7User || !window.NovaAPI || !NovaAPI.getSettings) {
       if (!window.__novaV7User) syncStatus('Saved on this device');
       return;
@@ -340,21 +339,11 @@
       } catch(e){}
       usage.textContent = (bytes / 1024).toFixed(bytes > 1024 ? 1 : 0) + ' KB stored on this device';
     }
-    document.getElementById('settings-reset-btn')?.addEventListener('click', async function(){
+    document.getElementById('settings-reset-btn')?.addEventListener('click', function(){
       if (!window.confirm('Reset Nova interface settings? Your account and Social data will stay intact.')) return;
-      localStorage.setItem('nova_force_reset', '1');
-      [
-        KEY, 'nova_theme', 'nova_adblock', 'nova_ab_mode', 'nova_tab_cloak', 'nova_homepage', 
-        'nova_search_engine', 'nova_panic_key', 'nova_panic_url', 'nova_holiday_settings',
-        'nova_supernova_custom_vars', 'nova_supernova_theme_slots', 'nova_supernova_theme_draft', 'nova_supernova_applied_draft'
-      ].forEach(storageRemove);
-      var layer = document.getElementById('nova-holiday-layer');
-      if (layer) layer.innerHTML = '';
+      [KEY, 'nova_theme', 'nova_adblock', 'nova_ab_mode', 'nova_tab_cloak', 'nova_homepage', 'nova_search_engine', 'nova_panic_key', 'nova_panic_url'].forEach(storageRemove);
       write(Object.assign({}, defaults));
-      if (window.NovaAPI) {
-        if (NovaAPI.saveSettings) await NovaAPI.saveSettings(defaults).catch(function(){});
-        if (NovaAPI.saveSupernovaState) await NovaAPI.saveSupernovaState({}).catch(function(){});
-      }
+      if (window.__novaV7User && window.NovaAPI && NovaAPI.saveSettings) NovaAPI.saveSettings(Object.assign({}, defaults, { theme: 'dark' })).catch(function(){});
       location.reload();
     });
     document.getElementById('download-save-btn')?.addEventListener('click', function(event){

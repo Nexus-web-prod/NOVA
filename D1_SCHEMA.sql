@@ -26,10 +26,6 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE INDEX IF NOT EXISTS users_status_idx ON users(account_status);
 
--- Deleted accounts are permanently removed. This also clears legacy soft-deleted
--- rows so their usernames/handles can be registered again.
-DELETE FROM users WHERE account_status='deleted';
-
 CREATE TABLE IF NOT EXISTS user_profiles (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   display_name TEXT NOT NULL DEFAULT '',

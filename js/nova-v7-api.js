@@ -146,7 +146,7 @@
     adminUsers: function (query, status) { return request("/api/admin/users?q=" + encodeURIComponent(query || "") + "&status=" + encodeURIComponent(status || "")); },
     adminStaff: function () { return request("/api/admin/staff"); },
     adminUserStatus: function (body) { return request("/api/admin/users/status", { method: "POST", body: body }); },
-    adminResetUserPassword: function (body) { return request("/api/admin/users/password", { method: "POST", body: body }); }, adminDeleteUser: function (body) { return request("/api/admin/users/delete", { method: "POST", body: body }); },
+    adminResetUserPassword: function (body) { return request("/api/admin/users/password", { method: "POST", body: body }); },
     adminChatMessages: function (reason, query, username, channel) { return request("/api/admin/chat/messages?q=" + encodeURIComponent(query || "") + "&username=" + encodeURIComponent(username || "") + "&channel=" + encodeURIComponent(channel || ""), { headers: { "X-Nova-Audit-Reason": reason } }); },
     adminChatRestrictions: function (username) { return request("/api/admin/chat/restrictions?username=" + encodeURIComponent(username || "")); },
     adminCreateChatRestriction: function (body) { return request("/api/admin/chat/restrictions", { method: "POST", body: body }); },

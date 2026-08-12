@@ -1,6 +1,6 @@
 /**
  * Nova 7 Supernova Hub
- * Cloud-synced personalization and labs. Voice rooms live
+ * Cloud-synced personalization, labs and browser workspaces. Voice rooms live
  * in Nova Island Social and are intentionally not managed by this module.
  */
 (function () {
@@ -10,15 +10,16 @@
     identity: { frame: "orbit", badge: "prism", bannerEffect: "aurora", nameGlow: true },
     island: { style: "glass", opacity: 88, density: "comfortable", animation: "fluid" },
     home: { atmosphere: "nebula", compactCards: false, greeting: true },
-    labs: { commandPalette: true, focusMode: false },
+    labs: { commandPalette: true, focusMode: false, quickPeek: true },
     holiday: { mode: "automatic", selected: "christmas", style: "full", effects: "balanced" },
     appliedTheme: null
   };
-  var state = { preferences: clone(DEFAULTS), themes: [], aiChats: {}, updatedAt: 0 };
+  var state = { preferences: clone(DEFAULTS), themes: [], workspaces: [], aiChats: {}, updatedAt: 0 };
   var mounted = false;
   var syncing = false;
   var pendingSave = {};
   var saveTimer = 0;
+  var editingWorkspace = "";
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function el(id) { return document.getElementById(id); }
@@ -65,7 +66,8 @@
       themes: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/>',
       identity: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
       island: '<path d="M5 8h14a4 4 0 0 1 0 8H5a4 4 0 0 1 0-8z"/><path d="M9 12h6"/>',
-      labs: '<path d="M9 3h6M10 3v5l-5 9a3 3 0 0 0 3 4h8a3 3 0 0 0 3-4l-5-9V3"/><path d="M8 15h8"/>'
+      labs: '<path d="M9 3h6M10 3v5l-5 9a3 3 0 0 0 3 4h8a3 3 0 0 0 3-4l-5-9V3"/><path d="M8 15h8"/>',
+      workspaces: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/>'
     };
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths[name] + '</svg>';
   }
@@ -89,6 +91,7 @@
       overviewCard("identity", "Identity", "Choose your frame, badge treatment, banner atmosphere and name glow.", "Customize") +
       overviewCard("island", "Nova Island", "Tune density, transparency, material and motion without changing voice rooms.", "Tune Island") +
       overviewCard("labs", "Early Access Labs", "Try working features early, with every experiment individually controlled.", "Open Labs") +
+      overviewCard("workspaces", "Browser Workspaces", "Save focused collections of sites and launch them through Nova from any device.", "View spaces") +
       '</div><div class="sn-voice-preserved"><span>VOICE</span><strong>Voice rooms remain in Nova Island Social</strong><small>The existing four-person rooms, lobby controls and live dictation are unchanged.</small></div></div>';
   }
   function overviewCard(section, title, copy, action) {
@@ -127,11 +130,25 @@
       '<h2>Labs you can actually use.</h2><p>Every experiment is reversible and synced to your account.</p></div><span class="sn-labs-badge">LABS 01</span></div>' +
       '<div class="sn-labs-grid">' + labCard("commandPalette", "⌘K", "Command Palette", "Jump to any Nova page or Supernova tool without leaving the keyboard.", "Press Ctrl/⌘ + K") +
       labCard("focusMode", "◫", "Focus Mode", "Quiet ambient effects and reduce visual noise while you work or study.", "Applies everywhere") +
+      labCard("quickPeek", "↗", "Workspace Quick Peek", "Reveal full destinations before opening links from a workspace.", "Hover any saved link") +
       '</div><div class="sn-labs-foot"><span class="sn-cloud-dot"></span><p>Labs are controlled remotely per account, so your choices follow you without changing regular Nova settings.</p></div></div>';
   }
   function labCard(key, symbol, title, copy, hint) {
     return '<article class="sn-lab-card"><div class="sn-lab-top"><span class="sn-lab-icon">' + symbol + '</span><label class="sn-switch"><input type="checkbox" data-pref="labs.' + key + '"><span></span></label></div>' +
       '<h3>' + title + '</h3><p>' + copy + '</p><small>' + hint + '</small></article>';
+  }
+
+  function workspacesMarkup() {
+    return '<div id="sn-panel-workspaces" class="sn-panel sn-hub-scroll"><div class="sn-panel-heading"><div><span class="sn-kicker">BROWSER WORKSPACES</span>' +
+      '<h2>Your web, arranged by purpose.</h2><p>Save up to eight spaces with twelve links each. Every destination opens through Nova.</p></div>' +
+      '<button type="button" class="sn-primary" id="sn-new-workspace">+ New workspace</button></div>' +
+      '<div id="sn-workspace-empty" class="sn-workspace-empty"><span>✦</span><h3>No workspaces yet</h3><p>Build a set for school, gaming, research or anything else.</p><button type="button" class="sn-secondary" data-workspace-create>Create your first space</button></div>' +
+      '<div class="sn-workspace-grid" id="sn-workspace-grid"></div>' +
+      '<section class="sn-workspace-editor" id="sn-workspace-editor" hidden><div class="sn-workspace-editor-head"><div><span class="sn-kicker">WORKSPACE EDITOR</span><h3 id="sn-workspace-editor-title">New workspace</h3></div><button type="button" class="sn-icon-btn" id="sn-workspace-cancel">✕</button></div>' +
+      '<label><span>Name</span><input id="sn-workspace-name" maxlength="40" placeholder="School day"></label>' +
+      '<label><span>Accent</span><select id="sn-workspace-accent"><option value="violet">Violet</option><option value="gold">Gold</option><option value="cyan">Cyan</option><option value="rose">Rose</option><option value="green">Green</option></select></label>' +
+      '<label class="sn-workspace-links-field"><span>Links <small>one per line · Title | https://site.com</small></span><textarea id="sn-workspace-links" rows="7" placeholder="Classroom | https://classroom.google.com\nDocs | https://docs.google.com"></textarea></label>' +
+      '<div class="sn-workspace-editor-actions"><span id="sn-workspace-form-status"></span><button type="button" class="sn-primary" id="sn-workspace-save">Save workspace</button></div></section></div>';
   }
 
   function holidayCollectionMarkup() {
@@ -166,12 +183,12 @@
     if (head) head.innerHTML = '<div class="sn-brand-lockup"><div class="sn-brand-star">✦</div><div><span>SUPERNOVA</span><small>THE POWER LAYER OF NOVA 7</small></div></div>' +
       '<div class="sn-head-meta"><span id="sn-head-sync">PRIVATE CLOUD</span><div class="sn-pro-badge">✦ PRO</div></div>';
     var tabs = page.querySelector(".sn-section-tabs");
-    if (tabs) tabs.innerHTML = tab("overview", "Overview") + tab("ai", "AI") + tab("themes", "Themes") + tab("identity", "Identity") + tab("island", "Island") + tab("labs", "Labs", '<span class="sn-tab-new">NEW</span>') ;
+    if (tabs) tabs.innerHTML = tab("overview", "Overview") + tab("ai", "AI") + tab("themes", "Themes") + tab("identity", "Identity") + tab("island", "Island") + tab("labs", "Labs", '<span class="sn-tab-new">NEW</span>') + tab("workspaces", "Spaces");
     var panels = page.querySelector(".sn-panels");
     if (!panels) return;
     panels.querySelectorAll(".sn-panel").forEach(function (panel) { panel.classList.remove("active"); });
     panels.insertAdjacentHTML("afterbegin", overviewMarkup());
-    panels.insertAdjacentHTML("beforeend", identityMarkup() + islandMarkup() + labsMarkup() );
+    panels.insertAdjacentHTML("beforeend", identityMarkup() + islandMarkup() + labsMarkup() + workspacesMarkup());
     upgradeLegacyPanels();
     wireHub();
     createCommandPalette();
@@ -199,6 +216,8 @@
     document.addEventListener("click", function (event) {
       var jump = event.target.closest("[data-sn-jump]");
       if (jump) switchSection(jump.dataset.snJump);
+      var create = event.target.closest("[data-workspace-create]");
+      if (create) openWorkspaceEditor();
     });
     document.querySelectorAll("[data-pref]").forEach(function (control) {
       control.addEventListener("change", function () {
@@ -210,6 +229,9 @@
         setPreference(control.dataset.pref, Number(control.value), true);
       });
     });
+    el("sn-new-workspace")?.addEventListener("click", function () { openWorkspaceEditor(); });
+    el("sn-workspace-cancel")?.addEventListener("click", closeWorkspaceEditor);
+    el("sn-workspace-save")?.addEventListener("click", saveWorkspaceFromForm);
     el("sn-theme-export")?.addEventListener("click", exportThemes);
     el("sn-theme-import")?.addEventListener("click", function () { el("sn-theme-import-file")?.click(); });
     el("sn-theme-import-file")?.addEventListener("change", importThemes);
@@ -281,6 +303,7 @@
     root.style.setProperty("--sn-island-opacity", String(prefs.island.opacity / 100));
     root.dataset.snHomeAtmosphere = prefs.home.atmosphere;
     root.dataset.snHomeCompact = prefs.home.compactCards ? "on" : "off";
+    root.dataset.snQuickPeek = prefs.labs.quickPeek ? "on" : "off";
     root.classList.toggle("sn-focus-mode", !!prefs.labs.focusMode);
     if (window.NovaHolidayThemes && window.NovaHolidayThemes.setSettings) window.NovaHolidayThemes.setSettings(prefs.holiday);
     else document.dispatchEvent(new CustomEvent("nova:holiday-settings", { detail: prefs.holiday }));
@@ -403,6 +426,7 @@
       var localApplied = window.NovaSupernovaThemes && window.NovaSupernovaThemes.getAppliedTheme ? window.NovaSupernovaThemes.getAppliedTheme() : null;
       state.preferences = mergePreferences(remote.preferences);
       state.themes = Array.isArray(remote.themes) ? remote.themes : [];
+      state.workspaces = Array.isArray(remote.workspaces) ? remote.workspaces : [];
       state.aiChats = remote.aiChats || {};
       state.updatedAt = Number(remote.updatedAt || 0);
       if (pristine) {
@@ -416,12 +440,14 @@
       }
       applyPreferences();
       syncControls();
+      renderWorkspaces();
       updateOverview();
       setCloudStatus("synced");
       if (pristine) {
         syncing = false;
         queueSave("preferences", state.preferences);
         queueSave("themes", state.themes);
+        queueSave("workspaces", state.workspaces);
         queueSave("aiChats", state.aiChats);
         return;
       }
@@ -443,11 +469,91 @@
         card.appendChild(label);
       }
       if (section === "themes") label.textContent = state.themes.filter(Boolean).length + "/5 saved";
+      else if (section === "workspaces") label.textContent = state.workspaces.length + "/8 spaces";
       else if (section === "ai") label.textContent = hasChatData(state.aiChats) ? "History synced" : "Ready";
       else label.textContent = "Configured";
     });
   }
 
+  function openWorkspaceEditor(workspace) {
+    editingWorkspace = workspace && workspace.id || "";
+    el("sn-workspace-editor-title").textContent = workspace ? "Edit workspace" : "New workspace";
+    el("sn-workspace-name").value = workspace ? workspace.name : "";
+    el("sn-workspace-accent").value = workspace ? workspace.accent : "violet";
+    el("sn-workspace-links").value = workspace ? workspace.links.map(function (link) { return link.title + " | " + link.url; }).join("\n") : "";
+    el("sn-workspace-form-status").textContent = "";
+    el("sn-workspace-editor").hidden = false;
+    el("sn-workspace-empty").hidden = true;
+    el("sn-workspace-grid").hidden = true;
+    setTimeout(function () { el("sn-workspace-name")?.focus(); }, 0);
+  }
+  function closeWorkspaceEditor() {
+    editingWorkspace = "";
+    el("sn-workspace-editor").hidden = true;
+    renderWorkspaces();
+  }
+  function parseWorkspaceLinks(raw) {
+    return String(raw || "").split(/\n+/).map(function (line) {
+      line = line.trim();
+      if (!line) return null;
+      var divider = line.indexOf("|");
+      var title = divider >= 0 ? line.slice(0, divider).trim() : "";
+      var value = divider >= 0 ? line.slice(divider + 1).trim() : line;
+      var url;
+      try { url = new URL(value); } catch (error) { throw new Error('Invalid URL: "' + value + '"'); }
+      if (["http:", "https:"].indexOf(url.protocol) === -1 || url.username || url.password) throw new Error("Links must use http or https");
+      return { title: title || url.hostname, url: url.href };
+    }).filter(Boolean).slice(0, 12);
+  }
+  function saveWorkspaceFromForm() {
+    var status = el("sn-workspace-form-status");
+    try {
+      var name = el("sn-workspace-name").value.trim();
+      var links = parseWorkspaceLinks(el("sn-workspace-links").value);
+      if (!name) throw new Error("Give the workspace a name");
+      if (!links.length) throw new Error("Add at least one link");
+      var workspace = { id: editingWorkspace || ("space_" + Date.now().toString(36)), name: name, accent: el("sn-workspace-accent").value, links: links };
+      var index = state.workspaces.findIndex(function (item) { return item.id === editingWorkspace; });
+      if (index >= 0) state.workspaces[index] = workspace;
+      else {
+        if (state.workspaces.length >= 8) throw new Error("Supernova supports up to eight workspaces");
+        state.workspaces.push(workspace);
+      }
+      queueSave("workspaces", state.workspaces);
+      closeWorkspaceEditor();
+      updateOverview();
+      toast("Workspace saved to Supernova");
+    } catch (error) {
+      status.textContent = error.message || "Check the workspace details";
+    }
+  }
+  function renderWorkspaces() {
+    var grid = el("sn-workspace-grid");
+    var empty = el("sn-workspace-empty");
+    if (!grid || !empty) return;
+    el("sn-workspace-editor").hidden = true;
+    grid.hidden = !state.workspaces.length;
+    empty.hidden = !!state.workspaces.length;
+    grid.innerHTML = state.workspaces.map(function (workspace) {
+      return '<article class="sn-workspace-card" data-accent="' + esc(workspace.accent) + '" data-workspace="' + esc(workspace.id) + '"><header><div class="sn-workspace-glyph">' + icon("workspaces") + '</div>' +
+        '<div><h3>' + esc(workspace.name) + '</h3><span>' + workspace.links.length + ' link' + (workspace.links.length === 1 ? "" : "s") + ' · Cloud synced</span></div></header>' +
+        '<div class="sn-workspace-links">' + workspace.links.map(function (link) { var host = ""; try { host = new URL(link.url).hostname; } catch (error) {} return '<button type="button" class="sn-workspace-link" data-open-url="' + esc(link.url) + '" data-peek="' + esc(link.url) + '"><span>' + esc(link.title) + '</span><small>' + esc(host) + '</small><i>↗</i></button>'; }).join("") + '</div>' +
+        '<footer><button type="button" class="sn-secondary" data-space-edit>Edit</button><button type="button" class="sn-danger-link" data-space-delete>Delete</button><button type="button" class="sn-primary" data-space-launch>Open in Nova</button></footer></article>';
+    }).join("");
+    grid.querySelectorAll("[data-open-url]").forEach(function (button) { button.addEventListener("click", function () { openUrlInNova(button.dataset.openUrl); }); });
+    grid.querySelectorAll(".sn-workspace-card").forEach(function (card) {
+      var workspace = state.workspaces.find(function (item) { return item.id === card.dataset.workspace; });
+      card.querySelector("[data-space-edit]").addEventListener("click", function () { openWorkspaceEditor(workspace); });
+      card.querySelector("[data-space-launch]").addEventListener("click", function () { if (workspace.links[0]) openUrlInNova(workspace.links[0].url); });
+      card.querySelector("[data-space-delete]").addEventListener("click", function () {
+        if (!confirm('Delete "' + workspace.name + '"?')) return;
+        state.workspaces = state.workspaces.filter(function (item) { return item.id !== workspace.id; });
+        queueSave("workspaces", state.workspaces);
+        renderWorkspaces();
+        updateOverview();
+      });
+    });
+  }
   function openUrlInNova(url) {
     var browserNav = document.querySelector('.nav-tab[data-page="browser"]') || document.querySelector('.ni-page-item[data-page="browser"]');
     if (browserNav) browserNav.click();
@@ -501,7 +607,7 @@
       ["Apps", "Browse apps", "apps"], ["Movies", "Open movies", "movies"], ["Social", "Open Nova Island Social", "social"],
       ["Supernova AI", "Ask the assistant", "supernova", "ai"], ["Theme Studio", "Design Nova", "supernova", "themes"],
       ["Identity", "Profile cosmetics", "supernova", "identity"], ["Labs", "Early access controls", "supernova", "labs"],
-      ["Settings", "Nova Control Center", "settings"]
+      ["Workspaces", "Synced browser spaces", "supernova", "workspaces"], ["Settings", "Nova Control Center", "settings"]
     ];
     var active = 0;
     function render(query) {
@@ -549,6 +655,7 @@
     state.preferences = mergePreferences(state.preferences);
     applyPreferences();
     syncControls();
+    renderWorkspaces();
     updateOverview();
     setTimeout(loadCloudState, 350);
   }

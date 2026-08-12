@@ -494,19 +494,3 @@
 .nova-admin-staff-protected{padding:0 12px;color:#6d6874;font:700 9px "Space Mono",monospace;text-transform:uppercase}
 @media(max-width:760px){.nova-admin-staff-fields{grid-template-columns:1fr 1fr}.nova-admin-staff-fields label:first-child{grid-column:1/-1}.nova-admin-staff-record{grid-template-columns:38px minmax(0,1fr) auto}.nova-admin-staff-status{grid-column:2}.nova-admin-staff-record>button,.nova-admin-staff-protected{grid-column:3;grid-row:1/3}}
 @media(max-width:520px){.nova-admin-staff-fields{grid-template-columns:1fr}.nova-admin-staff-fields label:first-child{grid-column:auto}#nova-admin-staff-form>footer{align-items:stretch;flex-direction:column}#nova-admin-staff-form>footer button{width:100%}.nova-admin-staff-record{grid-template-columns:36px minmax(0,1fr)}.nova-admin-staff-record>.nova-admin-role-cell{grid-column:2}.nova-admin-staff-status{grid-column:2}.nova-admin-staff-record>button,.nova-admin-staff-protected{grid-column:2;grid-row:auto;width:100%}}
-
-/* Account action controls: keep security actions visually consistent with the admin drawer. */
-.nova-admin-action-section{padding:13px 14px!important}
-.nova-admin-section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
-.nova-admin-section-heading>div{min-width:0}
-.nova-admin-section-heading label{margin:0!important}
-.nova-admin-section-heading .nova-admin-drawer-copy{margin:4px 0 0!important;max-width:285px}
-.nova-admin-action-section .nova-admin-secondary{flex:0 0 auto;white-space:nowrap}
-.nova-admin-danger-section{border-color:rgba(255,113,135,.18)!important;background:rgba(255,113,135,.025)!important}
-.nova-admin-danger-section>label{color:#e78b98!important}
-.nova-admin-danger-section .nova-admin-drawer-copy{max-width:330px}
-.nova-admin-dialog>footer .nova-admin-primary{min-height:36px}
-@media(max-width:520px){
-  .nova-admin-section-heading{align-items:flex-start;flex-direction:column}
-  .nova-admin-section-heading .nova-admin-secondary{width:100%}
-}

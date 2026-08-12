@@ -16,7 +16,7 @@ RUNTIME_FILES=(
   baremux-worker.js epoxy.mjs vortex.all.js vortex.bundle.js vortex.sync.js
   vortex.wasm.wasm games.json apps.json movies.json info.json whats-new.json favicon.webp
 )
-RUNTIME_DIRS=(assets baremux css js)
+RUNTIME_DIRS=(assets baremux epoxy css js)
 
 get_toml_db_id() {
   node -e 'const fs=require("fs"); const file="wrangler.toml"; if(!fs.existsSync(file)) process.exit(0); const s=fs.readFileSync(file,"utf8"); const m=s.match(/database_id\s*=\s*"([^"]+)"/); const id=m ? m[1] : ""; process.stdout.write(id && !/^REPLACE_WITH_/i.test(id) ? id : "");'
