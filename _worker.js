@@ -1387,7 +1387,7 @@ async function chatRestrictionError(db, userId, channelKind) {
   const restriction = await activeChatRestriction(db, userId, channelKind);
   if (!restriction) return null;
   const expiry = restriction.expires_at ? ` until ${new Date(Number(restriction.expires_at)).toISOString()}` : "";
-  return apiError("CHAT_RESTRICTED", `You cannot chat${expiry}. ${restriction.reason}`.trim(), 403, { restriction: { scope: restriction.scope, expiresAt: restriction.expires_at || null } });
+  return apiError("CHAT_RESTRICTED", `You are timed out from Nova Social${expiry}. ${restriction.reason}`.trim(), 403, { restriction: { scope: restriction.scope, expiresAt: restriction.expires_at || null } });
 }
 
 async function sendMessage(request, db) {
@@ -2509,14 +2509,14 @@ async function adminCreateChatRestriction(request, db) {
   const expiresAt = body.expiresAt == null ? null : Number(body.expiresAt);
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
   if (!canRestrictChatTarget(auth, target)) return apiError("PROTECTED_ACCOUNT", "You cannot restrict that account", 403);
-  if (!reason) return apiError("REASON_REQUIRED", "A chat-ban reason is required", 400);
-  if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= Date.now())) return apiError("INVALID_EXPIRY", "Chat-ban expiry must be in the future", 400);
+  if (!reason) return apiError("REASON_REQUIRED", "A Social-timeout reason is required", 400);
+  if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= Date.now())) return apiError("INVALID_EXPIRY", "Social-timeout expiry must be in the future", 400);
   const id = `chat_${randomId()}`, now = Date.now();
   await db.batch([
     db.prepare("UPDATE chat_restrictions SET revoked_at=?,revoked_by=? WHERE user_id=? AND scope=? AND revoked_at IS NULL").bind(now, auth.id, target.id, scope),
     db.prepare("INSERT INTO chat_restrictions(id,user_id,scope,action,reason,issued_by,created_at,expires_at) VALUES(?,?,?,'ban',?,?,?,?)").bind(id, target.id, scope, reason, auth.id, now, expiresAt)
   ]);
-  await audit(db, auth.id, "chat.ban", "user", target.id, reason, { username: target.username, scope, expiresAt });
+  await audit(db, auth.id, expiresAt ? "chat.timeout" : "chat.ban", "user", target.id, reason, { username: target.username, scope, expiresAt });
   return apiJson({ ok: true, restriction: { id, username: target.username, scope, reason, expiresAt } }, 201);
 }
 
@@ -2526,11 +2526,11 @@ async function adminRevokeChatRestriction(request, db) {
   const body = await readJson(request);
   const id = cleanText(body.id, 100);
   const reason = cleanText(body.reason, 240);
-  if (!reason) return apiError("REASON_REQUIRED", "An unban reason is required", 400);
+  if (!reason) return apiError("REASON_REQUIRED", "A reason for ending the Social timeout is required", 400);
   const restriction = id ? await db.prepare("SELECT r.id,r.user_id,r.scope,u.username FROM chat_restrictions r JOIN users u ON u.id=r.user_id WHERE r.id=? AND r.revoked_at IS NULL LIMIT 1").bind(id).first() : null;
-  if (!restriction) return apiError("CHAT_RESTRICTION_NOT_FOUND", "Active chat ban not found", 404);
+  if (!restriction) return apiError("CHAT_RESTRICTION_NOT_FOUND", "Active Social timeout not found", 404);
   await db.prepare("UPDATE chat_restrictions SET revoked_at=?,revoked_by=? WHERE id=?").bind(Date.now(), auth.id, id).run();
-  await audit(db, auth.id, "chat.unban", "user", restriction.user_id, reason, { username: restriction.username, scope: restriction.scope, restrictionId: id });
+  await audit(db, auth.id, "chat.timeout.end", "user", restriction.user_id, reason, { username: restriction.username, scope: restriction.scope, restrictionId: id });
   return apiJson({ ok: true });
 }
 
