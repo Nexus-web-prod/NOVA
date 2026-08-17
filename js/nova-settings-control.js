@@ -4,12 +4,13 @@
   var POSITION_SYNC_KEY = 'nova_island_position_sync_v588';
   var MOTION_MIGRATION_KEY = 'nova_island_motion_v589';
   var MOTION_SYNC_KEY = 'nova_island_motion_sync_v589';
+  var CLOSE_BUTTON_DEFAULT_MIGRATION_KEY = 'nova_island_close_button_default_v718';
   var LOCAL_DIRTY_KEY = 'nova_control_center_dirty';
   var defaults = {
     displayName: '', statusText: '', avatarInitial: '',
     onlineVisibility: 'everyone',
     accentColor: '#8b8fff', purpleIntensity: 70, backgroundStyle: 'stars',
-    islandCloseButton: true, islandPulse: true, islandPosition: 'top-right', islandSize: 'normal', islandSpeed: 100,
+    islandCloseButton: false, islandPulse: true, islandPosition: 'top-right', islandSize: 'normal', islandSpeed: 100,
     cardSize: 'normal', showRatings: true, showRecents: true, hideUnavailableApps: false, movieCardSize: 'normal',
     friendRequests: 'everyone', everyoneChat: true, voicePresence: true, dmNotifications: true,
     hidePlayCount: false, hideBadges: false, disableActivity: false,
@@ -54,6 +55,14 @@
     write(state);
     storageSet(MOTION_MIGRATION_KEY, '1');
     storageSet(MOTION_SYNC_KEY, '1');
+  }
+  function migrateIslandCloseButtonDefault(){
+    if (storageGet(CLOSE_BUTTON_DEFAULT_MIGRATION_KEY, '0') === '1') return;
+    var state = read();
+    state.islandCloseButton = false;
+    write(state);
+    storageSet(CLOSE_BUTTON_DEFAULT_MIGRATION_KEY, '1');
+    storageSet(LOCAL_DIRTY_KEY, '1');
   }
   function syncStatus(text, state){
     var pill = document.getElementById('settings-sync-status');
@@ -592,6 +601,7 @@
     bootStep('activity guard', guardLocalActivity);
     bootStep('Island position migration', migrateIslandPosition);
     bootStep('Island motion migration', migrateIslandMotion);
+    bootStep('Island close button default migration', migrateIslandCloseButtonDefault);
     bootStep('section navigation', bindPanes);
     bootStep('control hydration', hydrate);
     bootStep('setting controls', bindControls);

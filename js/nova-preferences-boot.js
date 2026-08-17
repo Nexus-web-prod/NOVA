@@ -66,7 +66,7 @@
   data('hover-zoom', s.hoverZoom ? 'on' : 'off');
   data('blur-level', s.blurLevel || 'off');
   data('island-enabled', 'on');
-  data('island-close-button', s.islandCloseButton === false ? 'off' : 'on');
+  data('island-close-button', s.islandCloseButton === true ? 'on' : 'off');
   data('island-pulse', s.islandPulse === false ? 'off' : 'on');
   data('island-pos', s.islandPosition || 'top-right');
   data('island-size', s.islandSize || 'normal');
