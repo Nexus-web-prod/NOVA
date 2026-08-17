@@ -695,10 +695,13 @@ function _showNovaUpdateBanner(){
   border: 2px solid rgba(139,143,255,.4);
   box-shadow: 0 0 12px rgba(139,143,255,.2);
 }
+<<<<<<< HEAD
 .ni-p-avatar img, .ni-pc-avatar img {
   width: 100%; height: 100%; border-radius: 50%;
   object-fit: cover; display: block;
 }
+=======
+>>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
 .ni-p-name { font-family: 'Space Mono', monospace; font-size: .52rem; font-weight: 700; color: var(--white, #eeeef6); }
 .ni-p-level { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 .ni-p-lvl-badge {
@@ -929,6 +932,7 @@ var islandCurrentPage = ((document.querySelector('.page.active') || {}).id || 'p
 var islandMovieActive = false;
 var mobileIslandDismissed = false;
 
+<<<<<<< HEAD
 /* Keep the Nova Island profile avatar synced with the signed-in Nova profile. */
 function renderIslandProfileAvatar(profile){
   var data = profile || {};
@@ -981,6 +985,8 @@ async function syncIslandProfileAvatar(profile){
   }
 }
 
+=======
+>>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
 function getIslandShell(){
   if(!shell) shell = document.getElementById('shell');
   return shell;
@@ -1106,6 +1112,7 @@ window._novaOpenIsland = openIsland;
 window._novaCloseIsland = closeIsland;
 window._novaSetIslandLayoutOpen = setIslandLayoutOpen;
 window._novaSyncIslandVisibility = syncIslandVisibility;
+<<<<<<< HEAD
 window.addEventListener('nova:session-changed', function(e){
   syncIslandProfileAvatar(e && e.detail ? e.detail.user : null);
 });
@@ -1117,6 +1124,8 @@ document.addEventListener('DOMContentLoaded', function(){
   setTimeout(function(){ syncIslandProfileAvatar(); }, 900);
 });
 
+=======
+>>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
 star.addEventListener('click', function(e){
   e.stopPropagation();
   if(!star.classList.contains('open')){
@@ -2518,7 +2527,11 @@ General
 <section class="settings-pane" data-settings-pane-panel="island">
 <div class="settings-pane-head"><div><div class="section-label">Nova Island</div><h3>Island Controls</h3></div></div>
 <div class="settings-grid">
+<<<<<<< HEAD
 
+=======
+<div class="settings-block"><div class="setting-row"><div><div class="setting-label">Show Nova Island</div><div class="setting-desc">Hide or show the floating Island</div></div><label class="toggle-switch"><input class="nova-control" data-control="islandEnabled" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
+>>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Star Pulse</div><div class="setting-desc">Animated Island trigger</div></div><label class="toggle-switch"><input class="nova-control" data-control="islandPulse" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Position</div><div class="setting-desc">Move the Island corner</div></div><select class="setting-input nova-control" data-control="islandPosition"><option value="top-right">Top Right</option><option value="top-left">Top Left</option><option value="bottom-right">Bottom Right</option></select></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Size</div><div class="setting-desc">Compact, normal, or wide</div></div><select class="setting-input nova-control" data-control="islandSize"><option value="compact">Compact</option><option value="normal">Normal</option><option value="wide">Wide</option></select></div></div>
@@ -3195,8 +3208,14 @@ document.addEventListener('DOMContentLoaded', function(){
   function pad(n){return n<10?'0'+n:n;}
   function updateClock(){
     var now=new Date();
+<<<<<<< HEAD
     var el=document.getElementById('nt-clock');
     if(el) el.textContent=now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+=======
+    var h=pad(now.getHours()),m=pad(now.getMinutes());
+    var el=document.getElementById('nt-clock');
+    if(el) el.textContent=h+':'+m;
+>>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
     var days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
     var d=document.getElementById('nt-date');

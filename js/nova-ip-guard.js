@@ -34,7 +34,11 @@
     (document.head || document.documentElement).appendChild(style);
     document.documentElement.appendChild(root);
     document.getElementById("nova-device-block-reason").textContent = status.reason || "This device has been banned from Nova.";
+<<<<<<< HEAD
     document.getElementById("nova-device-block-expiry").textContent = status.expiresAt ? "Restriction expires " + new Date(Number(status.expiresAt)).toLocaleString("en-US", { hour12: true }) : "Permanent restriction";
+=======
+    document.getElementById("nova-device-block-expiry").textContent = status.expiresAt ? "Restriction expires " + new Date(Number(status.expiresAt)).toLocaleString() : "Permanent restriction";
+>>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
     document.documentElement.style.overflow = "hidden";
   }
 
