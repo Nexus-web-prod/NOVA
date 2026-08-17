@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Island Prototype</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "DM Sans", sans-serif;
+            background: #141618;
+            color: rgba(255, 255, 255, 0.92);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Container for the four layouts */
+        .layout-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            height: 100vh;
+            gap: 2px;
+            background: #0a0b0c;
+        }
+
+        .layout-section {
+            background: #1a1c1f;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Top Navigation */
+        .top-nav {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-tab {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: "DM Sans", sans-serif;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 8px 0;
+            transition: all 0.2s ease;
+        }
+
+        .nav-tab.active {
+            color: rgba(255, 255, 255, 0.95);
+            text-decoration: underline;
+            text-underline-offset: 8px;
+            text-decoration-color: #8b8fff;
+        }
+
+        .nav-tab:hover {
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        /* Content Styles */
+        .content-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .list-item {
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .list-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .chat-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b8fff, #6c6fcf);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .recent-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+        }
+
+        .hyperlink {
+            color: #8b8fff;
+            text-decoration: none;
+        }
+
+        .hyperlink:hover {
+            text-decoration: underline;
+        }
+
+        /* User Profile Bar */
+        .user-profile {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b8fff, #6c6fcf);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .username {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.95);
+        }
+
+        .user-level {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Rewards specific styles */
+        .rewards-layout .user-profile {
+            position: static;
+            margin-bottom: 20px;
+        }
+
+        .xp-indicator {
+            background: rgba(139, 143, 255, 0.15);
+            border: 1px solid rgba(139, 143, 255, 0.3);
+            border-radius: 24px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+            color: #8b8fff;
+        }
+
+        .rewards-subnav {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .rewards-subtab {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: "DM Sans", sans-serif;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 8px 0;
+        }
+
+        .rewards-subtab.active {
+            color: rgba(255, 255, 255, 0.95);
+            text-decoration: underline;
+            text-underline-offset: 8px;
+            text-decoration-color: #8b8fff;
+        }
+
+        /* Scroll indicators */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 20px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateX(-50%) translateY(0);
+            }
+            40% {
+                transform: translateX(-50%) translateY(-10px);
+            }
+            60% {
+                transform: translateX(-50%) translateY(-5px);
+            }
+        }
+
+        /* Section labels */
+        .section-label {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout-container">
+        <!-- Pages Layout (Top Left) -->
+        <div class="layout-section">
+            <span class="section-label">Pages Layout</span>
+            <div class="top-nav">
+                <button class="nav-tab active">Pages</button>
+                <button class="nav-tab">friends</button>
+                <button class="nav-tab">recent</button>
+                <button class="nav-tab">rewards</button>
+            </div>
+            
+            <div class="content-list">
+                <div class="list-item">Games</div>
+                <div class="list-item">Apps</div>
+                <div class="list-item">Movies</div>
+                <div class="list-item">settings</div>
+            </div>
+
+            <div class="user-profile">
+                <div class="user-avatar">U</div>
+                <div class="user-info">
+                    <div class="username">username here</div>
+                    <div class="user-level">lv. 10</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Friends Layout (Top Right) -->
+        <div class="layout-section">
+            <span class="section-label">Friends Layout</span>
+            <div class="top-nav">
+                <button class="nav-tab">Pages</button>
+                <button class="nav-tab active">friends</button>
+                <button class="nav-tab">recent</button>
+                <button class="nav-tab">rewards</button>
+            </div>
+            
+            <div class="content-list">
+                <div class="list-item chat-item">
+                    <div class="avatar">E</div>
+                    <span>Everyone Chat</span>
+                </div>
+                <div class="list-item chat-item">
+                    <div class="avatar">U</div>
+                    <span>Username here</span>
+                </div>
+                <div class="list-item chat-item">
+                    <div class="avatar">U</div>
+                    <span>Username here</span>
+                </div>
+                <div class="list-item chat-item">
+                    <div class="avatar">U</div>
+                    <span>Username here</span>
+                </div>
+            </div>
+
+            <div class="scroll-indicator">↓</div>
+
+            <div class="user-profile">
+                <div class="user-avatar">U</div>
+                <div class="user-info">
+                    <div class="username">username here</div>
+                    <div class="user-level">lv. 10</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Layout (Bottom Left) -->
+        <div class="layout-section">
+            <span class="section-label">Recent Layout</span>
+            <div class="top-nav">
+                <button class="nav-tab">Pages</button>
+                <button class="nav-tab">friends</button>
+                <button class="nav-tab active">recent</button>
+                <button class="nav-tab">rewards</button>
+            </div>
+            
+            <div class="content-list">
+                <div class="list-item recent-item">
+                    <span>Game name here</span>
+                    <span class="category">games</span>
+                </div>
+                <div class="list-item recent-item">
+                    <a href="#" class="hyperlink">www.youtube.com</a>
+                    <span class="category">browser</span>
+                </div>
+                <div class="list-item recent-item">
+                    <span>Username here</span>
+                    <span class="category">chat</span>
+                </div>
+                <div class="list-item recent-item">
+                    <span>Game name here</span>
+                    <span class="category">games</span>
+                </div>
+            </div>
+
+            <div class="scroll-indicator">↓</div>
+
+            <div class="user-profile">
+                <div class="user-avatar">U</div>
+                <div class="user-info">
+                    <div class="username">username here</div>
+                    <div class="user-level">lv. 10</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rewards Layout (Bottom Right) -->
+        <div class="layout-section rewards-layout">
+            <span class="section-label">Rewards Layout</span>
+            <div class="top-nav">
+                <button class="nav-tab">Pages</button>
+                <button class="nav-tab">friends</button>
+                <button class="nav-tab">recent</button>
+                <button class="nav-tab active">rewards</button>
+            </div>
+            
+            <div class="user-profile">
+                <div class="user-avatar">U</div>
+                <div class="user-info">
+                    <div class="username">username here</div>
+                    <div class="user-level">lv. 10</div>
+                </div>
+            </div>
+
+            <div class="xp-indicator">1000xp</div>
+
+            <div class="rewards-subnav">
+                <button class="rewards-subtab active">Badges</button>
+                <button class="rewards-subtab">Shop</button>
+            </div>
+
+            <!-- Blank space for rewards content -->
+            <div style="height: 200px; background: rgba(255, 255, 255, 0.03); border-radius: 12px; border: 2px dashed rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.3);">
+                Rewards content area
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple tab switching functionality
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // This would normally switch between actual views
+                // For this prototype, we just update active states
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('.rewards-subtab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.rewards-subtab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+
+<script>
+(function(){
+  const xp = document.querySelector('.xp-indicator');
+  if(!xp) return;
+
+  let acct = {};
+  try { acct = JSON.parse(localStorage.getItem('nova_account') || '{}'); } catch(e){}
+
+  const badges = [];
+
+  if (acct.supernova || acct.tier === 'supernova' || acct.tier === 'pro') {
+    badges.push('✦ Supernova');
+  }
+
+  if (acct.isAdmin || acct.admin || acct.role === 'admin') {
+    badges.push('🛡 Nova Admin');
+  }
+
+  if (badges.length) {
+    const el = document.createElement('div');
+    el.className = 'xp-indicator';
+    el.style.marginTop = '12px';
+    el.textContent = badges.join(' • ');
+    xp.parentNode.insertBefore(el, xp.nextSibling);
+  }
+})();
+</script>
+</body>
+</html>

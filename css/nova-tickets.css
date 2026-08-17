@@ -1,0 +1,281 @@
+.nova-ticket-app {
+  margin: 1.35rem 0 1.8rem;
+  border: 1px solid rgba(145, 126, 255, .22);
+  border-radius: 8px;
+  background: rgba(9, 8, 22, .68);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .28), inset 0 1px rgba(255, 255, 255, .035);
+  overflow: hidden;
+}
+
+.nova-ticket-app-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.05rem 1.15rem;
+  border-bottom: 1px solid rgba(145, 126, 255, .16);
+  background: rgba(22, 18, 44, .42);
+}
+
+.nova-ticket-eyebrow {
+  display: block;
+  margin-bottom: .18rem;
+  color: #aa96ff;
+  font: 700 .42rem/1.2 "Space Mono", monospace;
+  letter-spacing: .12em;
+}
+
+.nova-ticket-app h2 {
+  margin: 0;
+  color: var(--white, #f7f5ff);
+  font: 700 .82rem/1.3 "Space Mono", monospace;
+  letter-spacing: 0;
+}
+
+.nova-ticket-app-head p {
+  margin: .16rem 0 0;
+  color: var(--muted, #9691aa);
+  font: .42rem/1.55 "Space Mono", monospace;
+}
+
+.nova-ticket-new,
+.nova-ticket-action,
+.nova-ticket-send,
+.nova-ticket-empty button,
+.nova-ticket-signin,
+.nova-ticket-modal button {
+  border: 1px solid rgba(150, 130, 255, .34);
+  color: #f8f6ff;
+  background: rgba(116, 83, 230, .22);
+  font: 700 .44rem/1 "Space Mono", monospace;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.nova-ticket-new {
+  min-height: 36px;
+  padding: 0 .78rem;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+.nova-ticket-new span { margin-right: .25rem; font-size: .68rem; vertical-align: -.03rem; }
+.nova-ticket-new:hover,
+.nova-ticket-action:hover,
+.nova-ticket-send:hover,
+.nova-ticket-empty button:hover,
+.nova-ticket-signin:hover,
+.nova-ticket-modal button:hover { transform: translateY(-1px); background: rgba(139, 100, 255, .34); border-color: rgba(177, 158, 255, .62); }
+
+.nova-ticket-shell {
+  display: grid;
+  grid-template-columns: minmax(230px, 31%) minmax(0, 1fr);
+  min-height: 500px;
+}
+
+.nova-ticket-list-panel {
+  min-width: 0;
+  border-right: 1px solid rgba(145, 126, 255, .16);
+  background: rgba(7, 7, 18, .48);
+}
+
+.nova-ticket-list-title {
+  padding: .72rem .82rem .54rem;
+  color: var(--muted, #9691aa);
+  font: 700 .4rem/1.2 "Space Mono", monospace;
+  letter-spacing: .1em;
+}
+
+.nova-ticket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 .4rem .55rem;
+}
+
+.nova-ticket-list-item {
+  width: 100%;
+  min-height: 74px;
+  padding: .62rem .65rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.nova-ticket-list-item:hover { background: rgba(120, 98, 201, .1); transform: translateX(2px); }
+.nova-ticket-list-item.active { background: rgba(116, 92, 204, .16); border-color: rgba(155, 138, 244, .28); }
+.nova-ticket-list-top { display: flex; align-items: center; gap: .42rem; min-width: 0; }
+.nova-ticket-list-top strong { min-width: 0; overflow: hidden; color: #f3f0ff; font: 700 .46rem/1.4 "Space Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.nova-ticket-list-item p { margin: .24rem 0 0; overflow: hidden; color: var(--muted, #9691aa); font: .39rem/1.45 "Space Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.nova-ticket-list-item time { display: block; margin-top: .24rem; color: rgba(166, 159, 190, .62); font: .34rem/1.2 "Space Mono", monospace; }
+
+.nova-ticket-status,
+.nova-ticket-priority,
+.nova-ticket-category {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 20px;
+  padding: 0 .34rem;
+  border: 1px solid rgba(149, 134, 221, .25);
+  border-radius: 999px;
+  color: #bcb4da;
+  background: rgba(72, 62, 110, .14);
+  font: 700 .31rem/1 "Space Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.nova-ticket-status[data-status="open"] { color: #80e0b0; border-color: rgba(74, 201, 139, .34); background: rgba(42, 158, 103, .12); }
+.nova-ticket-status[data-status="in_progress"] { color: #9ab6ff; border-color: rgba(104, 142, 255, .34); background: rgba(70, 102, 206, .13); }
+.nova-ticket-status[data-status="waiting_user"] { color: #f4cd78; border-color: rgba(227, 176, 68, .34); background: rgba(182, 125, 28, .13); }
+.nova-ticket-status[data-status="resolved"] { color: #bba3ff; border-color: rgba(150, 114, 255, .34); }
+.nova-ticket-status[data-status="closed"] { color: #9691a9; }
+.nova-ticket-priority[data-priority="urgent"] { color: #ff9aa8; border-color: rgba(255, 89, 112, .4); background: rgba(181, 38, 58, .14); }
+.nova-ticket-priority[data-priority="high"] { color: #ffc07d; border-color: rgba(230, 145, 54, .34); }
+
+.nova-ticket-thread {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 500px;
+  background: rgba(7, 6, 16, .28);
+}
+
+.nova-ticket-thread-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  min-height: 78px;
+  padding: .7rem .85rem;
+  border-bottom: 1px solid rgba(145, 126, 255, .14);
+}
+
+.nova-ticket-thread-head h3 { margin: 0; overflow-wrap: anywhere; color: #faf8ff; font: 700 .56rem/1.4 "Space Mono", monospace; letter-spacing: 0; }
+.nova-ticket-thread-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .32rem; margin-top: .3rem; }
+.nova-ticket-id { color: rgba(177, 169, 202, .68); font: .34rem/1.2 "Space Mono", monospace; }
+.nova-ticket-actions { display: flex; flex: 0 0 auto; gap: .35rem; }
+.nova-ticket-action { min-height: 32px; padding: 0 .55rem; border-radius: 6px; }
+.nova-ticket-action.danger { color: #ffb0ba; border-color: rgba(255, 104, 124, .3); background: rgba(173, 38, 59, .1); }
+
+.nova-ticket-messages {
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+  min-height: 0;
+  max-height: 510px;
+  padding: .9rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 118, 224, .35) transparent;
+}
+
+.nova-ticket-message { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: .55rem; align-items: start; }
+.nova-ticket-message-avatar { display: grid; width: 34px; height: 34px; place-items: center; overflow: hidden; border: 1px solid rgba(157, 139, 239, .3); border-radius: 50%; color: #ddd7ff; background: rgba(91, 70, 166, .25); font: 700 .42rem/1 "Space Mono", monospace; }
+.nova-ticket-message-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.nova-ticket-message-head { display: flex; flex-wrap: wrap; align-items: center; gap: .38rem; }
+.nova-ticket-message-head strong { color: #f5f2ff; font: 700 .43rem/1.35 "Space Mono", monospace; }
+.nova-ticket-message-head time { color: rgba(164, 157, 186, .58); font: .32rem/1.2 "Space Mono", monospace; }
+.nova-ticket-staff { color: #bca7ff; font: 700 .29rem/1 "Space Mono", monospace; letter-spacing: .06em; }
+.nova-ticket-message-body { margin-top: .2rem; color: #d9d4e7; font: .43rem/1.65 "Space Mono", monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.nova-ticket-compose { display: flex; align-items: flex-end; gap: .45rem; padding: .65rem .75rem; border-top: 1px solid rgba(145, 126, 255, .14); background: rgba(12, 10, 27, .72); }
+.nova-ticket-compose textarea,
+.nova-ticket-modal textarea,
+.nova-ticket-modal input,
+.nova-ticket-modal select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(145, 126, 255, .25);
+  border-radius: 7px;
+  outline: 0;
+  color: #f6f3ff;
+  background: rgba(11, 10, 26, .84);
+  font: .43rem/1.5 "Space Mono", monospace;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.nova-ticket-compose textarea { min-height: 42px; max-height: 130px; padding: .55rem .62rem; resize: vertical; }
+.nova-ticket-compose textarea:focus,
+.nova-ticket-modal textarea:focus,
+.nova-ticket-modal input:focus,
+.nova-ticket-modal select:focus { border-color: rgba(175, 153, 255, .7); box-shadow: 0 0 0 3px rgba(119, 82, 218, .12); }
+.nova-ticket-send { min-width: 74px; min-height: 42px; padding: 0 .62rem; border-radius: 7px; }
+.nova-ticket-send:disabled,
+.nova-ticket-action:disabled { opacity: .48; cursor: wait; transform: none; }
+
+.nova-ticket-empty,
+.nova-ticket-signout,
+.nova-ticket-loading,
+.nova-ticket-error {
+  display: grid;
+  min-height: 300px;
+  place-items: center;
+  align-content: center;
+  gap: .45rem;
+  padding: 1rem;
+  color: var(--muted, #9691aa);
+  text-align: center;
+  font: .43rem/1.6 "Space Mono", monospace;
+}
+.nova-ticket-empty strong,
+.nova-ticket-signout strong { color: #f4f0ff; font-size: .56rem; }
+.nova-ticket-empty button,
+.nova-ticket-signin { min-height: 36px; padding: 0 .7rem; border-radius: 7px; }
+
+.nova-ticket-modal-layer { position: fixed; z-index: 2147482500; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(2, 2, 8, .76); backdrop-filter: blur(10px); }
+.nova-ticket-modal-layer[hidden] { display: none; }
+.nova-ticket-modal { width: min(520px, 100%); border: 1px solid rgba(160, 140, 255, .32); border-radius: 8px; background: rgba(13, 11, 30, .96); box-shadow: 0 32px 100px rgba(0, 0, 0, .65); animation: nova-ticket-modal-in .22s cubic-bezier(.2, .8, .2, 1); }
+.nova-ticket-modal-head { display: flex; align-items: center; justify-content: space-between; padding: .82rem .9rem; border-bottom: 1px solid rgba(145, 126, 255, .16); }
+.nova-ticket-modal h3 { margin: 0; color: #faf8ff; font: 700 .62rem/1.3 "Space Mono", monospace; }
+.nova-ticket-modal-close { width: 32px; height: 32px; padding: 0 !important; border-radius: 50% !important; background: transparent !important; }
+.nova-ticket-modal-form { display: grid; gap: .7rem; padding: .9rem; }
+.nova-ticket-modal label { display: grid; gap: .28rem; color: #aaa3bd; font: 700 .36rem/1.25 "Space Mono", monospace; letter-spacing: .06em; text-transform: uppercase; }
+.nova-ticket-modal input,
+.nova-ticket-modal select { height: 42px; padding: 0 .58rem; }
+.nova-ticket-modal textarea { min-height: 130px; padding: .56rem; resize: vertical; }
+.nova-ticket-modal-foot { display: flex; justify-content: flex-end; gap: .42rem; }
+.nova-ticket-modal-foot button { min-height: 38px; padding: 0 .7rem; border-radius: 7px; }
+.nova-ticket-modal-foot .secondary { color: #b9b2cb; background: rgba(255, 255, 255, .035); border-color: rgba(255, 255, 255, .1); }
+.nova-ticket-form-error { min-height: .45rem; color: #ff9dac; font: .36rem/1.4 "Space Mono", monospace; }
+
+@keyframes nova-ticket-modal-in { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 760px) {
+  body:has(#page-support.active) #nova-island-star:not(.open) { top: 14px !important; right: 14px !important; bottom: auto !important; }
+  .nova-ticket-app-head { align-items: flex-start; padding: .85rem; }
+  .nova-ticket-app-head p { display: none; }
+  .nova-ticket-shell { grid-template-columns: 1fr; min-height: 0; }
+  .nova-ticket-list-panel { border-right: 0; border-bottom: 1px solid rgba(145, 126, 255, .16); }
+  .nova-ticket-list { max-height: 230px; overflow-y: auto; }
+  .nova-ticket-thread { min-height: 510px; }
+  .nova-ticket-thread-head { align-items: flex-start; flex-direction: column; }
+  .nova-ticket-actions { width: 100%; }
+  .nova-ticket-action { flex: 1; }
+  .nova-ticket-messages { max-height: 420px; }
+}
+
+@media (max-width: 430px) {
+  .nova-ticket-app { margin-inline: 0; }
+  .nova-ticket-new { min-width: 40px; padding: 0 .5rem; }
+  .nova-ticket-new span { margin: 0; }
+  .nova-ticket-new { font-size: 0; }
+  .nova-ticket-new span { font-size: .72rem; }
+  .nova-ticket-thread-head { padding: .65rem; }
+  .nova-ticket-messages { padding: .7rem .6rem; }
+  .nova-ticket-compose { padding: .55rem; }
+  .nova-ticket-send { min-width: 62px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-ticket-modal,
+  .nova-ticket-list-item,
+  .nova-ticket-new,
+  .nova-ticket-action,
+  .nova-ticket-send { animation: none !important; transition-duration: .01ms !important; }
+}
