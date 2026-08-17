@@ -110,7 +110,7 @@
             ${paneHead("Your command surface", "Nova Island", "Configure how the Island behaves everywhere except focused content and Settings.")}
             <div class="settings-island-preview"><span class="settings-island-star">✦</span><div><strong>Preview</strong><span>The Island is hidden on this page so Settings has the full canvas.</span></div></div>
             <div class="settings-grid">
-              <article class="settings-panel">${toggle("islandEnabled", "Show Nova Island", "Keep the Island available on normal pages")}</article>
+              <article class="settings-panel">${toggle("islandCloseButton", "Nova Island Close Button", "Show a button for closing the Island")}</article>
               <article class="settings-panel">${toggle("islandPulse", "Star pulse", "Use a subtle attention animation while closed")}</article>
               <article class="settings-panel">${select("islandPosition", "Position", "Choose which edge holds the Island", [["top-right","Top right"],["top-left","Top left"],["bottom-right","Bottom right"]])}</article>
               <article class="settings-panel">${select("islandSize", "Open size", "Balance room for content and controls", [["compact","Compact"],["normal","Normal"],["wide","Wide"]])}</article>

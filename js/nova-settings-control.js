@@ -9,7 +9,7 @@
     displayName: '', statusText: '', avatarInitial: '',
     onlineVisibility: 'everyone',
     accentColor: '#8b8fff', purpleIntensity: 70, backgroundStyle: 'stars',
-    islandEnabled: true, islandPulse: true, islandPosition: 'top-right', islandSize: 'normal', islandSpeed: 100,
+    islandCloseButton: true, islandPulse: true, islandPosition: 'top-right', islandSize: 'normal', islandSpeed: 100,
     cardSize: 'normal', showRatings: true, showRecents: true, hideUnavailableApps: false, movieCardSize: 'normal',
     friendRequests: 'everyone', everyoneChat: true, voicePresence: true, dmNotifications: true,
     hidePlayCount: false, hideBadges: false, disableActivity: false,
@@ -30,14 +30,13 @@
   function sessionGet(key){ try { return window.sessionStorage ? sessionStorage.getItem(key) : null; } catch(e){ return null; } }
   function sessionSet(key, value){ try { if (window.sessionStorage) sessionStorage.setItem(key, value); } catch(e){} }
   function read(){
-    try { return Object.assign({}, defaults, JSON.parse(storageGet(KEY, '{}') || '{}')); }
-    catch(e){ return Object.assign({}, defaults); }
-  }
-  function readStored(){
     try {
-      var stored = JSON.parse(storageGet(KEY, '{}') || '{}');
-      return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
-    } catch(e){ return {}; }
+      var saved = JSON.parse(storageGet(KEY, '{}') || '{}');
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) saved = {};
+      delete saved.islandEnabled;
+      return Object.assign({}, defaults, saved);
+    }
+    catch(e){ return Object.assign({}, defaults); }
   }
   function write(state){ storageSet(KEY, JSON.stringify(state)); }
   function migrateIslandPosition(){
@@ -111,18 +110,12 @@
         delete remote.theme;
         var safeRemote = {};
         Object.keys(defaults).forEach(function(key){ if (Object.prototype.hasOwnProperty.call(remote, key)) safeRemote[key] = remote[key]; });
-        /* A choice made on this device wins over a stale cloud value. This is
-           especially important after the broken Island settings build. */
-        var storedLocal = readStored();
-        var shouldRepairIsland = Object.prototype.hasOwnProperty.call(storedLocal, 'islandEnabled') &&
-          storedLocal.islandEnabled !== safeRemote.islandEnabled;
-        if (shouldRepairIsland) safeRemote.islandEnabled = storedLocal.islandEnabled;
         if (storageGet(POSITION_SYNC_KEY, '0') === '1') safeRemote.islandPosition = 'top-right';
         if (storageGet(MOTION_SYNC_KEY, '0') === '1') safeRemote.islandSpeed = 100;
         write(Object.assign({}, read(), safeRemote));
         hydrate();
         apply();
-        if (shouldRepairIsland || storageGet(POSITION_SYNC_KEY, '0') === '1' || storageGet(MOTION_SYNC_KEY, '0') === '1') queueRemoteSync(read());
+        if (storageGet(POSITION_SYNC_KEY, '0') === '1' || storageGet(MOTION_SYNC_KEY, '0') === '1') queueRemoteSync(read());
       } else {
         queueRemoteSync(read());
       }
@@ -192,7 +185,8 @@
     setData('bg-anim', (!fast && s.backgroundAnimation) ? 'on' : 'off');
     setData('hover-zoom', (!fast && s.hoverZoom) ? 'on' : 'off');
     setData('blur-level', fast ? 'off' : (quality ? 'full' : s.blurLevel));
-    setData('island-enabled', s.islandEnabled ? 'on' : 'off');
+    setData('island-enabled', 'on');
+    setData('island-close-button', s.islandCloseButton ? 'on' : 'off');
     setData('island-pulse', s.islandPulse ? 'on' : 'off');
     setData('island-pos', s.islandPosition);
     setData('island-size', s.islandSize);

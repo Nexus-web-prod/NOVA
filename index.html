@@ -59,7 +59,7 @@ function _showNovaUpdateBanner(){
 </script>
 <script src="/js/nova-db-shim.js?v=702"></script>
 <script src="/js/nova-update.js?v=711"></script>
-<script src="/js/nova-preferences-boot.js?v=590"></script>
+<script src="/js/nova-preferences-boot.js?v=717"></script>
 <script>(function(){try{var k='nova_setup_v7_complete',v='7.0-launch',done=localStorage.getItem(k)===v;if(!done){var saved=JSON.parse(localStorage.getItem('nova_control_center')||'null');if(saved&&Number(saved.setupVersion)===7&&saved.setupCompletedAt){localStorage.setItem(k,v);done=true;}}if(!done)document.documentElement.classList.add('nova-setup-pending');}catch(e){document.documentElement.classList.add('nova-setup-pending');}})();</script>
 <script>(function(){
   var t=localStorage.getItem('nova_theme')||'dark';
@@ -420,6 +420,34 @@ function _showNovaUpdateBanner(){
   opacity: 1;
   transition: opacity .22s ease var(--ni-content-delay,.26s);
 }
+#nova-island-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(139,143,255,.18);
+  border-radius: 8px;
+  background: rgba(139,143,255,.07);
+  color: var(--muted,#88889a);
+  font: 700 17px/1 system-ui,sans-serif;
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, background .18s ease, transform .18s ease;
+}
+#nova-island-close:hover {
+  color: var(--white,#eeeef6);
+  border-color: rgba(139,143,255,.42);
+  background: rgba(139,143,255,.14);
+  transform: scale(1.04);
+}
+html[data-island-close-button="off"] #nova-island-close { display: none !important; }
+#nova-island-content > .ni-tabs { padding-right: 48px; }
+#nova-island-content > .ni-tabs .ni-tab-indicator { width: calc((100% - 58px)/3); }
+html[data-island-close-button="off"] #nova-island-content > .ni-tabs { padding-right: 10px; }
+html[data-island-close-button="off"] #nova-island-content > .ni-tabs .ni-tab-indicator { width: calc((100% - 20px)/3); }
 
 /* Shimmer top border */
 #nova-island::before {
@@ -778,6 +806,7 @@ function _showNovaUpdateBanner(){
 <!-- ══ NOVA ISLAND PANEL ══ -->
 <div id="nova-island" role="dialog" aria-label="Nova Island">
 <div id="nova-island-content">
+  <button id="nova-island-close" type="button" title="Close Nova Island" aria-label="Close Nova Island">×</button>
   <div class="ni-tabs" style="position:relative;">
     <button class="ni-tab active" data-ni-tab="pages">Pages</button>
     <button class="ni-tab"        data-ni-tab="friends">Social</button>
@@ -913,6 +942,7 @@ function _showNovaUpdateBanner(){
 var star        = document.getElementById('nova-island-star');
 var island      = document.getElementById('nova-island');
 var hint        = document.getElementById('nova-island-hint');
+var islandClose = document.getElementById('nova-island-close');
 var shell       = document.getElementById('shell');
 var profileBar  = document.getElementById('ni-profile-bar');
 var profileCard = document.getElementById('ni-profile-card');
@@ -1123,6 +1153,11 @@ star.addEventListener('click', function(e){
     mobileIslandDismissed = false;
     openIsland();
   }
+});
+if(islandClose) islandClose.addEventListener('click', function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  closeIsland(true);
 });
 // Clicking the pill (island when closed) opens it
 island.addEventListener('click', function(e){
@@ -2518,7 +2553,7 @@ General
 <section class="settings-pane" data-settings-pane-panel="island">
 <div class="settings-pane-head"><div><div class="section-label">Nova Island</div><h3>Island Controls</h3></div></div>
 <div class="settings-grid">
-<div class="settings-block"><div class="setting-row"><div><div class="setting-label">Show Nova Island</div><div class="setting-desc">Hide or show the floating Island</div></div><label class="toggle-switch"><input class="nova-control" data-control="islandEnabled" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
+<div class="settings-block"><div class="setting-row"><div><div class="setting-label">Nova Island Close Button</div><div class="setting-desc">Show a button for closing the Island</div></div><label class="toggle-switch"><input class="nova-control" data-control="islandCloseButton" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Star Pulse</div><div class="setting-desc">Animated Island trigger</div></div><label class="toggle-switch"><input class="nova-control" data-control="islandPulse" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Position</div><div class="setting-desc">Move the Island corner</div></div><select class="setting-input nova-control" data-control="islandPosition"><option value="top-right">Top Right</option><option value="top-left">Top Left</option><option value="bottom-right">Bottom Right</option></select></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Size</div><div class="setting-desc">Compact, normal, or wide</div></div><select class="setting-input nova-control" data-control="islandSize"><option value="compact">Compact</option><option value="normal">Normal</option><option value="wide">Wide</option></select></div></div>
@@ -2832,8 +2867,8 @@ General
 <script src="/js/nova-v7-api.js?v=726" defer></script>
 <script src="/js/nova-v7-account.js?v=719" defer></script>
 <script src="/js/nova.js?v=563" defer></script>
-<script src="/js/nova-settings-v7-ui.js?v=716" defer></script>
-<script src="/js/nova-settings-control.js?v=716" defer></script>
+<script src="/js/nova-settings-v7-ui.js?v=717" defer></script>
+<script src="/js/nova-settings-control.js?v=717" defer></script>
 <script src="/js/nova-sound.js?v=714" defer></script>
 <script src="/js/nova-v7-profile.js?v=714" defer></script>
 <script src="/js/nova-setup-v7.js?v=718" defer></script>

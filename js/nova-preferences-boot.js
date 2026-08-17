@@ -65,7 +65,8 @@
   data('bg-anim', s.backgroundAnimation ? 'on' : 'off');
   data('hover-zoom', s.hoverZoom ? 'on' : 'off');
   data('blur-level', s.blurLevel || 'off');
-  data('island-enabled', s.islandEnabled === false ? 'off' : 'on');
+  data('island-enabled', 'on');
+  data('island-close-button', s.islandCloseButton === false ? 'off' : 'on');
   data('island-pulse', s.islandPulse === false ? 'off' : 'on');
   data('island-pos', s.islandPosition || 'top-right');
   data('island-size', s.islandSize || 'normal');
