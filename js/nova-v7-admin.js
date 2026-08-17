@@ -37,11 +37,7 @@
   function isStaff(user) { return !!(user && STAFF_ROLES.includes(user.role)); }
   function isOwner() { return !!(window.__novaV7User && window.__novaV7User.role === "owner"); }
   function canManageAccounts() { return !!(window.__novaV7User && ["admin", "owner"].includes(window.__novaV7User.role)); }
-<<<<<<< HEAD
   function fmtTime(value) { return value ? new Date(Number(value)).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", hour12: true }) : "—"; }
-=======
-  function fmtTime(value) { return value ? new Date(Number(value)).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "—"; }
->>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
   function relativeTime(value) {
     var seconds = Math.max(0, Math.floor((Date.now() - Number(value || 0)) / 1000));
     if (seconds < 60) return "just now";

@@ -4,6 +4,7 @@
   var POSITION_SYNC_KEY = 'nova_island_position_sync_v588';
   var MOTION_MIGRATION_KEY = 'nova_island_motion_v589';
   var MOTION_SYNC_KEY = 'nova_island_motion_sync_v589';
+  var LOCAL_DIRTY_KEY = 'nova_control_center_dirty';
   var defaults = {
     displayName: '', statusText: '', avatarInitial: '',
     onlineVisibility: 'everyone',
@@ -31,6 +32,12 @@
   function read(){
     try { return Object.assign({}, defaults, JSON.parse(storageGet(KEY, '{}') || '{}')); }
     catch(e){ return Object.assign({}, defaults); }
+  }
+  function readStored(){
+    try {
+      var stored = JSON.parse(storageGet(KEY, '{}') || '{}');
+      return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    } catch(e){ return {}; }
   }
   function write(state){ storageSet(KEY, JSON.stringify(state)); }
   function migrateIslandPosition(){
@@ -67,6 +74,7 @@
     remoteTimer = setTimeout(function(){
       NovaAPI.saveSettings(Object.assign({}, state, { theme: storageGet('nova_theme', 'dark') || 'dark' }))
         .then(function(){
+          storageRemove(LOCAL_DIRTY_KEY);
           storageRemove(POSITION_SYNC_KEY);
           storageRemove(MOTION_SYNC_KEY);
           syncStatus('Synced with Nova');
@@ -88,6 +96,10 @@
     try {
       var result = await NovaAPI.getSettings();
       var remote = result && result.settings && typeof result.settings === 'object' ? result.settings : {};
+      if (storageGet(LOCAL_DIRTY_KEY, '0') === '1') {
+        queueRemoteSync(read());
+        return;
+      }
       if (Object.keys(remote).length) {
         var remoteTheme = typeof remote.theme === 'string' && remote.theme.length <= 64 ? remote.theme : '';
         if (remoteTheme) {
@@ -99,12 +111,18 @@
         delete remote.theme;
         var safeRemote = {};
         Object.keys(defaults).forEach(function(key){ if (Object.prototype.hasOwnProperty.call(remote, key)) safeRemote[key] = remote[key]; });
+        /* A choice made on this device wins over a stale cloud value. This is
+           especially important after the broken Island settings build. */
+        var storedLocal = readStored();
+        var shouldRepairIsland = Object.prototype.hasOwnProperty.call(storedLocal, 'islandEnabled') &&
+          storedLocal.islandEnabled !== safeRemote.islandEnabled;
+        if (shouldRepairIsland) safeRemote.islandEnabled = storedLocal.islandEnabled;
         if (storageGet(POSITION_SYNC_KEY, '0') === '1') safeRemote.islandPosition = 'top-right';
         if (storageGet(MOTION_SYNC_KEY, '0') === '1') safeRemote.islandSpeed = 100;
         write(Object.assign({}, read(), safeRemote));
         hydrate();
         apply();
-        if (storageGet(POSITION_SYNC_KEY, '0') === '1' || storageGet(MOTION_SYNC_KEY, '0') === '1') queueRemoteSync(read());
+        if (shouldRepairIsland || storageGet(POSITION_SYNC_KEY, '0') === '1' || storageGet(MOTION_SYNC_KEY, '0') === '1') queueRemoteSync(read());
       } else {
         queueRemoteSync(read());
       }
@@ -237,6 +255,7 @@
       s.hoverZoom = false;
     }
     write(s);
+    storageSet(LOCAL_DIRTY_KEY, '1');
     hydrate();
     apply();
     queueRemoteSync(s);

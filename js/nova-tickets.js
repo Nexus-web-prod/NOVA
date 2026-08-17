@@ -35,11 +35,7 @@
   }
 
   function fullTime(timestamp) {
-<<<<<<< HEAD
     return new Date(Number(timestamp || 0)).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
-=======
-    return new Date(Number(timestamp || 0)).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
->>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
   }
 
   function label(value) {

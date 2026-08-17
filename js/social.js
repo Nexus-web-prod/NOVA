@@ -431,11 +431,7 @@ function setReply(msg){
   bar.style.display="flex";document.getElementById("nova-reply-cancel-btn")?.addEventListener("click",clearReply);
 }
 function clearReply(){replyTarget=null;const bar=document.getElementById("nova-reply-bar");if(bar)bar.style.display="none";}
-<<<<<<< HEAD
 function fmtTime(ts){return new Date(Number(ts)).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true})}
-=======
-function fmtTime(ts){const d=new Date(Number(ts));return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
->>>>>>> 014279f537f7effc3b200f4855ac3a056f5bf43b
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function toast(msg,dur){if(typeof window.toast==="function")return window.toast(msg,dur);const el=document.createElement("div");el.textContent=msg;el.style.cssText="position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:rgba(12,12,28,.95);border:1px solid rgba(139,143,255,.25);border-radius:100px;color:#c8c8d8;font-family:Space Mono,monospace;font-size:.52rem;padding:.45rem 1.1rem;z-index:99999;pointer-events:none;transition:opacity .3s;";document.body.appendChild(el);setTimeout(()=>{el.style.opacity="0";setTimeout(()=>el.remove(),300)},dur||2200)}
 

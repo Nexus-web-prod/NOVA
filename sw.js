@@ -138,7 +138,16 @@ function proxyErrorResponse(requestUrl) {
 }
 
 async function handleRequest(event) {
-  if (isNovaRuntimeRequest(event.request)) return fetch(event.request);
+  if (isNovaRuntimeRequest(event.request)) {
+    try {
+      return await fetch(event.request);
+    } catch {
+      return new Response("Nova is temporarily unavailable. Reload to try again.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+  }
 
   await vortex.loadConfig();
   if (!vortex.route(event)) return fetch(event.request);

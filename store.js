@@ -16,14 +16,13 @@
     transport: TRANSPORT
   });
 
-  // Dreamland parses its backing value before constructing the store. Recover
-  // here as well as in the earlier UI sanitizer so stale pages and bad imports
-  // cannot stop Nova during boot.
+  // Dreamland expects its persisted graph format, not a raw URL or ordinary
+  // JSON object. Remove legacy/corrupt values before constructing the store.
   try {
     const saved = localStorage.getItem(STORE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed[0]?.values) {
         localStorage.removeItem(STORE_KEY);
       }
     }
@@ -65,7 +64,7 @@
   } catch (error) {
     localStorage.removeItem(STORE_KEY);
     store = createStore();
-    console.warn("[Nova] Recovered damaged proxy settings.", error);
+    console.info("[Nova] Recovered damaged proxy settings.");
   }
 
   store.wispurl = WISP_URL;
