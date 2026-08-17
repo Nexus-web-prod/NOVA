@@ -3062,9 +3062,9 @@ function newTab(url){
   var id = ++_tid;
   var iframe = document.createElement('iframe');
   iframe.className = 'tab-iframe';
-  // Vortex's service worker can only control a same-origin frame. Keep the
-  // remaining sandbox restrictions so proxied pages cannot navigate Nova.
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-pointer-lock allow-presentation');
+  // Keep proxied content on a unique sandbox origin so it cannot remove its
+  // own restrictions or reach Nova's same-origin data.
+  iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-pointer-lock allow-presentation');
   iframe.referrerPolicy = 'no-referrer';
   iframe.allow = 'fullscreen';
   frameWrap.appendChild(iframe);

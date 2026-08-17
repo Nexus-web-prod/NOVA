@@ -42,27 +42,17 @@
   function write(state){ storageSet(KEY, JSON.stringify(state)); }
   function migrateIslandPosition(){
     if (storageGet(POSITION_MIGRATION_KEY, '0') === '1') return;
-    var state = read();
-    state.islandPosition = 'top-right';
-    write(state);
     storageSet(POSITION_MIGRATION_KEY, '1');
-    storageSet(POSITION_SYNC_KEY, '1');
+    storageRemove(POSITION_SYNC_KEY);
   }
   function migrateIslandMotion(){
     if (storageGet(MOTION_MIGRATION_KEY, '0') === '1') return;
-    var state = read();
-    state.islandSpeed = 100;
-    write(state);
     storageSet(MOTION_MIGRATION_KEY, '1');
-    storageSet(MOTION_SYNC_KEY, '1');
+    storageRemove(MOTION_SYNC_KEY);
   }
   function migrateIslandCloseButtonDefault(){
     if (storageGet(CLOSE_BUTTON_DEFAULT_MIGRATION_KEY, '0') === '1') return;
-    var state = read();
-    state.islandCloseButton = false;
-    write(state);
     storageSet(CLOSE_BUTTON_DEFAULT_MIGRATION_KEY, '1');
-    storageSet(LOCAL_DIRTY_KEY, '1');
   }
   function syncStatus(text, state){
     var pill = document.getElementById('settings-sync-status');
@@ -119,12 +109,11 @@
         delete remote.theme;
         var safeRemote = {};
         Object.keys(defaults).forEach(function(key){ if (Object.prototype.hasOwnProperty.call(remote, key)) safeRemote[key] = remote[key]; });
-        if (storageGet(POSITION_SYNC_KEY, '0') === '1') safeRemote.islandPosition = 'top-right';
-        if (storageGet(MOTION_SYNC_KEY, '0') === '1') safeRemote.islandSpeed = 100;
         write(Object.assign({}, read(), safeRemote));
+        storageRemove(POSITION_SYNC_KEY);
+        storageRemove(MOTION_SYNC_KEY);
         hydrate();
         apply();
-        if (storageGet(POSITION_SYNC_KEY, '0') === '1' || storageGet(MOTION_SYNC_KEY, '0') === '1') queueRemoteSync(read());
       } else {
         queueRemoteSync(read());
       }
@@ -293,12 +282,8 @@
   }
   function bindControls(){
     document.querySelectorAll('.nova-control[data-control]').forEach(function(el){
-      el.addEventListener('input', function(){
-        var val = el.type === 'checkbox' ? el.checked : el.value;
-        if (el.type === 'range') val = parseInt(val, 10);
-        update(el.dataset.control, val);
-      });
-      el.addEventListener('change', function(){
+      var eventName = el.type === 'range' ? 'input' : 'change';
+      el.addEventListener(eventName, function(){
         var val = el.type === 'checkbox' ? el.checked : el.value;
         if (el.type === 'range') val = parseInt(val, 10);
         update(el.dataset.control, val);

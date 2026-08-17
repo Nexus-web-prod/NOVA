@@ -2527,10 +2527,10 @@ async function adminRevokeChatRestriction(request, db) {
   const id = cleanText(body.id, 100);
   const reason = cleanText(body.reason, 240);
   if (!reason) return apiError("REASON_REQUIRED", "A reason for ending the Social timeout is required", 400);
-  const restriction = id ? await db.prepare("SELECT r.id,r.user_id,r.scope,u.username FROM chat_restrictions r JOIN users u ON u.id=r.user_id WHERE r.id=? AND r.revoked_at IS NULL LIMIT 1").bind(id).first() : null;
+  const restriction = id ? await db.prepare("SELECT r.id,r.user_id,r.scope,r.expires_at,u.username FROM chat_restrictions r JOIN users u ON u.id=r.user_id WHERE r.id=? AND r.revoked_at IS NULL LIMIT 1").bind(id).first() : null;
   if (!restriction) return apiError("CHAT_RESTRICTION_NOT_FOUND", "Active Social timeout not found", 404);
   await db.prepare("UPDATE chat_restrictions SET revoked_at=?,revoked_by=? WHERE id=?").bind(Date.now(), auth.id, id).run();
-  await audit(db, auth.id, "chat.timeout.end", "user", restriction.user_id, reason, { username: restriction.username, scope: restriction.scope, restrictionId: id });
+  await audit(db, auth.id, restriction.expires_at == null ? "chat.ban.end" : "chat.timeout.end", "user", restriction.user_id, reason, { username: restriction.username, scope: restriction.scope, restrictionId: id });
   return apiJson({ ok: true });
 }
 

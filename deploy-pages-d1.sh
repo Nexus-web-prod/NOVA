@@ -8,6 +8,7 @@ TMP_DIR="${TMPDIR:-/tmp}"
 WRANGLER_VERSION="${WRANGLER_VERSION:-4.112.0}"
 export npm_config_cache="${npm_config_cache:-${TMP_DIR}/nova-npm-cache}"
 WRANGLER=(npx -y "wrangler@${WRANGLER_VERSION}")
+DB_CREATED=0
 
 cd "$(dirname "$0")"
 
@@ -57,6 +58,8 @@ if [ -z "${DB_ID}" ]; then
     fi
   elif [ "${CREATE_STATUS}" -ne 0 ]; then
     exit "${CREATE_STATUS}"
+  elif [ -n "${DB_ID}" ]; then
+    DB_CREATED=1
   fi
 fi
 
@@ -106,8 +109,12 @@ if [ "${PLACEHOLDER_COUNT}" != "0" ] && [ "${SKIP_PLACEHOLDER_CHECK:-0}" != "1" 
   exit 2
 fi
 
-echo "==> Applying D1 schema"
-"${WRANGLER[@]}" d1 execute "${DB_NAME}" --remote --file=D1_SCHEMA.sql
+if [ "${APPLY_D1_SCHEMA:-0}" = "1" ] || [ "${DB_CREATED}" = "1" ]; then
+  echo "==> Applying D1 schema"
+  "${WRANGLER[@]}" d1 execute "${DB_NAME}" --remote --file=D1_SCHEMA.sql
+else
+  echo "==> Skipping unchanged D1 schema (set APPLY_D1_SCHEMA=1 when schema changes)"
+fi
 
 if [ "${SKIP_VOICE_DEPLOY:-0}" = "1" ]; then
   echo "==> Leaving the existing voice room coordinator unchanged"
