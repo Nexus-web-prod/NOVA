@@ -151,7 +151,25 @@ async function handleRequest(event) {
     }
   }
 
-  await vortex.loadConfig();
+  let requestUrl;
+  try { requestUrl = new URL(event.request.url); }
+  catch { return fetch(event.request); }
+
+  // Non-proxy traffic should never depend on Vortex configuration. This keeps
+  // fonts and other third-party assets working while the proxy boots.
+  if (requestUrl.origin !== self.location.origin || !requestUrl.pathname.startsWith("/vortex/")) {
+    return fetch(event.request);
+  }
+
+  // The controller persists config and then posts it to the worker. On a fresh
+  // worker activation, the first navigation can arrive between those steps.
+  for (let attempt = 0; attempt < 30 && !vortex.config; attempt++) {
+    await vortex.loadConfig();
+    if (!vortex.config) await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  if (!vortex.config || typeof vortex.config.prefix !== "string") {
+    return proxyErrorResponse(event.request.url);
+  }
   if (!vortex.route(event)) return fetch(event.request);
 
   try {

@@ -3132,9 +3132,9 @@ function newTab(url){
   var id = ++_tid;
   var iframe = document.createElement('iframe');
   iframe.className = 'tab-iframe';
-  // Vortex's service worker can only control a same-origin frame. The other
-  // restrictions still block downloads, top navigation, and unsandboxed popups.
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-pointer-lock allow-presentation');
+  // Vortex needs a same-origin scripted frame. A sandbox that grants both
+  // allow-scripts and allow-same-origin provides no isolation and triggers a
+  // browser security warning, so the frame is governed by Nova's CSP instead.
   iframe.referrerPolicy = 'no-referrer';
   iframe.allow = 'fullscreen';
   iframe.src = '/proxy-frame';
