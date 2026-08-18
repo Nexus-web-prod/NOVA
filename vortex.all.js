@@ -6124,7 +6124,7 @@ __webpack_require__.d(__webpack_exports__, {
  *
  * Cache key = sha256(original url + content-etag/last-modified)
  * so stale content is always invalidated.
- */ const CACHE_NAME = "vortex-rewrite-v2";
+ */ const CACHE_NAME = "vortex-rewrite-v3";
 const CACHEABLE_TYPES = new Set([
     "script",
     "style",
@@ -7061,7 +7061,18 @@ async function rewriteBody(response, meta, destination, workertype, cookieStore)
                 return response.body;
             }
         case "script":
-            return (0,_rewriters_js__WEBPACK_IMPORTED_MODULE_4__.rewriteJs)(new Uint8Array(await response.arrayBuffer()), response.finalURL, meta, workertype === "module");
+            {
+                const source = new Uint8Array(await response.arrayBuffer());
+                // Verification runtimes use integrity and browser-consistency checks that
+                // break when their source is transformed. Keep the official runtime intact;
+                // Vortex's installed fetch/XHR hooks still route its network requests.
+                try {
+                    const finalUrl = response.finalURL || meta.base.href;
+                    const host = new URL(finalUrl).hostname;
+                    if (host === "challenges.cloudflare.com" || host === "www.google.com" && finalUrl.includes("/recaptcha/") || host === "www.gstatic.com" && finalUrl.includes("/recaptcha/")) return source;
+                } catch  {}
+                return (0,_rewriters_js__WEBPACK_IMPORTED_MODULE_4__.rewriteJs)(source, response.finalURL, meta, workertype === "module");
+            }
         case "style":
             return (0,_rewriters_css__WEBPACK_IMPORTED_MODULE_9__.rewriteCss)(await response.text(), meta);
         case "sharedworker":
