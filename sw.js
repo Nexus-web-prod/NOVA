@@ -22,6 +22,8 @@ const NOVA_RUNTIME_PREFIXES = ["/api/", "/assets/", "/css/", "/js/", "/baremux/"
 const NOVA_RUNTIME_FILES = new Set([
   "/",
   "/index.html",
+  "/proxy-frame",
+  "/proxy-frame.html",
   "/sw.js",
   "/config.js",
   "/store.js",

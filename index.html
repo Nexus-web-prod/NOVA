@@ -3137,7 +3137,7 @@ function newTab(url){
   iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-pointer-lock allow-presentation');
   iframe.referrerPolicy = 'no-referrer';
   iframe.allow = 'fullscreen';
-  iframe.src = '/proxy-frame.html';
+  iframe.src = '/proxy-frame';
   var framePrimed = false;
   var startProxyNavigation = null;
   iframe.addEventListener('load', function(){
@@ -3157,7 +3157,7 @@ function newTab(url){
     var sc = vortex.createFrame(iframe);
     tab.scFrame = sc;
     iframe.addEventListener('load', function(){
-      if(iframe.getAttribute('src')==='/proxy-frame.html') return;
+      if(iframe.getAttribute('src')==='/proxy-frame') return;
       tab.loading = false;
       try{ var real=sc.url&&sc.url.toString(); if(real&&real!=='about:blank'){tab.url=real; if(activeId===id)urlBar.value=real;} }catch(e){}
       try{ var t2=iframe.contentDocument&&iframe.contentDocument.title; if(t2&&t2.trim()&&t2!=='about:blank')tab.title=t2; }catch(e){}
