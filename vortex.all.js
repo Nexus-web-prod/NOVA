@@ -5491,8 +5491,8 @@ function rewriteJs(js, url, meta, module = false) {
     // don't pass it to the WASM rewriter — just return an empty script to avoid oxc panics.
     const preview = js instanceof Uint8Array ? new TextDecoder().decode(js.slice(0, 64)) : js.slice(0, 64);
     const trimmed = preview.trimStart();
-    if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<!doctype") || trimmed.startsWith("<html")) {
-        console.warn("skipping JS rewrite for non-JS content (got HTML) for", url || "(unknown)");
+    if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<!doctype") || trimmed.startsWith("<html") || trimmed.startsWith("<?xml") || trimmed.startsWith("<Error")) {
+        console.warn("skipping JS rewrite for non-JS response for", url || "(unknown)");
         return js instanceof Uint8Array ? new Uint8Array(0) : "";
     }
     try {
