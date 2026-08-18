@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS nova_schema_meta (
   applied_at INTEGER NOT NULL
 );
 INSERT INTO nova_schema_meta(id, version, applied_at)
-VALUES (1, 715, unixepoch() * 1000)
+VALUES (1, 716, unixepoch() * 1000)
 ON CONFLICT(id) DO UPDATE SET version = excluded.version, applied_at = excluded.applied_at;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -77,6 +77,25 @@ CREATE TABLE IF NOT EXISTS user_plans (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
 CREATE INDEX IF NOT EXISTS user_plans_active_idx ON user_plans(plan, status, expires_at);
+
+CREATE TABLE IF NOT EXISTS game_stats (
+  slug TEXT PRIMARY KEY,
+  views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0),
+  rating_sum REAL NOT NULL DEFAULT 0 CHECK(rating_sum >= 0),
+  rating_count INTEGER NOT NULL DEFAULT 0 CHECK(rating_count >= 0),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
+CREATE INDEX IF NOT EXISTS game_stats_rating_idx ON game_stats(rating_count, rating_sum);
+CREATE INDEX IF NOT EXISTS game_stats_views_idx ON game_stats(views);
+
+CREATE TABLE IF NOT EXISTS game_ratings (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  PRIMARY KEY(user_id, slug)
+);
+CREATE INDEX IF NOT EXISTS game_ratings_slug_idx ON game_ratings(slug, updated_at DESC);
 
 -- Supernova Hub state is private to its owner and deliberately separate from
 -- normal settings.  Each section is independently validated by the Worker;

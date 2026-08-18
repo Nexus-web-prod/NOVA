@@ -3,10 +3,10 @@
 
   const cfg = self._CONFIG || {};
   const WISP_URL = cfg.wispurl || self.__NOVA_WISP_URL || "wss://unified-wisp-epoxy.fly.dev/wisp/";
-  const TRANSPORT = cfg.transport || "/epoxy.mjs?v=4";
+  const TRANSPORT = cfg.transport || "/epoxy.mjs?v=5";
   // Changing this URL creates a fresh SharedWorker instead of reconnecting to
   // a retired proxy worker that can remain alive in another Nova tab.
-  const BARE_MUX_WORKER = "/baremux/worker.js?v=4";
+  const BARE_MUX_WORKER = "/baremux/worker.js?v=5";
   const STORE_KEY = "nova-settings";
   const INITIAL_STATE = () => ({
     url: "https://google.com",
@@ -95,11 +95,13 @@
     }
   });
 
-  vortex.init("/sw.js");
   self.vortex = vortex;
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).then((reg) => {
+  async function prepareServiceWorker() {
+    if (!("serviceWorker" in navigator)) throw new Error("Service workers are unavailable");
+    const hadController = !!navigator.serviceWorker.controller;
+    const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
+    if (hadController) {
       reg.addEventListener("updatefound", () => {
         const next = reg.installing;
         if (!next) return;
@@ -107,17 +109,20 @@
           if (next.state === "activated") window.location.reload();
         });
       });
-      setInterval(() => reg.update().catch(() => {}), 60000);
-    }).catch((err) => {
-      console.error("[Nova] Service worker registration failed:", err);
-    });
-
-    let reloading = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
-    });
+    }
+    setInterval(() => reg.update().catch(() => {}), 60000);
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Proxy service worker did not take control")), 10000);
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          clearTimeout(timeout);
+          resolve();
+        }, { once: true });
+      });
+    }
+    await vortex.init();
+    return true;
   }
 
   if (typeof BareMux === "undefined") {
@@ -128,19 +133,19 @@
   const connection = new BareMux.BareMuxConnection(BARE_MUX_WORKER);
 
   async function applyTransport() {
-    try {
-      store.wispurl = WISP_URL;
-      store.transport = TRANSPORT;
-      console.debug("[Nova] Setting transport:", TRANSPORT, "->", WISP_URL);
-      await connection.setTransport(TRANSPORT, [{ wisp: WISP_URL }]);
-    } catch (err) {
-      console.error("[Nova] Failed to set proxy transport:", err);
-    }
+    store.wispurl = WISP_URL;
+    store.transport = TRANSPORT;
+    console.debug("[Nova] Setting transport:", TRANSPORT, "->", WISP_URL);
+    await connection.setTransport(TRANSPORT, [{ wisp: WISP_URL }]);
+    return true;
   }
 
-  applyTransport();
+  self.novaProxyReady = Promise.all([prepareServiceWorker(), applyTransport()]).then(() => true).catch((err) => {
+    console.error("[Nova] Proxy failed to initialize:", err);
+    throw err;
+  });
   if (typeof store.$on === "function") {
-    store.$on("wispurl", applyTransport);
-    store.$on("transport", applyTransport);
+    store.$on("wispurl", () => applyTransport().catch((err) => console.error("[Nova] Failed to update proxy transport:", err)));
+    store.$on("transport", () => applyTransport().catch((err) => console.error("[Nova] Failed to update proxy transport:", err)));
   }
 })();

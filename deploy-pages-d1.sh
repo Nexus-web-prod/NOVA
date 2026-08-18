@@ -165,4 +165,4 @@ echo "==> Deploying Cloudflare Pages project ${PROJECT_NAME} (${BRANCH})"
 echo
 echo "Done. Open:"
 echo "  https://${BRANCH}.${PROJECT_NAME}.pages.dev/api/health"
-echo "Expected: ok=true, dbBound=true, voiceBound=true, schemaVersion=715"
+echo "Expected: ok=true, dbBound=true, voiceBound=true, schemaVersion=716"

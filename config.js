@@ -7,5 +7,5 @@ self.__NOVA_PROXY_WISP = NOVA_WISP_URL;
 self._CONFIG = {
   wispurl: NOVA_WISP_URL,
   bareurl: null,
-  transport: "/epoxy.mjs?v=4"
+  transport: "/epoxy.mjs?v=5"
 };

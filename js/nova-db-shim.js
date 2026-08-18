@@ -472,23 +472,30 @@
   }
 
   // ── Games ────────────────────────────────────────────────────────────────────
+  async function gameStats(slugs) {
+    if (!window.NovaAPI || typeof window.NovaAPI.gameStats !== "function") return {};
+    const payload = await window.NovaAPI.gameStats(slugs);
+    return payload && payload.stats || {};
+  }
   async function getGameField(slug, field) {
-    const a = await _rest("games?slug=eq." + encodeURIComponent(slug) + "&select=" + field + "&limit=1");
-    return (a && a[0] != null) ? String(a[0][field] || 0) : "0";
+    const stats = await gameStats([slug]);
+    const row = stats[slug] || {};
+    const value = field === "rating_sum" ? Number(row.avg || 0) * Number(row.count || 0) : field === "rating_cnt" ? row.count : row.views;
+    return String(value || 0);
   }
   async function getManyGameFields(slugs, field) {
     if (!slugs.length) return [];
-    const list = slugs.map(s => '"' + s.replace(/"/g, '\\"') + '"').join(",");
-    const a = await _rest("games?slug=in.(" + list + ")&select=slug," + field);
-    const map = {}; if (a) a.forEach(r => { map[r.slug] = String(r[field] || 0); });
-    return slugs.map(s => map[s] || "0");
+    const stats = await gameStats(slugs);
+    return slugs.map(slug => {
+      const row = stats[slug] || {};
+      const value = field === "rating_sum" ? Number(row.avg || 0) * Number(row.count || 0) : field === "rating_cnt" ? row.count : row.views;
+      return String(value || 0);
+    });
   }
   async function incrGameField(slug, field, by) {
-    by = parseFloat(by) || 1;
-    const cur = parseFloat(await getGameField(slug, field)) || 0;
-    const next = cur + by;
-    await _restOk("games", { method: "POST", headers: _h({ "Prefer": "resolution=merge-duplicates,return=minimal" }), body: JSON.stringify({ slug, [field]: next }) });
-    return next;
+    if (field !== "views" || !window.NovaAPI || typeof window.NovaAPI.recordGameView !== "function") return getGameField(slug, field);
+    const payload = await window.NovaAPI.recordGameView(slug);
+    return Number(payload && payload.stats && payload.stats.views || 0);
   }
 
   // ── Groups ───────────────────────────────────────────────────────────────────

@@ -101,6 +101,15 @@ export default {
       return apiError("LEGACY_API_REMOVED", "This browser-controlled database endpoint was removed in Nova 7", 410);
     }
 
+    // Vortex routes are normally intercepted by the service worker. If one
+    // reaches Pages, never serve Nova's SPA inside its own game iframe.
+    if (url.pathname.startsWith("/vortex/")) {
+      return new Response("Nova's proxy is still starting. Please try the game again.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
     if (isPrivateDeploymentPath(url.pathname)) return privateAssetNotFound();
 
     if (isDocumentRequest(request, url)) {
@@ -142,6 +151,9 @@ async function routeApi(request, env, url) {
   }
   if (pathname === "/api/activity" && method === "GET") return getActivity(request, env.DB);
   if (pathname === "/api/activity" && method === "POST") return saveActivity(request, env.DB);
+  if (pathname === "/api/games/stats" && method === "GET") return getGameStats(request, url, env.DB);
+  if (pathname === "/api/games/rating" && method === "POST") return rateGame(request, env.DB);
+  if (pathname === "/api/games/view" && method === "POST") return recordGameView(request, env.DB);
   if (pathname === "/api/presence" && method === "POST") return setPresence(request, env.DB);
   if (pathname === "/api/social" && method === "GET") return socialOverview(request, env.DB);
   if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, env.DB);
@@ -224,7 +236,7 @@ async function health(env) {
   ]);
   const schema = schemaResult.results?.[0] || null;
   const userColumns = Number(columnResult.results?.[0]?.count || 0);
-  if (!schema || Number(schema.version) < 715 || userColumns !== 5) {
+  if (!schema || Number(schema.version) < 716 || userColumns !== 5) {
     return apiError("DATABASE_SCHEMA_MISMATCH", "Nova's database needs the clean Nova 7 schema", 503);
   }
   return apiJson({
@@ -425,6 +437,83 @@ async function updateSettings(request, db) {
   if (encoded.length > 30000) return apiError("SETTINGS_TOO_LARGE", "Settings payload is too large", 413);
   await db.prepare("INSERT INTO user_settings(user_id, settings_json, updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET settings_json=excluded.settings_json,updated_at=excluded.updated_at").bind(auth.id, encoded, Date.now()).run();
   return apiJson({ settings });
+}
+
+function normalizeGameSlug(value) {
+  const slug = String(value || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return slug.length >= 1 && slug.length <= 96 ? slug : "";
+}
+
+function exposeGameStats(row, myRating) {
+  const count = Math.max(0, Number(row?.rating_count || 0));
+  const sum = Math.max(0, Number(row?.rating_sum || 0));
+  return {
+    views: Math.max(0, Number(row?.views || 0)),
+    avg: count ? Math.round((sum / count) * 100) / 100 : 0,
+    count,
+    myRating: Math.max(0, Math.min(5, Number(myRating || 0)))
+  };
+}
+
+async function getGameStats(request, url, db) {
+  const slugs = [...new Set(String(url.searchParams.get("slugs") || "").split(",").map(normalizeGameSlug).filter(Boolean))].slice(0, 50);
+  if (!slugs.length) return apiJson({ stats: {} });
+  const placeholders = slugs.map(() => "?").join(",");
+  const rows = await db.prepare(`SELECT slug, views, rating_sum, rating_count FROM game_stats WHERE slug IN (${placeholders})`).bind(...slugs).all();
+  const rowMap = new Map((rows.results || []).map(row => [row.slug, row]));
+  const auth = await optionalUser(request, db);
+  let ratingMap = new Map();
+  if (auth) {
+    const ratings = await db.prepare(`SELECT slug, rating FROM game_ratings WHERE user_id = ? AND slug IN (${placeholders})`).bind(auth.id, ...slugs).all();
+    ratingMap = new Map((ratings.results || []).map(row => [row.slug, row.rating]));
+  }
+  const stats = {};
+  slugs.forEach(slug => { stats[slug] = exposeGameStats(rowMap.get(slug), ratingMap.get(slug)); });
+  return apiJson({ stats });
+}
+
+async function rateGame(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "game-rating", 80, 10 * 60 * 1000, 10 * 60 * 1000);
+  const body = await readJson(request);
+  const slug = normalizeGameSlug(body.slug);
+  const rating = Number(body.rating);
+  if (!slug || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return apiError("INVALID_RATING", "Choose a rating from 1 to 5", 400);
+  }
+  const existing = await db.prepare("SELECT rating FROM game_ratings WHERE user_id = ? AND slug = ?").bind(auth.id, slug).first();
+  const now = Date.now();
+  if (existing) {
+    const delta = rating - Number(existing.rating || 0);
+    await db.batch([
+      db.prepare("UPDATE game_ratings SET rating = ?, updated_at = ? WHERE user_id = ? AND slug = ?").bind(rating, now, auth.id, slug),
+      db.prepare(`INSERT INTO game_stats(slug, rating_sum, rating_count, updated_at) VALUES(?,?,1,?)
+        ON CONFLICT(slug) DO UPDATE SET rating_sum = MAX(0, game_stats.rating_sum + ?), updated_at = excluded.updated_at`)
+        .bind(slug, rating, now, delta)
+    ]);
+  } else {
+    await db.batch([
+      db.prepare("INSERT INTO game_ratings(user_id, slug, rating, updated_at) VALUES(?,?,?,?)").bind(auth.id, slug, rating, now),
+      db.prepare(`INSERT INTO game_stats(slug, rating_sum, rating_count, updated_at) VALUES(?,?,1,?)
+        ON CONFLICT(slug) DO UPDATE SET rating_sum = game_stats.rating_sum + excluded.rating_sum, rating_count = game_stats.rating_count + 1, updated_at = excluded.updated_at`)
+        .bind(slug, rating, now)
+    ]);
+  }
+  const row = await db.prepare("SELECT views, rating_sum, rating_count FROM game_stats WHERE slug = ?").bind(slug).first();
+  return apiJson({ slug, stats: exposeGameStats(row, rating) });
+}
+
+async function recordGameView(request, db) {
+  requireSameOrigin(request);
+  const body = await readJson(request);
+  const slug = normalizeGameSlug(body.slug);
+  if (!slug) return apiError("INVALID_GAME", "Game identifier is invalid", 400);
+  const now = Date.now();
+  await db.prepare(`INSERT INTO game_stats(slug, views, updated_at) VALUES(?,1,?)
+    ON CONFLICT(slug) DO UPDATE SET views = game_stats.views + 1, updated_at = excluded.updated_at`).bind(slug, now).run();
+  const row = await db.prepare("SELECT views, rating_sum, rating_count FROM game_stats WHERE slug = ?").bind(slug).first();
+  return apiJson({ slug, stats: exposeGameStats(row, 0) });
 }
 
 async function publicProfile(username, db) {

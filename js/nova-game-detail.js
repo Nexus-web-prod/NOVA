@@ -107,6 +107,30 @@
     }
   }
 
+  function showCommunityStats(stats) {
+    stats = stats || { views: 0, avg: 0, count: 0 };
+    setText('game-detail-rating', stats.count ? Number(stats.avg || 0).toFixed(1) + ' / 5' : '—');
+    setText('game-detail-rating-count', stats.count ? Number(stats.count).toLocaleString() + (Number(stats.count) === 1 ? ' rating' : ' ratings') : 'Not rated yet');
+    setText('game-detail-plays', Number(stats.views || 0).toLocaleString());
+  }
+
+  async function refreshCommunityStats(game) {
+    if (!game || !window.NovaAPI || typeof window.NovaAPI.gameStats !== 'function') return;
+    var gameSlug = slug(game.name);
+    try {
+      var payload = await window.NovaAPI.gameStats([gameSlug]);
+      var stats = payload && payload.stats && payload.stats[gameSlug];
+      if (!stats) return;
+      var cache = {};
+      try { cache = JSON.parse(localStorage.getItem('nova_stats_cache') || '{}'); } catch (error) {}
+      cache.data = cache.data || {};
+      cache.data[gameSlug] = stats;
+      cache.ts = Date.now();
+      localStorage.setItem('nova_stats_cache', JSON.stringify(cache));
+      if (activeGame && slug(activeGame.name) === gameSlug) showCommunityStats(stats);
+    } catch (error) {}
+  }
+
   function favorites() {
     try { return new Set(JSON.parse(localStorage.getItem('nova_favs') || '[]')); }
     catch (error) { return new Set(); }
@@ -219,6 +243,7 @@
     if (art) art.setAttribute('aria-label', 'Play ' + game.name);
     updateFavoriteButton();
     renderPersonalRating();
+    refreshCommunityStats(game);
     renderRelated(game);
     if (options.history !== false) {
       var nextUrl = new URL(location.href);
