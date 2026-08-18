@@ -4264,7 +4264,7 @@ class VortexController extends EventTarget {
         return (0,_shared_index__WEBPACK_IMPORTED_MODULE_0__.codecDecode)(url.slice(prefixed.length));
     }
     async openIDB() {
-        const db = await (0,idb__WEBPACK_IMPORTED_MODULE_2__.openDB)("$vortex", 1, {
+        const db = await (0,idb__WEBPACK_IMPORTED_MODULE_2__.openDB)("$vortex", 2, {
             upgrade (db) {
                 if (!db.objectStoreNames.contains("config")) {
                     db.createObjectStore("config");
@@ -5744,7 +5744,7 @@ const SITE_HIERARCHY = {
  *
  * @returns Promise that resolves to the database connection
  */ async function getDB() {
-    return (0,idb__WEBPACK_IMPORTED_MODULE_0__.openDB)("$vortex", 1);
+    return (0,idb__WEBPACK_IMPORTED_MODULE_0__.openDB)("$vortex", 2);
 }
 /**
  * Retrieves a redirect tracker for a given URL
@@ -5915,7 +5915,7 @@ const CACHE_KEY = "publicSuffixList";
  *
  * @returns Resolves to the database connection
  */ async function getDB() {
-    return (0,idb__WEBPACK_IMPORTED_MODULE_0__.openDB)("$vortex", 1);
+    return (0,idb__WEBPACK_IMPORTED_MODULE_0__.openDB)("$vortex", 2);
 }
 /**
  * Gets cached Public Suffix List
@@ -7108,7 +7108,13 @@ __webpack_require__.d(__webpack_exports__, {
         super();
         this.client = new _mercuryworkshop_bare_mux__WEBPACK_IMPORTED_MODULE_2__["default"]();
         (async ()=>{
-            const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 1);
+            const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 2, {
+                upgrade (db) {
+                    for (const store of ["config", "cookies", "redirectTrackers", "referrerPolicies", "publicSuffixList"]) {
+                        if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
+                    }
+                }
+            });
             const cookies = await db.get("cookies", "cookies");
             if (cookies) {
                 this.cookieStore.load(cookies);
@@ -7131,7 +7137,7 @@ __webpack_require__.d(__webpack_exports__, {
                 this.cookieStore.setCookies([
                     data.cookie
                 ], new URL(data.url));
-                const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 1);
+                const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 2);
                 await db.put("cookies", JSON.parse(this.cookieStore.dump()), "cookies");
             }
             if (data.vortex$type === "loadConfig") {
@@ -7162,7 +7168,7 @@ __webpack_require__.d(__webpack_exports__, {
 	 * });
 	 */ async loadConfig() {
         if (this.config) return;
-        const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 1);
+        const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 2);
         this.config = await db.get("config", "config");
         if (this.config) {
             (0,_shared__WEBPACK_IMPORTED_MODULE_6__.setConfig)(this.config);
