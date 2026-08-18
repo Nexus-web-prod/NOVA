@@ -525,6 +525,7 @@ async function rateGame(request, db) {
 
 async function recordGameView(request, db) {
   requireSameOrigin(request);
+  await enforceAuthRateLimit(request, db, "game-view", 120, 10 * 60 * 1000, 60 * 1000);
   const body = await readJson(request);
   const slug = normalizeGameSlug(body.slug);
   if (!slug) return apiError("INVALID_GAME", "Game identifier is invalid", 400);

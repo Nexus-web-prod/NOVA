@@ -154,10 +154,14 @@ document.getElementById("cp-btn").onclick=async()=>{if(cpLock)return;const curPa
   };
 })();
 }function getMyRatings(){try{return JSON.parse(localStorage.getItem("nova_my_ratings")||"{}")}catch{return{}}}async function submitRating(e,t){const a=gameSlug(e);try{if(!window.NovaAPI||typeof window.NovaAPI.rateGame!=="function")throw new Error("Rating API unavailable");const n=await window.NovaAPI.rateGame(a,t),o=getMyRatings();o[e]=t,localStorage.setItem("nova_my_ratings",JSON.stringify(o));if(n&&n.stats)document.dispatchEvent(new CustomEvent("nova:game-stats-updated",{detail:{slug:a,stats:n.stats}}));return!0}catch(n){return toast("Could not save rating — try again"),!1}}async function incrementViews(e){
-const KEY='nova_viewed_'+gameSlug(e);
-if(sessionStorage.getItem(KEY))return;
-sessionStorage.setItem(KEY,'1');
-return await redisCmd('INCR','nova:views:'+gameSlug(e));
+const slug=gameSlug(e),KEY='nova_viewed_at_v2_'+slug,CACHE='nova_view_count_'+slug,last=Number(sessionStorage.getItem(KEY)||0);
+if(Date.now()-last<10000)return Number(sessionStorage.getItem(CACHE)||0)||null;
+const views=await redisCmd('INCR','nova:views:'+slug);
+if(views==null||!Number.isFinite(Number(views)))return null;
+sessionStorage.setItem(KEY,String(Date.now()));
+sessionStorage.setItem(CACHE,String(views));
+document.dispatchEvent(new CustomEvent('nova:game-views-updated',{detail:{slug:slug,views:Number(views)}}));
+return Number(views);
 }document.getElementById("account-btn")?.addEventListener("click",openAccountModal),document.getElementById("account-modal")?.addEventListener("click",e=>{e.target===document.getElementById("account-modal")&&closeAccountModal()}),document.getElementById("account-modal-close")?.addEventListener("click",closeAccountModal),updateAccountUI();const _statsCache={};document.addEventListener("nova:game-stats-updated",e=>{const t=e.detail?.slug,a=e.detail?.stats;if(!t||!a)return;_statsCache[t]=a;try{const e=JSON.parse(localStorage.getItem("nova_stats_cache")||"{}"),n=e.data||{};n[t]=a,localStorage.setItem("nova_stats_cache",JSON.stringify({ts:Date.now(),data:n}))}catch(e){}});let _gameSort=localStorage.getItem("nova_game_sort")||"popular";async function fetchSortStats(e){
 // Load stats cache from localStorage (TTL: 10 minutes)
 const CACHE_KEY='nova_stats_cache',CACHE_TTL=10*60*1000;

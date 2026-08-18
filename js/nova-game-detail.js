@@ -305,9 +305,20 @@
 
   function launch() {
     if (!activeGame || !/^https?:\/\//i.test(activeGame.url || '')) return;
-    window.novaAddRecent?.(activeGame);
-    window.novaIncrementViews?.(activeGame.name);
-    window.goTo?.(activeGame.url);
+    var launchedGame = activeGame;
+    window.novaAddRecent?.(launchedGame);
+    var viewResult = window.novaIncrementViews?.(launchedGame.name);
+    if (viewResult && typeof viewResult.then === 'function') {
+      viewResult.then(function (views) {
+        if (!Number.isFinite(Number(views))) return;
+        var gameSlug = slug(launchedGame.name);
+        var stats = statsFor(launchedGame);
+        stats.views = Number(views);
+        cacheCommunityStats(gameSlug, stats);
+        if (activeGame && slug(activeGame.name) === gameSlug) setText('game-detail-plays', Number(views).toLocaleString());
+      }).catch(function () {});
+    }
+    window.goTo?.(launchedGame.url);
   }
 
   function toggleFavorite() {
