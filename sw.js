@@ -4,7 +4,7 @@ if (navigator.userAgent.includes("Firefox")) {
   Object.defineProperty(globalThis, "crossOriginIsolated", { value: true, writable: false });
 }
 
-importScripts("/vortex.all.js?v=1787043000");
+importScripts("/vortex.all.js?v=1787043100");
 importScripts("/js/nova-proxy-compatibility.js");
 
 const { VortexServiceWorker } = $vortexLoadWorker();
@@ -153,7 +153,13 @@ function getProxiedTarget(requestUrl) {
 
 async function authHandoffResponse() {
   try {
-    return await fetch(new URL("/verification-handoff.html", self.location.origin), { cache: "no-store" });
+    // Cloudflare Pages canonicalizes .html routes. Fetch the canonical path so
+    // this response is not marked `redirected`, which is illegal to return for
+    // navigation requests using redirect: "manual".
+    return await fetch(new URL("/verification-handoff", self.location.origin), {
+      cache: "no-store",
+      redirect: "error"
+    });
   } catch {
     return new Response("Open this verification address directly in your browser.", {
       status: 503,

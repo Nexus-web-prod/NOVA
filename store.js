@@ -125,7 +125,11 @@
     return true;
   }
 
-  self.novaProxyReady = Promise.all([prepareServiceWorker(), applyTransport()]).then(() => true).catch((err) => {
+  // BareMux must own a live SharedWorker port before Vortex asks the service
+  // worker to perform its first fetch. Starting these concurrently creates a
+  // race where the service worker repeatedly waits for a port that does not
+  // exist yet.
+  self.novaProxyReady = applyTransport().then(prepareServiceWorker).then(() => true).catch((err) => {
     console.error("[Nova] Proxy failed to initialize:", err);
     throw err;
   });
