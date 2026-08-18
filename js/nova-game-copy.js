@@ -1,4 +1,4 @@
-// Researched, paraphrased game summaries for Nova's detail pages.
+// Nova game-copy catalog — researched and paraphrased for the detail-page experience.
 (function () {
   'use strict';
 
