@@ -1480,7 +1480,7 @@ async function voiceSfuAction(request, env) {
   const action = cleanText(body.action, 24);
   const { auth } = await requireVoiceSfuMember(request, env, roomId);
   if (action === "new-session") {
-    const result = await realtimeFetch(env, "/sessions/new", "POST", {});
+    const result = await realtimeFetch(env, "/sessions/new", "POST", { sessionDescription: body.sessionDescription });
     await env.DB.prepare("INSERT INTO voice_sfu_tracks(room_id,user_id,session_id,track_name,updated_at) VALUES(?,?,?,'',?) ON CONFLICT(room_id,user_id) DO UPDATE SET session_id=excluded.session_id,track_name='',updated_at=excluded.updated_at").bind(roomId, auth.id, cleanText(result.sessionId, 120), Date.now()).run();
     await env.DB.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), Date.now(), roomId, auth.id).run();
     return apiJson(result);
