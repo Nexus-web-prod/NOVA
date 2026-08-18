@@ -4,6 +4,7 @@
 
   window.NOVA_GAME_COPY = {
     'Escape Road 2': { description: 'Race through the city as a getaway driver, dodge traffic, and keep moving while an escalating police force closes in.', source: 'https://www.crazygames.com/game/escape-road-2' },
+    'Equinox': { description: 'Embark on an interactive story among the stars and explore a narrative experience shaped by discovery.', source: 'https://equinox.space/' },
     'Basket Bros': { description: 'Pick a player, customize their look, and battle through fast one-on-one basketball matches in solo, local, or online modes.', source: 'https://www.crazygames.com/game/basketbros' },
     'Dune Dash': { description: 'Glide across rolling dunes, build momentum on the slopes, and time each jump for a longer, smoother run.' },
     'Supper Liquid Soccer': { description: 'Control a compact soccer squad in quick top-down matches where passing, positioning, and sharp finishing decide the score.' },

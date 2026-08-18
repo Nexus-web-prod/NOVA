@@ -5,6 +5,12 @@
         "image": "/assets/media/icons/escape-road-2.png"
     },
     {
+        "name": "Equinox",
+        "url": "https://equinox.space/",
+        "image": "/assets/media/icons/equinox.svg",
+        "categories": ["Adventure"]
+    },
+    {
         "name": "Basket Bros",
         "url": "https://basketbros-unblocked.github.io/a7/basket-bros/",
         "image": "/assets/media/icons/basket-bros.png"
