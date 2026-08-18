@@ -13,7 +13,7 @@
 
   function loadCatalog() {
     if (!catalogPromise) {
-      catalogPromise = fetch('/games.json').then(function (response) {
+      catalogPromise = fetch('/games.json?v=730', { cache: 'no-store' }).then(function (response) {
         if (!response.ok) throw new Error('Game catalog unavailable');
         return response.json();
       }).then(function (items) {
