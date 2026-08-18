@@ -167,6 +167,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/boardgames/uno/action" && method === "POST") return unoAction(request, env.DB);
   if (pathname === "/api/boardgames/uno/invite" && method === "POST") return inviteUnoFriend(request, env.DB);
   if (pathname === "/api/boardgames/uno/invites" && method === "GET") return getUnoInvites(request, env.DB);
+  if (pathname === "/api/boardgames/uno/call" && method === "POST") return joinUnoCall(request, env);
   if (pathname === "/api/presence" && method === "POST") return setPresence(request, env.DB);
   if (pathname === "/api/social" && method === "GET") return socialOverview(request, env.DB);
   if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, env.DB);
@@ -627,6 +628,9 @@ function unoNext(state, steps) {
 
 function unoCanPlay(card, state) {
   const top = state.discard[state.discard.length - 1];
+  if (Number(state.pendingDraw || 0) > 0) {
+    return top.value === "wild4" ? card.value === "wild4" : ["draw2", "wild4"].includes(card.value);
+  }
   return card.color === "wild" || card.color === state.color || card.value === top.value;
 }
 
@@ -649,7 +653,8 @@ async function exposeUnoLobby(db, row, userId) {
     activeColor: state.color || "",
     currentUserId: state.order?.[state.turn] || "",
     direction: state.direction || 1,
-    winnerId: state.winnerId || ""
+    winnerId: state.winnerId || "",
+    pendingDraw: Number(state.pendingDraw || 0)
   };
 }
 
@@ -752,6 +757,32 @@ async function getUnoInvites(request, db) {
   return apiJson({ invites: rows.results || [] });
 }
 
+async function joinUnoCall(request, env) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, env.DB);
+  const body = await readJson(request);
+  const lobbyId = cleanText(body.lobbyId, 80);
+  const lobby = await env.DB.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
+  if (!lobby) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
+  const membership = await env.DB.prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(lobbyId, auth.id).first();
+  if (!membership) return apiError("LOBBY_ACCESS", "Only lobby players can join its call", 403);
+  const restriction = await activeVoiceRestriction(env.DB, auth.id);
+  if (restriction) return voiceRestrictionError(restriction);
+  const roomId = "uvc_" + lobbyId;
+  const now = Date.now();
+  let room = await loadVoiceRoom(env.DB, roomId);
+  if (!room || room.status !== "active") {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO voice_rooms(id,name,scope_type,scope_id,created_by,host_id,status,locked,dictation_enabled,max_members,created_at,updated_at) VALUES(?,?,'invite',NULL,?,?,'active',0,0,4,?,?) ON CONFLICT(id) DO UPDATE SET status='active',host_id=excluded.host_id,updated_at=excluded.updated_at,ended_at=NULL").bind(roomId, "UNO · " + lobby.code, lobby.owner_id, lobby.owner_id, now, now),
+      env.DB.prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,?,'admitted',?,0,?,?,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET status='admitted',left_at=NULL,last_seen_at=excluded.last_seen_at").bind(roomId, auth.id, auth.id === lobby.owner_id ? "host" : "member", lobby.owner_id, now, now, now, now)
+    ]);
+  } else {
+    await env.DB.prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,?,'admitted',?,0,?,?,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET status='admitted',left_at=NULL,last_seen_at=excluded.last_seen_at").bind(roomId, auth.id, auth.id === lobby.owner_id ? "host" : "member", lobby.owner_id, now, now, now, now).run();
+  }
+  room = await loadVoiceRoom(env.DB, roomId);
+  return apiJson({ room: await exposeVoiceRoom(env.DB, auth, room, true) });
+}
+
 async function unoAction(request, db) {
   requireSameOrigin(request);
   const auth = await requireSocialUser(request, db);
@@ -772,15 +803,19 @@ async function unoAction(request, db) {
     order.forEach(userId => { hands[userId] = deck.splice(0, 7); });
     let first = deck.pop();
     while (first.color === "wild" || ["skip","reverse","draw2"].includes(first.value)) { deck.unshift(first); first = deck.pop(); }
-    state = { deck, hands, order, discard: [first], color: first.color, turn: 0, direction: 1, winnerId: "" };
+    state = { deck, hands, order, discard: [first], color: first.color, turn: 0, direction: 1, winnerId: "", pendingDraw: 0 };
     status = "playing";
   } else {
     if (row.status !== "playing") return apiError("NOT_PLAYING", "Start the game first", 409);
     if (state.order[state.turn] !== auth.id) return apiError("NOT_YOUR_TURN", "Wait for your turn", 409);
     const hand = state.hands[auth.id] || [];
     if (action === "draw") {
-      if (!state.deck.length) state.deck = state.discard.splice(0, state.discard.length - 1).sort(() => Math.random() - .5);
-      if (state.deck.length) hand.push(state.deck.pop());
+      const drawCount = Math.max(1, Number(state.pendingDraw || 0));
+      for (let count = 0; count < drawCount; count++) {
+        if (!state.deck.length) state.deck = state.discard.splice(0, state.discard.length - 1).sort(() => Math.random() - .5);
+        if (state.deck.length) hand.push(state.deck.pop());
+      }
+      state.pendingDraw = 0;
       unoNext(state, 1);
     } else {
       const index = Number(body.cardIndex);
@@ -794,11 +829,7 @@ async function unoAction(request, db) {
         const steps = card.value === "skip" ? 2 : 1;
         unoNext(state, steps);
         const drawCount = card.value === "draw2" ? 2 : card.value === "wild4" ? 4 : 0;
-        if (drawCount) {
-          const target = state.order[state.turn];
-          for (let count = 0; count < drawCount; count++) if (state.deck.length) state.hands[target].push(state.deck.pop());
-          unoNext(state, 1);
-        }
+        if (drawCount) state.pendingDraw = Number(state.pendingDraw || 0) + drawCount;
       }
     }
   }
@@ -1364,7 +1395,9 @@ async function voiceRoomWebSocket(request, url, env) {
   const member = await env.DB.prepare("SELECT status,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (!member || !["pending", "invited", "admitted", "connected"].includes(member.status)) return apiError("VOICE_ADMISSION_REQUIRED", "Request permission to join this voice room", 403);
   if (await voiceBlockConflict(env.DB, room.id, auth.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents you from sharing this voice room", 403);
-  const sponsor = await hasVoiceSponsorAccess(env.DB, auth);
+  // UNO calls are membership-gated by their game lobby and do not require a
+  // Supernova sponsor to remain connected.
+  const sponsor = room.id.startsWith("uvc_") || await hasVoiceSponsorAccess(env.DB, auth);
   const lobby = ["pending", "invited"].includes(member.status);
   const headers = new Headers(request.headers);
   headers.set("X-Nova-Voice-Room", room.id);
