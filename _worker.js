@@ -1470,7 +1470,9 @@ async function voiceSfuTracks(request, url, env) {
   await ensureVoiceSfuSchema(env.DB);
   const roomId = cleanText(url.searchParams.get("room"), 80);
   const { auth } = await requireVoiceSfuMember(request, env, roomId);
-  const rows = await env.DB.prepare("SELECT u.username,t.user_id AS userId,t.session_id AS sessionId,t.track_name AS trackName FROM voice_sfu_tracks t JOIN users u ON u.id=t.user_id JOIN voice_room_members m ON m.room_id=t.room_id AND m.user_id=t.user_id AND m.status='connected' WHERE t.room_id=? AND t.user_id<>? AND t.track_name<>'' ORDER BY lower(u.username)").bind(roomId, auth.id).all();
+  const now = Date.now();
+  await env.DB.prepare("UPDATE voice_sfu_tracks SET updated_at=? WHERE room_id=? AND user_id=?").bind(now, roomId, auth.id).run();
+  const rows = await env.DB.prepare("SELECT u.username,t.user_id AS userId,t.session_id AS sessionId,t.track_name AS trackName FROM voice_sfu_tracks t JOIN users u ON u.id=t.user_id JOIN voice_room_members m ON m.room_id=t.room_id AND m.user_id=t.user_id AND m.status='connected' WHERE t.room_id=? AND t.user_id<>? AND t.track_name<>'' AND t.updated_at>? ORDER BY lower(u.username)").bind(roomId, auth.id, now - 45000).all();
   return apiJson({ tracks: rows.results || [], provider: "cloudflare-realtime" });
 }
 
@@ -1485,6 +1487,7 @@ async function voiceSfuAction(request, env) {
     const result = await realtimeFetch(env, "/sessions/new", "POST");
     await env.DB.prepare("INSERT INTO voice_sfu_tracks(room_id,user_id,session_id,track_name,updated_at) VALUES(?,?,?,'',?) ON CONFLICT(room_id,user_id) DO UPDATE SET session_id=excluded.session_id,track_name='',updated_at=excluded.updated_at").bind(roomId, auth.id, cleanText(result.sessionId, 120), Date.now()).run();
     await env.DB.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), Date.now(), roomId, auth.id).run();
+    await voiceEvent(env.DB, roomId, auth.id, auth.id, "sfu_session", { provider: "cloudflare-realtime" });
     return apiJson(result);
   }
   const own = await env.DB.prepare("SELECT session_id AS sessionId FROM voice_sfu_tracks WHERE room_id=? AND user_id=?").bind(roomId, auth.id).first();
@@ -1493,14 +1496,22 @@ async function voiceSfuAction(request, env) {
   if (action === "publish") {
     const trackName = cleanText(body.trackName, 120);
     const result = await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { sessionDescription: body.sessionDescription, tracks: [{ location: "local", mid: cleanText(body.mid, 20), trackName }] });
-    await env.DB.prepare("UPDATE voice_sfu_tracks SET track_name=?,updated_at=? WHERE room_id=? AND user_id=?").bind(trackName, Date.now(), roomId, auth.id).run();
     return apiJson(result);
+  }
+  if (action === "ready") {
+    const trackName = cleanText(body.trackName, 120);
+    if (!trackName) return apiError("VOICE_SFU_TRACK", "Audio track is missing", 400);
+    await env.DB.prepare("UPDATE voice_sfu_tracks SET track_name=?,updated_at=? WHERE room_id=? AND user_id=?").bind(trackName, Date.now(), roomId, auth.id).run();
+    await voiceEvent(env.DB, roomId, auth.id, auth.id, "sfu_published", {});
+    return apiJson({ ok: true });
   }
   if (action === "subscribe") {
     const remoteSessionId = cleanText(body.remoteSessionId, 120), trackName = cleanText(body.trackName, 120);
     const allowed = await env.DB.prepare("SELECT 1 FROM voice_sfu_tracks WHERE room_id=? AND session_id=? AND track_name=? AND user_id<>?").bind(roomId, remoteSessionId, trackName, auth.id).first();
     if (!allowed) return apiError("VOICE_SFU_TRACK", "That audio track is not in this room", 403);
-    return apiJson(await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { tracks: [{ location: "remote", sessionId: remoteSessionId, trackName }] }));
+    const result = await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { tracks: [{ location: "remote", sessionId: remoteSessionId, trackName }] });
+    await voiceEvent(env.DB, roomId, auth.id, null, "sfu_subscribed", {});
+    return apiJson(result);
   }
   if (action === "renegotiate") return apiJson(await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/renegotiate`, "PUT", { sessionDescription: body.sessionDescription }));
   if (action === "leave") {

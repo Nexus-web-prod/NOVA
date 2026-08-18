@@ -449,8 +449,8 @@
     if (state.sfu) await state.sfu.disconnect();
     state.sfu = new NovaRealtimeVoice(state.roomId, state.localStream, {
       deafened: state.deafened,
-      onState: function (value) { if (value === 'connected') setConnectionLabel('Cloudflare Realtime connected'); else if (value === 'connecting') setConnectionLabel('Connecting to Realtime…'); else if (value === 'reconnect-required') { setConnectionLabel('Connection lost · rejoin the room'); toast('Voice connection was interrupted. Leave and rejoin the room.'); } },
-      onError: function (error) { console.warn('[Nova Voice] Realtime refresh', error); }
+      onState: function (value) { if (value === 'connected') setConnectionLabel('Cloudflare Realtime connected'); else if (value === 'receiving') setConnectionLabel('Live audio connected'); else if (value === 'listening') setConnectionLabel('Listening · microphone off'); else if (value === 'publishing') setConnectionLabel('Starting microphone…'); else if (value === 'tap-to-hear') setConnectionLabel('Tap anywhere to enable audio'); else if (value === 'connecting') setConnectionLabel('Connecting to Realtime…'); else if (value === 'reconnect-required') { setConnectionLabel('Connection lost · rejoin the room'); toast('Voice connection was interrupted. Leave and rejoin the room.'); } },
+      onError: function (error) { console.warn('[Nova Voice] Realtime refresh', error); setConnectionLabel('Audio problem · ' + (error.message || 'retrying')); }
     });
     setConnectionLabel('Connecting to Cloudflare Realtime…');
     await state.sfu.connect();
