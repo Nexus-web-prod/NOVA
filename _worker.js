@@ -200,6 +200,8 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/voice/transcript" && method === "POST") return publishVoiceTranscript(request, env);
   if (pathname === "/api/voice/report" && method === "POST") return reportVoiceParticipant(request, env);
   if (pathname === "/api/voice/ice" && method === "GET") return voiceIceServers(request, env);
+  if (pathname === "/api/voice/sfu/tracks" && method === "GET") return voiceSfuTracks(request, url, env);
+  if (pathname === "/api/voice/sfu" && method === "POST") return voiceSfuAction(request, env);
   if (pathname === "/api/voice/ws" && method === "GET") return voiceRoomWebSocket(request, url, env);
   if (pathname === "/api/reports" && method === "POST") return createReport(request, env.DB);
   if (pathname === "/api/support/tickets" && method === "GET") return supportTickets(request, url, env.DB);
@@ -1432,6 +1434,78 @@ async function voiceIceServers(request, env) {
     console.error("Nova Open Relay credential generation failed", { status: String(error?.message || "unavailable").slice(0, 80) });
     return apiJson({ iceServers: fallback, relayAvailable: false, relayProvider: "direct" });
   }
+}
+
+async function ensureVoiceSfuSchema(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS voice_sfu_tracks (
+    room_id TEXT NOT NULL,user_id TEXT NOT NULL,session_id TEXT NOT NULL,track_name TEXT NOT NULL DEFAULT '',updated_at INTEGER NOT NULL,
+    PRIMARY KEY(room_id,user_id),FOREIGN KEY(room_id) REFERENCES voice_rooms(id) ON DELETE CASCADE
+  )`).run();
+}
+
+async function requireVoiceSfuMember(request, env, roomId) {
+  const auth = await requireSocialUser(request, env.DB);
+  const room = await loadVoiceRoom(env.DB, roomId);
+  if (!room || room.status !== "active") throw new ApiFailure("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
+  const member = await env.DB.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(roomId, auth.id).first();
+  if (!member || !["admitted","connected"].includes(member.status)) throw new ApiFailure("VOICE_NOT_ADMITTED", "Voice admission required", 403);
+  if (await voiceBlockConflict(env.DB, roomId, auth.id)) throw new ApiFailure("VOICE_BLOCK_CONFLICT", "A block prevents this voice connection", 403);
+  return { auth, room };
+}
+
+async function realtimeFetch(env, suffix, method, body) {
+  if (!env.REALTIME_APP_ID || !env.REALTIME_APP_SECRET) throw new ApiFailure("VOICE_SFU_UNAVAILABLE", "Nova Realtime is not configured", 503);
+  const response = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${env.REALTIME_APP_ID}${suffix}`, {
+    method, headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.REALTIME_APP_SECRET}` }, body: JSON.stringify(body || {})
+  });
+  const result = await response.json().catch(() => ({}));
+  const trackError = Array.isArray(result.tracks) && result.tracks.find(track => track && track.errorCode);
+  if (!response.ok || result.errorCode || trackError) throw new ApiFailure("VOICE_SFU_ERROR", cleanText(result.errorDescription || trackError?.errorDescription || result.message || "Realtime connection failed", 180), 502);
+  return result;
+}
+
+async function voiceSfuTracks(request, url, env) {
+  await ensureVoiceSfuSchema(env.DB);
+  const roomId = cleanText(url.searchParams.get("room"), 80);
+  const { auth } = await requireVoiceSfuMember(request, env, roomId);
+  const rows = await env.DB.prepare("SELECT u.username,t.user_id AS userId,t.session_id AS sessionId,t.track_name AS trackName FROM voice_sfu_tracks t JOIN users u ON u.id=t.user_id JOIN voice_room_members m ON m.room_id=t.room_id AND m.user_id=t.user_id AND m.status='connected' WHERE t.room_id=? AND t.user_id<>? AND t.track_name<>'' ORDER BY lower(u.username)").bind(roomId, auth.id).all();
+  return apiJson({ tracks: rows.results || [], provider: "cloudflare-realtime" });
+}
+
+async function voiceSfuAction(request, env) {
+  requireSameOrigin(request);
+  await ensureVoiceSfuSchema(env.DB);
+  const body = await readJson(request);
+  const roomId = cleanText(body.roomId, 80);
+  const action = cleanText(body.action, 24);
+  const { auth } = await requireVoiceSfuMember(request, env, roomId);
+  if (action === "new-session") {
+    const result = await realtimeFetch(env, "/sessions/new", "POST", {});
+    await env.DB.prepare("INSERT INTO voice_sfu_tracks(room_id,user_id,session_id,track_name,updated_at) VALUES(?,?,?,'',?) ON CONFLICT(room_id,user_id) DO UPDATE SET session_id=excluded.session_id,track_name='',updated_at=excluded.updated_at").bind(roomId, auth.id, cleanText(result.sessionId, 120), Date.now()).run();
+    await env.DB.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), Date.now(), roomId, auth.id).run();
+    return apiJson(result);
+  }
+  const own = await env.DB.prepare("SELECT session_id AS sessionId FROM voice_sfu_tracks WHERE room_id=? AND user_id=?").bind(roomId, auth.id).first();
+  const sessionId = cleanText(body.sessionId, 120);
+  if (!own || own.sessionId !== sessionId) return apiError("VOICE_SFU_SESSION", "That Realtime session is not yours", 403);
+  if (action === "publish") {
+    const trackName = cleanText(body.trackName, 120);
+    const result = await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { sessionDescription: body.sessionDescription, tracks: [{ location: "local", mid: cleanText(body.mid, 20), trackName }] });
+    await env.DB.prepare("UPDATE voice_sfu_tracks SET track_name=?,updated_at=? WHERE room_id=? AND user_id=?").bind(trackName, Date.now(), roomId, auth.id).run();
+    return apiJson(result);
+  }
+  if (action === "subscribe") {
+    const remoteSessionId = cleanText(body.remoteSessionId, 120), trackName = cleanText(body.trackName, 120);
+    const allowed = await env.DB.prepare("SELECT 1 FROM voice_sfu_tracks WHERE room_id=? AND session_id=? AND track_name=? AND user_id<>?").bind(roomId, remoteSessionId, trackName, auth.id).first();
+    if (!allowed) return apiError("VOICE_SFU_TRACK", "That audio track is not in this room", 403);
+    return apiJson(await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { tracks: [{ location: "remote", sessionId: remoteSessionId, trackName }] }));
+  }
+  if (action === "renegotiate") return apiJson(await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/renegotiate`, "PUT", { sessionDescription: body.sessionDescription }));
+  if (action === "leave") {
+    await env.DB.prepare("DELETE FROM voice_sfu_tracks WHERE room_id=? AND user_id=?").bind(roomId, auth.id).run();
+    return apiJson({ ok: true });
+  }
+  return apiError("INVALID_ACTION", "Unknown Realtime action", 400);
 }
 
 async function voiceRoomWebSocket(request, url, env) {

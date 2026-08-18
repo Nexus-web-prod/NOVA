@@ -298,6 +298,18 @@ CREATE TABLE IF NOT EXISTS voice_room_members (
 CREATE INDEX IF NOT EXISTS voice_room_members_status_idx ON voice_room_members(room_id, status, connected_at);
 CREATE INDEX IF NOT EXISTS voice_room_members_user_idx ON voice_room_members(user_id, status, last_seen_at DESC);
 
+-- Active Cloudflare Realtime SFU publications. Credentials remain in the
+-- Pages Worker environment; browsers receive only their scoped session SDP.
+CREATE TABLE IF NOT EXISTS voice_sfu_tracks (
+  room_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  track_name TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(room_id, user_id),
+  FOREIGN KEY(room_id) REFERENCES voice_rooms(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS voice_room_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   room_id TEXT NOT NULL REFERENCES voice_rooms(id) ON DELETE CASCADE,

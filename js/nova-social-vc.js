@@ -11,7 +11,7 @@
   var state = {
     rooms: [], room: null, roomId: "", me: null, canCreate: false,
     ws: null, wsLobby: false, reconnects: 0, leaving: false,
-    localStream: null, peers: new Map(), peerRetries: new Map(), remoteAudio: new Map(), iceServers: [], relayAvailable: false, relayConfigured: false,
+    localStream: null, sfu: null, peers: new Map(), peerRetries: new Map(), remoteAudio: new Map(), iceServers: [], relayAvailable: true, relayConfigured: true,
     muted: false, hostMuted: false, deafened: false, pushToTalk: localStorage.getItem("nova_voice_ptt") === "1",
     dictationEnabled: true, recognition: null, transcript: [], interim: "",
     currentPane: "everyone", pollTimer: 0, speaking: false, pttPressed: false, audioContext: null, analyserTimer: 0,
@@ -134,7 +134,7 @@
       var payload = await NovaAPI.voiceRooms();
       state.rooms = payload.rooms || [];
       state.canCreate = !!payload.canCreate;
-      state.relayConfigured = !!payload.relayConfigured;
+      state.relayConfigured = true;
       renderNetworkStatus();
       renderRooms(state.rooms);
     } catch (error) {
@@ -162,10 +162,10 @@
       note.classList.remove('checking', 'ready', 'blocked');
       if (state.relayConfigured || state.relayAvailable) {
         note.classList.add('ready');
-        note.querySelector('span').textContent = 'School-network relay ready';
+        note.querySelector('span').textContent = 'Cloudflare Realtime voice ready';
       } else {
         note.classList.add('blocked');
-        note.querySelector('span').textContent = 'Direct audio only · restricted Wi-Fi may block calls';
+        note.querySelector('span').textContent = 'Realtime voice is temporarily unavailable';
       }
     }
     if (connectionText) setConnectionLabel(connectionText);
@@ -251,7 +251,7 @@
     $('nova-vc-active').classList.toggle('hidden', lobby);
     if (!lobby) {
       try { await ensureMicrophone(); } catch (error) { toast('Microphone access was blocked. You can still listen and read dictation.'); state.muted = true; }
-      await loadIceServers();
+      await startRealtimeVoice();
       populateDevices();
       startDictation();
       startLevelMeter();
@@ -289,7 +289,7 @@
     if (message.type === 'welcome') {
       state.me = message.you;
       if (message.room) updateLiveRoom(message.room);
-      if (!state.wsLobby) setConnectionLabel(state.relayAvailable ? 'Relay ready' : 'Direct connection');
+      if (!state.wsLobby) setConnectionLabel('Cloudflare Realtime connected');
       return;
     }
     if (message.type === 'room-state') { if (message.room) updateLiveRoom(message.room); return; }
@@ -298,9 +298,9 @@
       await promoteFromLobby(); return;
     }
     if (message.type === 'admission-denied' && message.targetUserId === state.me?.userId) { toast('Your join request was denied'); return leaveRoom(); }
-    if (message.type === 'offer') return receiveOffer(message.from, message.payload);
-    if (message.type === 'answer') return receiveAnswer(message.from, message.payload);
-    if (message.type === 'ice') return receiveIce(message.from, message.payload);
+    // Audio is carried by Cloudflare Realtime. Ignore legacy mesh signaling
+    // from clients that have not refreshed during a rolling deployment.
+    if (message.type === 'offer' || message.type === 'answer' || message.type === 'ice') return;
     if (message.type === 'presence') { patchMemberPresence(message); return; }
     if (message.type === 'transcript') { addTranscript(message.line); return; }
     if (message.type === 'force-mute' && message.targetUserId === state.me?.userId) {
@@ -340,7 +340,7 @@
     if (state.room.dictationEnabled === false) stopDictation();
     else if (!dictationWasEnabled && state.dictationEnabled) startDictation();
     renderRoom(state.room);
-    syncPeers(room.members || []);
+    if (state.sfu) state.sfu.refresh();
   }
 
   function renderRoom(room) {
@@ -427,10 +427,7 @@
     if (state.localStream) state.localStream.getTracks().forEach(function (track) { track.stop(); });
     state.localStream = stream;
     stream.getAudioTracks().forEach(function (track) { track.enabled = !state.muted && !state.pushToTalk; });
-    state.peers.forEach(function (entry) {
-      var sender = entry.pc.getSenders().find(function (item) { return item.track && item.track.kind === 'audio'; });
-      if (sender && stream.getAudioTracks()[0]) sender.replaceTrack(stream.getAudioTracks()[0]);
-    });
+    if (state.sfu && stream.getAudioTracks()[0]) await state.sfu.replaceTrack(stream.getAudioTracks()[0]);
     return stream;
   }
   async function switchMicrophone(deviceId) { try { await ensureMicrophone(deviceId); startLevelMeter(); toast('Microphone changed'); } catch (error) { toast('Could not use that microphone'); } }
@@ -446,6 +443,18 @@
     try { var payload = await NovaAPI.voiceIce(state.roomId); state.iceServers = payload.iceServers || []; state.relayAvailable = !!payload.relayAvailable; state.relayConfigured = state.relayConfigured || state.relayAvailable; }
     catch (error) { state.iceServers = [{ urls: ['stun:stun.cloudflare.com:3478'] }]; state.relayAvailable = false; }
     renderNetworkStatus(state.relayAvailable ? 'School-network relay ready' : 'Direct only · Wi-Fi may block audio');
+  }
+  async function startRealtimeVoice() {
+    if (!window.NovaRealtimeVoice) throw new Error('Nova Realtime did not load');
+    if (state.sfu) await state.sfu.disconnect();
+    state.sfu = new NovaRealtimeVoice(state.roomId, state.localStream, {
+      deafened: state.deafened,
+      onState: function (value) { if (value === 'connected') setConnectionLabel('Cloudflare Realtime connected'); else if (value === 'connecting') setConnectionLabel('Connecting to Realtime…'); else if (value === 'reconnect-required') { setConnectionLabel('Connection lost · rejoin the room'); toast('Voice connection was interrupted. Leave and rejoin the room.'); } },
+      onError: function (error) { console.warn('[Nova Voice] Realtime refresh', error); }
+    });
+    setConnectionLabel('Connecting to Cloudflare Realtime…');
+    await state.sfu.connect();
+    state.relayAvailable = true; state.relayConfigured = true; renderNetworkStatus('Cloudflare Realtime connected');
   }
   function setConnectionLabel(text) { var label = $('nova-vc-relay'); if (label) { label.textContent = text; label.classList.toggle('ready', state.relayAvailable); } }
 
@@ -538,7 +547,7 @@
     if (state.localStream) state.localStream.getAudioTracks().forEach(function (track) { track.enabled = !state.muted && !state.pushToTalk; });
     sendPresence(); updateControls();
   }
-  function setDeafened(deafened) { state.deafened = !!deafened; state.remoteAudio.forEach(function (audio) { audio.muted = state.deafened; }); sendPresence(); updateControls(); }
+  function setDeafened(deafened) { state.deafened = !!deafened; state.remoteAudio.forEach(function (audio) { audio.muted = state.deafened; }); if(state.sfu)state.sfu.setDeafened(state.deafened); sendPresence(); updateControls(); }
   function togglePushToTalk() { state.pushToTalk = !state.pushToTalk; localStorage.setItem('nova_voice_ptt', state.pushToTalk ? '1' : '0'); if (state.pushToTalk && state.localStream) state.localStream.getAudioTracks().forEach(function (track) { track.enabled = false; }); else if (!state.muted && state.localStream) state.localStream.getAudioTracks().forEach(function (track) { track.enabled = true; }); updateControls(); }
   function pushToTalkDown(event) { if (!state.pushToTalk || event.code !== 'Space' || event.repeat || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return; event.preventDefault(); state.pttPressed = true; if (!state.muted && state.localStream) state.localStream.getAudioTracks().forEach(function (track) { track.enabled = true; }); }
   function pushToTalkUp(event) { if (!state.pushToTalk || event.code !== 'Space') return; event.preventDefault(); state.pttPressed = false; if (state.localStream) state.localStream.getAudioTracks().forEach(function (track) { track.enabled = false; }); }
@@ -584,11 +593,12 @@
   async function leaveRoom(localOnly) {
     if (!state.roomId) return closeStage();
     var roomId = state.roomId; state.leaving = true;
+    if(state.sfu){await state.sfu.disconnect();state.sfu=null}
     if (!localOnly) try { await NovaAPI.leaveVoiceRoom(roomId); } catch (error) {}
     cleanupRoom(); closeStage(); refreshRooms();
   }
   function cleanupRoom() {
-    closeSocket(); closeAllPeers(); stopDictation(); stopLevelMeter(); clearInterval(state.durationTimer);
+    closeSocket(); closeAllPeers(); if(state.sfu){state.sfu.disconnect();state.sfu=null} stopDictation(); stopLevelMeter(); clearInterval(state.durationTimer);
     if (state.localStream) state.localStream.getTracks().forEach(function (track) { track.stop(); });
     state.localStream = null; state.room = null; state.roomId = ''; state.me = null; state.transcript = []; state.interim = ''; state.wsLobby = false; state.leaving = false; state.muted = false; state.hostMuted = false; state.deafened = false; state.peerRetries.clear(); state.networkWarningShown = false; updateIsland();
     document.querySelector('.nova-vc-dictation')?.classList.add('mobile-hidden');
@@ -608,7 +618,7 @@
   document.addEventListener('nova:logout', function () { clearInterval(state.pollTimer); if (state.roomId) leaveRoom(); renderRooms([]); });
   document.addEventListener('nova:social-pane-opened', function (event) { state.currentPane = event.detail?.pane || 'everyone'; ensureUI(); refreshRooms(); });
   document.addEventListener('nova:page-change', function (event) { if (event.detail?.page === 'social') { ensureUI(); refreshRooms(); } });
-  window.addEventListener('beforeunload', function () { if (state.ws) try { state.ws.close(1000, 'Page closed'); } catch (error) {} });
+  window.addEventListener('beforeunload', function () { if (state.ws) try { state.ws.close(1000, 'Page closed'); } catch (error) {} if(state.sfu)state.sfu.disconnect(); });
 
   window.NovaSocialVC = { refresh: refreshRooms, openRoom: previewRoom, leaveRoom: leaveRoom, inCall: function () { return !!state.roomId; }, show: showStage };
 })();
