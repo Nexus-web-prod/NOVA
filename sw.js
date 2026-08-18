@@ -180,6 +180,15 @@ async function handleRequest(event) {
 }
 
 self.addEventListener("message", event => {
+  if (event.data && event.data.type === "nova_vortex_config_check") {
+    event.waitUntil((async () => {
+      try { await vortex.loadConfig(); } catch (_) {}
+      event.ports[0]?.postMessage({
+        ready: !!vortex.config && typeof vortex.config.prefix === "string"
+      });
+    })());
+    return;
+  }
   if (event.data && event.data.type === "nova_adblock") {
     adblockEnabled = !!event.data.enabled;
   }

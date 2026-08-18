@@ -97,6 +97,25 @@
 
   self.vortex = vortex;
 
+  async function confirmWorkerConfig() {
+    const controller = navigator.serviceWorker.controller;
+    if (!controller) throw new Error("Proxy service worker is not controlling this page");
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const ready = await new Promise((resolve) => {
+        const channel = new MessageChannel();
+        const timeout = setTimeout(() => resolve(false), 500);
+        channel.port1.onmessage = (event) => {
+          clearTimeout(timeout);
+          resolve(!!event.data?.ready);
+        };
+        controller.postMessage({ type: "nova_vortex_config_check" }, [channel.port2]);
+      });
+      if (ready) return true;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error("Proxy configuration did not reach the service worker");
+  }
+
   async function prepareServiceWorker() {
     if (!("serviceWorker" in navigator)) throw new Error("Service workers are unavailable");
     const hadController = !!navigator.serviceWorker.controller;
@@ -122,6 +141,7 @@
       });
     }
     await vortex.init();
+    await confirmWorkerConfig();
     return true;
   }
 
