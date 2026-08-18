@@ -127,7 +127,7 @@ export default {
     }
 
     if (url.hostname === "games.nova-7.pages.dev" && (url.pathname === "/" || url.pathname === "/index.html")) {
-      return env.ASSETS.fetch(new Request(new URL("/nova-games.html", url), request));
+      return env.ASSETS.fetch(new Request(new URL("/nova-games", url), request));
     }
     return env.ASSETS.fetch(request);
   }
