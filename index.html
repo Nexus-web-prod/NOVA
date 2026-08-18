@@ -37,6 +37,7 @@ function _showNovaUpdateBanner(){
 <link rel="icon" id="favicon-link" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' ry='22' fill='%230a0a14'/><path d='M50,24 C51.5,35 62,47.5 76,50 C62,52.5 51.5,65 50,76 C48.5,65 38,52.5 24,50 C38,47.5 48.5,35 50,24Z' fill='%23ffffff' opacity='0.92'/><circle cx='50' cy='50' r='3' fill='%23ffffff'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="stylesheet" href="/css/nova.css?v=733">
+<link rel="stylesheet" href="/css/nova-game-detail.css?v=721">
 <link rel="stylesheet" href="/css/nova-vc.css?v=715">
 <link rel="stylesheet" href="/css/nova-supernova-hub.css?v=723">
 <link rel="stylesheet" href="/css/nova-holiday-themes.css?v=723">
@@ -1966,6 +1967,41 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <div class="nexus-footer"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <a href="https://nexus-n-co.pages.dev/nexus" target="_blank" class="nexus-footer-link"><strong>NEXUS</strong></a></span></div>
 </div>
 </div>
+<div class="page" id="page-game-detail">
+<div class="content-page game-detail-shell">
+<section id="game-detail-hero" aria-labelledby="game-detail-title">
+<div class="game-detail-bg" id="game-detail-bg" aria-hidden="true"></div>
+<div class="game-detail-shade" aria-hidden="true"></div>
+<button class="game-detail-back" id="game-detail-back" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span>All games</span></button>
+<div class="game-detail-copy">
+<div class="game-detail-kicker"><span></span>Nova game spotlight</div>
+<h1 id="game-detail-title" tabindex="-1">Game</h1>
+<div class="game-detail-meta" id="game-detail-meta" aria-label="Game details"></div>
+<p id="game-detail-description"></p>
+<div class="game-detail-actions">
+<button id="game-detail-play" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg><span>Play now</span></button>
+<button id="game-detail-favorite" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3z"></path></svg><span>Favorite</span></button>
+<button id="game-detail-share" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"></path></svg><span>Share</span></button>
+</div>
+</div>
+<button class="game-detail-art" id="game-detail-art" type="button" aria-label="Play game">
+<img id="game-detail-image" src="" alt="">
+<span class="game-detail-art-fallback" id="game-detail-art-fallback" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 9h8l3 2.5a5 5 0 0 1 1.5 5.5l-.4 1.1a2.5 2.5 0 0 1-4.3.7L14.4 17H9.6l-1.4 1.8a2.5 2.5 0 0 1-4.3-.7L3.5 17A5 5 0 0 1 5 11.5L8 9Z"></path><path d="M8 12v3M6.5 13.5h3M16.5 13h.01M18 15h.01"></path></svg></span>
+<span class="game-detail-watermark" aria-hidden="true">NOVA PLAY</span>
+<span class="game-detail-art-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></span>
+</button>
+</section>
+<section class="game-detail-info" aria-label="Game information">
+<article><span>Community rating</span><strong id="game-detail-rating">—</strong><small id="game-detail-rating-count">Not rated yet</small></article>
+<article><span>Nova plays</span><strong id="game-detail-plays">0</strong><small>Across the Nova universe</small></article>
+<article><span>Launch mode</span><strong>Instant</strong><small>Opens inside Nova Browser</small></article>
+</section>
+<section class="game-detail-related" aria-labelledby="game-detail-related-title">
+<header><div><span>Keep exploring</span><h2 id="game-detail-related-title">More like this</h2></div><button id="game-detail-see-all" type="button">See all games</button></header>
+<div id="game-detail-related-grid"></div>
+</section>
+</div>
+</div>
 <div class="page" id="page-apps">
 <div class="content-page">
 <div class="page-title">APPS</div>
@@ -3501,6 +3537,7 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 <script src="/js/nova-movies.js?v=710"></script>
+<script src="/js/nova-game-detail.js?v=722"></script>
 <div id="nova-orbit-panel" style="display:none;position:fixed;top:2.6rem;right:.7rem;z-index:9990;background:var(--bg);border:1px solid rgba(139,143,255,.22);border-radius:16px;padding:1.2rem 1.3rem 1.1rem;min-width:230px;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.5);backdrop-filter:blur(16px);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
     <div style="display:flex;align-items:center;gap:.4rem;">
