@@ -163,6 +163,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/boardgames/uno/lobbies" && method === "GET") return getUnoLobby(request, url, env.DB);
   if (pathname === "/api/boardgames/uno/lobbies" && method === "POST") return createUnoLobby(request, env.DB);
   if (pathname === "/api/boardgames/uno/join" && method === "POST") return joinUnoLobby(request, env.DB);
+  if (pathname === "/api/boardgames/uno/leave" && method === "POST") return leaveUnoLobby(request, env.DB);
   if (pathname === "/api/boardgames/uno/action" && method === "POST") return unoAction(request, env.DB);
   if (pathname === "/api/boardgames/uno/invite" && method === "POST") return inviteUnoFriend(request, env.DB);
   if (pathname === "/api/boardgames/uno/invites" && method === "GET") return getUnoInvites(request, env.DB);
@@ -699,9 +700,32 @@ async function joinUnoLobby(request, db) {
     const seats = new Set(members.map(member => Number(member.seat)));
     let seat = 0; while (seats.has(seat)) seat++;
     await db.prepare("INSERT INTO uno_lobby_members(lobby_id,user_id,seat,joined_at) VALUES(?,?,?,?)").bind(row.id, auth.id, seat, Date.now()).run();
+    await db.prepare("UPDATE uno_lobbies SET version=version+1,updated_at=? WHERE id=?").bind(Date.now(), row.id).run();
   }
   await db.prepare("DELETE FROM uno_lobby_invites WHERE lobby_id=? AND invited_user_id=?").bind(row.id, auth.id).run();
-  return apiJson({ lobby: await exposeUnoLobby(db, row, auth.id) });
+  const updated = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(row.id).first();
+  return apiJson({ lobby: await exposeUnoLobby(db, updated, auth.id) });
+}
+
+async function leaveUnoLobby(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  const body = await readJson(request);
+  const lobbyId = cleanText(body.lobbyId, 80);
+  const lobby = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
+  if (!lobby) return apiJson({ ok: true });
+  const member = await db.prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(lobbyId, auth.id).first();
+  if (!member) return apiJson({ ok: true });
+  if (lobby.status !== "lobby") return apiError("GAME_ACTIVE", "Finish the current game before leaving", 409);
+  await db.prepare("DELETE FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(lobbyId, auth.id).run();
+  const remaining = await unoMembers(db, lobbyId);
+  if (!remaining.length) {
+    await db.prepare("DELETE FROM uno_lobbies WHERE id=?").bind(lobbyId).run();
+  } else {
+    const nextOwner = lobby.owner_id === auth.id ? remaining[0].userId : lobby.owner_id;
+    await db.prepare("UPDATE uno_lobbies SET owner_id=?,version=version+1,updated_at=? WHERE id=?").bind(nextOwner, Date.now(), lobbyId).run();
+  }
+  return apiJson({ ok: true });
 }
 
 async function inviteUnoFriend(request, db) {
