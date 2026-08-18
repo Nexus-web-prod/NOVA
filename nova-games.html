@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090712">
+  <title>Nova Games — UNO</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%236c5cff'/><path d='M32 13c1 10 9 18 19 19-10 1-18 9-19 19-1-10-9-18-19-19 10-1 18-9 19-19Z' fill='white'/></svg>">
+  <link rel="stylesheet" href="/css/nova-games.css?v=1">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to game</a>
+  <header class="topbar">
+    <a class="brand" href="https://dev.nova-7.pages.dev" aria-label="Return to Nova"><span class="brand-mark">✦</span><span>NOVA</span><b>GAMES</b></a>
+    <div class="connection"><i></i><span id="connection-text">Connecting</span></div>
+    <button class="account-button" id="account-button" type="button"><span class="avatar" id="account-avatar">?</span><span id="account-label">Sign in</span></button>
+  </header>
+
+  <main id="main">
+    <section class="landing" id="landing">
+      <div class="landing-copy">
+        <span class="eyebrow">Nova Social game night</span>
+        <h1>One table.<br><em>Zero chill.</em></h1>
+        <p>Start an UNO lobby, invite up to three Nova friends, and play live from any device.</p>
+        <div class="landing-actions">
+          <button class="primary" id="create-lobby" type="button">Create a lobby <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+          <button class="secondary" id="open-join" type="button">Join with code</button>
+        </div>
+      </div>
+      <div class="hero-cards" aria-hidden="true">
+        <div class="hero-card red"><span>7</span><b>7</b><span>7</span></div>
+        <div class="hero-card blue"><span>↻</span><b>↻</b><span>↻</span></div>
+        <div class="hero-card wild"><span>✦</span><b>WILD</b><span>✦</span></div>
+      </div>
+      <section class="invites-panel" id="invites-panel" hidden><header><span>Your invitations</span><b id="invite-count">0</b></header><div id="invite-list"></div></section>
+    </section>
+
+    <section class="lobby-view" id="lobby-view" hidden>
+      <div class="lobby-card">
+        <span class="eyebrow">Private lobby</span><h1>Bring the crew.</h1><p>Share this code or invite a Nova friend.</p>
+        <button class="lobby-code" id="copy-code" type="button"><span id="lobby-code">------</span><small>Click to copy</small></button>
+        <div class="player-list" id="player-list"></div>
+        <div class="invite-friends"><label for="friend-picker">Invite a friend</label><div><select id="friend-picker"><option value="">Choose a Nova friend</option></select><button id="invite-friend" type="button">Send invite</button></div></div>
+        <div class="lobby-actions"><button class="secondary" id="leave-lobby" type="button">Leave</button><button class="primary" id="start-game" type="button">Start game</button></div>
+      </div>
+    </section>
+
+    <section class="table-view" id="table-view" hidden aria-label="UNO game table">
+      <div class="table-glow"></div><div class="opponents" id="opponents"></div>
+      <div class="table-center"><div class="deck" id="draw-pile" role="button" tabindex="0" aria-label="Draw a card"><span>✦</span><b>NOVA</b></div><div id="discard-pile"></div><p id="turn-label" role="status" aria-live="polite">Waiting…</p></div>
+      <div class="your-zone"><div class="you-row"><span id="you-name">You</span><b id="card-count">0 cards</b></div><div class="hand" id="hand" aria-label="Your hand"></div></div>
+    </section>
+  </main>
+
+  <div class="modal" id="auth-modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="icon-button close-modal" type="button" aria-label="Close">×</button><span class="eyebrow">Nova account</span><h2 id="auth-title">Sign in to play</h2><p>Your Nova Games session stays on this domain.</p><form id="auth-form"><label>Username<input id="auth-username" autocomplete="username" required maxlength="24"></label><label>Password<input id="auth-password" type="password" autocomplete="current-password" required minlength="8"></label><button class="primary" type="submit">Sign in</button><p class="form-error" id="auth-error" role="alert"></p></form><button class="text-button" id="auth-mode" type="button">New to Nova? Create an account</button></div></div>
+  <div class="modal" id="join-modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="join-title"><button class="icon-button close-modal" type="button" aria-label="Close">×</button><span class="eyebrow">Join friends</span><h2 id="join-title">Enter lobby code</h2><form id="join-form"><label>Six-character code<input id="join-code" class="code-input" maxlength="6" autocomplete="off" required></label><button class="primary" type="submit">Join table</button><p class="form-error" id="join-error" role="alert"></p></form></div></div>
+  <div class="modal" id="color-modal" hidden><div class="modal-card color-card" role="dialog" aria-modal="true" aria-labelledby="color-title"><h2 id="color-title">Choose a color</h2><div class="color-grid"><button data-color="red" aria-label="Red"></button><button data-color="yellow" aria-label="Yellow"></button><button data-color="green" aria-label="Green"></button><button data-color="blue" aria-label="Blue"></button></div></div></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/js/nova-v7-api.js?v=728"></script><script src="/js/nova-uno.js?v=1"></script>
+</body>
+</html>

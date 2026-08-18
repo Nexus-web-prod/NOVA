@@ -67,6 +67,7 @@ const PRIVATE_DEPLOYMENT_FILES = new Set([
 ]);
 let lastCleanupAt = 0;
 let maintenanceCache = { checkedAt: 0, state: null };
+let unoSchemaReady = null;
 const requestUserCache = new WeakMap();
 const geminiModelCache = new Map();
 
@@ -125,6 +126,9 @@ export default {
       }
     }
 
+    if (url.hostname === "games.nova-7.pages.dev" && (url.pathname === "/" || url.pathname === "/index.html")) {
+      return env.ASSETS.fetch(new Request(new URL("/nova-games.html", url), request));
+    }
     return env.ASSETS.fetch(request);
   }
 };
@@ -132,6 +136,8 @@ export default {
 async function routeApi(request, env, url) {
   const { pathname } = url;
   const method = request.method.toUpperCase();
+
+  if (pathname.startsWith("/api/boardgames/uno/")) await ensureUnoSchema(env.DB);
 
   if (pathname === "/api/health" && method === "GET") return health(env);
   if (pathname === "/api/device-status" && method === "GET") return deviceStatus(request, env.DB);
@@ -154,6 +160,12 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/games/stats" && method === "GET") return getGameStats(request, url, env.DB);
   if (pathname === "/api/games/rating" && method === "POST") return rateGame(request, env.DB);
   if (pathname === "/api/games/view" && method === "POST") return recordGameView(request, env.DB);
+  if (pathname === "/api/boardgames/uno/lobbies" && method === "GET") return getUnoLobby(request, url, env.DB);
+  if (pathname === "/api/boardgames/uno/lobbies" && method === "POST") return createUnoLobby(request, env.DB);
+  if (pathname === "/api/boardgames/uno/join" && method === "POST") return joinUnoLobby(request, env.DB);
+  if (pathname === "/api/boardgames/uno/action" && method === "POST") return unoAction(request, env.DB);
+  if (pathname === "/api/boardgames/uno/invite" && method === "POST") return inviteUnoFriend(request, env.DB);
+  if (pathname === "/api/boardgames/uno/invites" && method === "GET") return getUnoInvites(request, env.DB);
   if (pathname === "/api/presence" && method === "POST") return setPresence(request, env.DB);
   if (pathname === "/api/social" && method === "GET") return socialOverview(request, env.DB);
   if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, env.DB);
@@ -572,6 +584,204 @@ async function saveActivity(request, db) {
     ON CONFLICT(user_id,content_type,content_id) DO UPDATE SET title=excluded.title,artwork_url=excluded.artwork_url,progress=excluded.progress,last_opened_at=excluded.last_opened_at`)
     .bind(auth.id, type, contentId, cleanText(body.title, 120), cleanUrl(body.artworkUrl, 2048), clampNumber(body.progress, 0, 1), Date.now()).run();
   return apiJson({ ok: true });
+}
+
+function unoCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(bytes, byte => alphabet[byte % alphabet.length]).join("");
+}
+
+async function ensureUnoSchema(db) {
+  if (!unoSchemaReady) unoSchemaReady = db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS uno_lobbies (id TEXT PRIMARY KEY,code TEXT NOT NULL UNIQUE,owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'lobby' CHECK(status IN ('lobby','playing','finished')),state_json TEXT NOT NULL DEFAULT '{}',version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS uno_lobbies_code_idx ON uno_lobbies(code,updated_at DESC)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS uno_lobby_members (lobby_id TEXT NOT NULL REFERENCES uno_lobbies(id) ON DELETE CASCADE,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,seat INTEGER NOT NULL,joined_at INTEGER NOT NULL,PRIMARY KEY(lobby_id,user_id),UNIQUE(lobby_id,seat))"),
+    db.prepare("CREATE TABLE IF NOT EXISTS uno_lobby_invites (lobby_id TEXT NOT NULL REFERENCES uno_lobbies(id) ON DELETE CASCADE,invited_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,invited_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,created_at INTEGER NOT NULL,PRIMARY KEY(lobby_id,invited_user_id))"),
+    db.prepare("CREATE INDEX IF NOT EXISTS uno_invites_user_idx ON uno_lobby_invites(invited_user_id,created_at DESC)")
+  ]).catch(error => { unoSchemaReady = null; throw error; });
+  return unoSchemaReady;
+}
+
+function unoDeck() {
+  const deck = [];
+  for (const color of ["red", "yellow", "green", "blue"]) {
+    deck.push({ color, value: "0" });
+    for (const value of ["1","2","3","4","5","6","7","8","9","skip","reverse","draw2"]) {
+      deck.push({ color, value }, { color, value });
+    }
+  }
+  for (let index = 0; index < 4; index++) deck.push({ color: "wild", value: "wild" }, { color: "wild", value: "wild4" });
+  for (let index = deck.length - 1; index > 0; index--) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [deck[index], deck[other]] = [deck[other], deck[index]];
+  }
+  return deck;
+}
+
+function unoNext(state, steps) {
+  const length = state.order.length;
+  state.turn = (state.turn + state.direction * (steps || 1) + length * 4) % length;
+}
+
+function unoCanPlay(card, state) {
+  const top = state.discard[state.discard.length - 1];
+  return card.color === "wild" || card.color === state.color || card.value === top.value;
+}
+
+async function unoMembers(db, lobbyId) {
+  const result = await db.prepare(`SELECT m.user_id AS userId,m.seat,u.username,COALESCE(NULLIF(p.display_name,''),u.username) AS displayName,
+    COALESCE(p.avatar_url,'') AS avatarUrl FROM uno_lobby_members m JOIN users u ON u.id=m.user_id
+    LEFT JOIN user_profiles p ON p.user_id=u.id WHERE m.lobby_id=? ORDER BY m.seat`).bind(lobbyId).all();
+  return result.results || [];
+}
+
+async function exposeUnoLobby(db, row, userId) {
+  const state = parseJson(row.state_json, {});
+  const members = await unoMembers(db, row.id);
+  const hand = state.hands?.[userId] || [];
+  return {
+    id: row.id, code: row.code, ownerId: row.owner_id, status: row.status, version: row.version,
+    members: members.map(member => ({ ...member, cardCount: (state.hands?.[member.userId] || []).length })),
+    hand,
+    topCard: state.discard?.[state.discard.length - 1] || null,
+    activeColor: state.color || "",
+    currentUserId: state.order?.[state.turn] || "",
+    direction: state.direction || 1,
+    winnerId: state.winnerId || ""
+  };
+}
+
+async function getUnoLobby(request, url, db) {
+  const auth = await requireSocialUser(request, db);
+  const id = cleanText(url.searchParams.get("id"), 80);
+  const code = cleanText(url.searchParams.get("code"), 6).toUpperCase();
+  const row = id
+    ? await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(id).first()
+    : await db.prepare("SELECT * FROM uno_lobbies WHERE code=?").bind(code).first();
+  if (!row) return apiError("LOBBY_NOT_FOUND", "That lobby could not be found", 404);
+  const member = await db.prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(row.id, auth.id).first();
+  if (!member) return apiError("LOBBY_ACCESS", "Join this lobby before viewing it", 403);
+  return apiJson({ lobby: await exposeUnoLobby(db, row, auth.id) });
+}
+
+async function createUnoLobby(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "uno-create", 12, 10 * 60 * 1000, 10 * 60 * 1000);
+  const id = "uno_" + randomId();
+  let code = unoCode();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (!(await db.prepare("SELECT 1 FROM uno_lobbies WHERE code=?").bind(code).first())) break;
+    code = unoCode();
+  }
+  const now = Date.now();
+  await db.batch([
+    db.prepare("INSERT INTO uno_lobbies(id,code,owner_id,status,state_json,version,created_at,updated_at) VALUES(?,?,?,'lobby','{}',1,?,?)").bind(id, code, auth.id, now, now),
+    db.prepare("INSERT INTO uno_lobby_members(lobby_id,user_id,seat,joined_at) VALUES(?,?,0,?)").bind(id, auth.id, now)
+  ]);
+  const row = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(id).first();
+  return apiJson({ lobby: await exposeUnoLobby(db, row, auth.id) }, 201);
+}
+
+async function joinUnoLobby(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  const body = await readJson(request);
+  const code = cleanText(body.code, 6).toUpperCase();
+  const row = await db.prepare("SELECT * FROM uno_lobbies WHERE code=?").bind(code).first();
+  if (!row) return apiError("LOBBY_NOT_FOUND", "Check the six-character lobby code", 404);
+  if (row.status !== "lobby") return apiError("GAME_STARTED", "This game has already started", 409);
+  const current = await db.prepare("SELECT seat FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(row.id, auth.id).first();
+  if (!current) {
+    const members = await unoMembers(db, row.id);
+    if (members.length >= 4) return apiError("LOBBY_FULL", "This lobby is full", 409);
+    const seats = new Set(members.map(member => Number(member.seat)));
+    let seat = 0; while (seats.has(seat)) seat++;
+    await db.prepare("INSERT INTO uno_lobby_members(lobby_id,user_id,seat,joined_at) VALUES(?,?,?,?)").bind(row.id, auth.id, seat, Date.now()).run();
+  }
+  await db.prepare("DELETE FROM uno_lobby_invites WHERE lobby_id=? AND invited_user_id=?").bind(row.id, auth.id).run();
+  return apiJson({ lobby: await exposeUnoLobby(db, row, auth.id) });
+}
+
+async function inviteUnoFriend(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  const body = await readJson(request);
+  const lobbyId = cleanText(body.lobbyId, 80);
+  const username = normalizeUsername(body.username);
+  const lobby = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
+  if (!lobby || lobby.owner_id !== auth.id || lobby.status !== "lobby") return apiError("LOBBY_ACCESS", "Only the lobby host can invite friends", 403);
+  const target = await db.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND account_status='active'").bind(username).first();
+  if (!target) return apiError("USER_NOT_FOUND", "That account was not found", 404);
+  const friend = await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?))").bind(auth.id,target.id,target.id,auth.id).first();
+  if (!friend) return apiError("FRIENDS_ONLY", "You can only invite Nova friends", 403);
+  await db.prepare("INSERT INTO uno_lobby_invites(lobby_id,invited_user_id,invited_by,created_at) VALUES(?,?,?,?) ON CONFLICT(lobby_id,invited_user_id) DO UPDATE SET created_at=excluded.created_at,invited_by=excluded.invited_by").bind(lobbyId,target.id,auth.id,Date.now()).run();
+  return apiJson({ ok: true });
+}
+
+async function getUnoInvites(request, db) {
+  const auth = await requireSocialUser(request, db);
+  const rows = await db.prepare(`SELECT l.id AS lobbyId,l.code,u.username AS fromUsername,i.created_at AS createdAt
+    FROM uno_lobby_invites i JOIN uno_lobbies l ON l.id=i.lobby_id JOIN users u ON u.id=i.invited_by
+    WHERE i.invited_user_id=? AND l.status='lobby' ORDER BY i.created_at DESC LIMIT 12`).bind(auth.id).all();
+  return apiJson({ invites: rows.results || [] });
+}
+
+async function unoAction(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  const body = await readJson(request);
+  const lobbyId = cleanText(body.lobbyId, 80);
+  const action = enumValue(body.action, ["start","play","draw"], "draw");
+  const row = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
+  if (!row) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
+  const members = await unoMembers(db, lobbyId);
+  if (!members.some(member => member.userId === auth.id)) return apiError("LOBBY_ACCESS", "You are not in this lobby", 403);
+  let state = parseJson(row.state_json, {});
+  let status = row.status;
+  if (action === "start") {
+    if (row.owner_id !== auth.id) return apiError("HOST_ONLY", "Only the host can start", 403);
+    if (row.status !== "lobby") return apiError("ALREADY_STARTED", "The game has already started", 409);
+    if (members.length < 2) return apiError("MORE_PLAYERS", "Invite at least one friend first", 409);
+    const deck = unoDeck(), hands = {}, order = members.map(member => member.userId);
+    order.forEach(userId => { hands[userId] = deck.splice(0, 7); });
+    let first = deck.pop();
+    while (first.color === "wild" || ["skip","reverse","draw2"].includes(first.value)) { deck.unshift(first); first = deck.pop(); }
+    state = { deck, hands, order, discard: [first], color: first.color, turn: 0, direction: 1, winnerId: "" };
+    status = "playing";
+  } else {
+    if (row.status !== "playing") return apiError("NOT_PLAYING", "Start the game first", 409);
+    if (state.order[state.turn] !== auth.id) return apiError("NOT_YOUR_TURN", "Wait for your turn", 409);
+    const hand = state.hands[auth.id] || [];
+    if (action === "draw") {
+      if (!state.deck.length) state.deck = state.discard.splice(0, state.discard.length - 1).sort(() => Math.random() - .5);
+      if (state.deck.length) hand.push(state.deck.pop());
+      unoNext(state, 1);
+    } else {
+      const index = Number(body.cardIndex);
+      const card = hand[index];
+      if (!card || !unoCanPlay(card, state)) return apiError("INVALID_CARD", "That card cannot be played now", 409);
+      hand.splice(index, 1); state.discard.push(card);
+      state.color = card.color === "wild" ? enumValue(body.color, ["red","yellow","green","blue"], "red") : card.color;
+      if (!hand.length) { state.winnerId = auth.id; status = "finished"; }
+      else {
+        if (card.value === "reverse") state.direction *= -1;
+        const steps = card.value === "skip" ? 2 : 1;
+        unoNext(state, steps);
+        const drawCount = card.value === "draw2" ? 2 : card.value === "wild4" ? 4 : 0;
+        if (drawCount) {
+          const target = state.order[state.turn];
+          for (let count = 0; count < drawCount; count++) if (state.deck.length) state.hands[target].push(state.deck.pop());
+          unoNext(state, 1);
+        }
+      }
+    }
+  }
+  const result = await db.prepare("UPDATE uno_lobbies SET status=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,JSON.stringify(state),Date.now(),lobbyId,row.version).run();
+  if (!result.meta?.changes) return apiError("GAME_CHANGED", "The table changed—try again", 409);
+  const updated = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
+  return apiJson({ lobby: await exposeUnoLobby(db, updated, auth.id) });
 }
 
 async function setPresence(request, db) {
