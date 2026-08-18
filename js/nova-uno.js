@@ -1,6 +1,6 @@
 (function(){
   "use strict";
-  var user=null,lobby=null,pollTimer=null,inviteTimer=null,registerMode=false,pendingCard=-1;
+  var user=null,lobby=null,pollTimer=null,inviteTimer=null,pollBusy=false,registerMode=false,pendingCard=-1;
   var $=function(id){return document.getElementById(id)};
   function show(id){$(id).hidden=false} function hide(id){$(id).hidden=true}
   function toast(message){var el=$("toast");el.textContent=message;el.classList.add("show");clearTimeout(el._timer);el._timer=setTimeout(function(){el.classList.remove("show")},3200)}
@@ -24,8 +24,24 @@
   function memberName(id){var member=lobby.members.find(function(item){return item.userId===id});return member?(member.displayName||member.username):"another player"}
   async function playCard(index,card){if(card.color==="wild"){pendingCard=index;show("color-modal");return}await action({action:"play",cardIndex:index})}
   async function action(body){if(!lobby)return;body.lobbyId=lobby.id;try{var data=await call("/api/boardgames/uno/action",{method:"POST",body:body});if(data.lobby.status==="lobby")enterLobby(data.lobby);else enterTable(data.lobby)}catch(e){toast(e.message);await poll()}}
-  function startPoll(){clearInterval(pollTimer);pollTimer=setInterval(poll,850)}
-  async function poll(){if(!lobby||document.hidden)return;try{var data=await call("/api/boardgames/uno/lobbies?id="+encodeURIComponent(lobby.id));setConnected(true);lobby=data.lobby;lobby.status==="lobby"?renderLobby():renderTable()}catch(e){setConnected(false)}}
+  function startPoll(){clearTimeout(pollTimer);pollTimer=null;if(!pollBusy)poll()}
+  async function poll(){
+    if(!lobby){pollBusy=false;return}
+    if(document.hidden){pollTimer=setTimeout(poll,850);return}
+    if(pollBusy)return;
+    pollBusy=true;
+    try{
+      var data=await call("/api/boardgames/uno/lobbies?id="+encodeURIComponent(lobby.id));
+      setConnected(true);
+      lobby=data.lobby;
+      if(lobby.status==="lobby"){
+        if($("lobby-view").hidden)enterLobby(lobby);else renderLobby();
+      }else{
+        if($("table-view").hidden)enterTable(lobby);else renderTable();
+      }
+    }catch(e){setConnected(false)}
+    finally{pollBusy=false;if(lobby)pollTimer=setTimeout(poll,850)}
+  }
   $("account-button").onclick=function(){if(user){toast("Signed in as "+user.username);return}show("auth-modal")};
   document.querySelectorAll(".close-modal").forEach(function(button){button.onclick=function(){button.closest(".modal").hidden=true}});
   $("auth-mode").onclick=function(){registerMode=!registerMode;$("auth-title").textContent=registerMode?"Create your Nova account":"Sign in to play";$("auth-mode").textContent=registerMode?"Already have an account? Sign in":"New to Nova? Create an account";$("auth-form").querySelector("button").textContent=registerMode?"Create account":"Sign in"};
@@ -33,9 +49,10 @@
   $("create-lobby").onclick=createLobby;$("open-join").onclick=function(){if(requireUser()){show("join-modal");$("join-code").focus()}};$("join-form").onsubmit=function(event){event.preventDefault();joinLobby($("join-code").value)};$("join-code").oninput=function(){this.value=this.value.toUpperCase().replace(/[^A-Z2-9]/g,"")};
   $("copy-code").onclick=function(){navigator.clipboard.writeText(lobby.code).then(function(){toast("Lobby code copied")})};
   $("invite-friend").onclick=async function(){var username=$("friend-picker").value;if(!username)return toast("Choose a friend first");try{await call("/api/boardgames/uno/invite",{method:"POST",body:{lobbyId:lobby.id,username:username}});toast("Invite sent to "+username)}catch(e){toast(e.message)}};
-  $("start-game").onclick=function(){action({action:"start"})};$("leave-lobby").onclick=async function(){if(!lobby)return;var leaving=lobby;clearInterval(pollTimer);try{await call("/api/boardgames/uno/leave",{method:"POST",body:{lobbyId:leaving.id}})}catch(e){toast(e.message);startPoll();return}lobby=null;hide("lobby-view");show("landing");loadInvites()};
+  $("start-game").onclick=function(){action({action:"start"})};$("leave-lobby").onclick=async function(){if(!lobby)return;var leaving=lobby;clearTimeout(pollTimer);try{await call("/api/boardgames/uno/leave",{method:"POST",body:{lobbyId:leaving.id}})}catch(e){toast(e.message);startPoll();return}lobby=null;hide("lobby-view");show("landing");loadInvites()};
   $("draw-pile").onclick=function(){if(lobby&&lobby.currentUserId===user.id)action({action:"draw"});else toast("Wait for your turn")};$("draw-pile").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();this.click()}};
   document.querySelectorAll("[data-color]").forEach(function(button){button.onclick=function(){hide("color-modal");action({action:"play",cardIndex:pendingCard,color:button.dataset.color});pendingCard=-1}});
   document.addEventListener("keydown",function(e){if(e.key==="Escape")document.querySelectorAll(".modal:not([hidden])").forEach(function(modal){modal.hidden=true})});
+  document.addEventListener("visibilitychange",function(){if(!document.hidden&&lobby)startPoll()});
   boot();
 })();
