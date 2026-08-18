@@ -4,11 +4,13 @@ if (navigator.userAgent.includes("Firefox")) {
   Object.defineProperty(globalThis, "crossOriginIsolated", { value: true, writable: false });
 }
 
-importScripts("/vortex.all.js?v=1787041000");
+importScripts("/vortex.all.js?v=1787043000");
+importScripts("/js/nova-proxy-compatibility.js");
 
 const { VortexServiceWorker } = $vortexLoadWorker();
 const vortex = new VortexServiceWorker();
 let adblockEnabled = false;
+const proxyMetrics = { requests: 0, failures: 0, authHandoffs: 0, totalLatencyMs: 0 };
 
 self.addEventListener("install", event => {
   event.waitUntil(self.skipWaiting());
@@ -143,6 +145,23 @@ function proxyErrorResponse(requestUrl) {
   });
 }
 
+function getProxiedTarget(requestUrl) {
+  if (requestUrl.origin !== self.location.origin || !requestUrl.pathname.startsWith("/vortex/")) return null;
+  try { return new URL(decodeURIComponent(requestUrl.pathname.slice("/vortex/".length))); }
+  catch { return null; }
+}
+
+async function authHandoffResponse() {
+  try {
+    return await fetch(new URL("/verification-handoff.html", self.location.origin), { cache: "no-store" });
+  } catch {
+    return new Response("Open this verification address directly in your browser.", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+}
+
 async function handleRequest(event) {
   if (isNovaRuntimeRequest(event.request)) {
     try {
@@ -168,6 +187,13 @@ async function handleRequest(event) {
     return fetch(event.request);
   }
 
+  const proxiedTarget = getProxiedTarget(requestUrl);
+  const compatibility = proxiedTarget ? self.NovaProxyCompatibility?.classify(proxiedTarget) : null;
+  if (compatibility?.mode === "direct-auth" && ["document", "iframe"].includes(event.request.destination)) {
+    proxyMetrics.authHandoffs++;
+    return authHandoffResponse();
+  }
+
   // The controller persists config and then posts it to the worker. On a fresh
   // worker activation, the first navigation can arrive between those steps.
   for (let attempt = 0; attempt < 30 && !vortex.config; attempt++) {
@@ -175,13 +201,20 @@ async function handleRequest(event) {
     if (!vortex.config) await new Promise(resolve => setTimeout(resolve, 50));
   }
   if (!vortex.config || typeof vortex.config.prefix !== "string") {
+    proxyMetrics.failures++;
     return proxyErrorResponse(event.request.url);
   }
   if (!vortex.route(event)) return fetch(event.request);
 
+  const startedAt = performance.now();
+  proxyMetrics.requests++;
   try {
-    return await vortex.fetch(event);
+    const response = await vortex.fetch(event);
+    proxyMetrics.totalLatencyMs += Math.max(0, performance.now() - startedAt);
+    return response;
   } catch {
+    proxyMetrics.failures++;
+    proxyMetrics.totalLatencyMs += Math.max(0, performance.now() - startedAt);
     return proxyErrorResponse(event.request.url);
   }
 }
@@ -198,6 +231,18 @@ self.addEventListener("message", event => {
   }
   if (event.data && event.data.type === "nova_adblock") {
     adblockEnabled = !!event.data.enabled;
+    return;
+  }
+  if (event.data && event.data.type === "nova_proxy_metrics") {
+    const averageLatencyMs = proxyMetrics.requests
+      ? Math.round(proxyMetrics.totalLatencyMs / proxyMetrics.requests)
+      : 0;
+    event.ports[0]?.postMessage({
+      requests: proxyMetrics.requests,
+      failures: proxyMetrics.failures,
+      authHandoffs: proxyMetrics.authHandoffs,
+      averageLatencyMs
+    });
   }
 });
 

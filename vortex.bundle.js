@@ -5710,6 +5710,9 @@ function rewriteUrl(url, meta) {
     } else if (url.startsWith("blob:")) {
         return location.origin + _shared__WEBPACK_IMPORTED_MODULE_0__.config.prefix + url;
     } else if (url.startsWith("data:")) {
+        // Static inline assets are already self-contained. Sending them through
+        // the service worker adds latency and can make CSP treat them as fetches.
+        if (/^data:(?:image|audio|video|font)\//i.test(url)) return url;
         return location.origin + _shared__WEBPACK_IMPORTED_MODULE_0__.config.prefix + url;
     } else if (url.startsWith("mailto:") || url.startsWith("about:")) {
         return url;
@@ -6271,7 +6274,7 @@ __webpack_require__.d(__webpack_exports__, {
  *
  * Cache key = sha256(original url + content-etag/last-modified)
  * so stale content is always invalidated.
- */ const CACHE_NAME = "vortex-rewrite-v4";
+ */ const CACHE_NAME = "vortex-rewrite-v5";
 const CACHEABLE_TYPES = new Set([
     "script",
     "style",
@@ -6293,6 +6296,7 @@ function makeCacheKey(url, etag, lastModified) {
 }
 async function getCachedRewrite(url, etag, lastModified, destination) {
     if (!CACHEABLE_TYPES.has(destination)) return null;
+    if (!etag && !lastModified) return null;
     try {
         const cache = await caches.open(CACHE_NAME);
         const key = makeCacheKey(url, etag, lastModified);
@@ -6307,6 +6311,7 @@ async function getCachedRewrite(url, etag, lastModified, destination) {
 }
 async function setCachedRewrite(url, etag, lastModified, destination, body, headers) {
     if (!CACHEABLE_TYPES.has(destination)) return;
+    if (!etag && !lastModified) return;
     try {
         const cache = await caches.open(CACHE_NAME);
         const key = makeCacheKey(url, etag, lastModified);
@@ -7122,7 +7127,9 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
     if (response.body && !isRedirect(response)) {
         const cacheControl = String(responseHeaders["cache-control"] || "").toLowerCase();
         const pragma = String(responseHeaders["pragma"] || "").toLowerCase();
-        const rewriteCacheAllowed = (0,_worker_cache__WEBPACK_IMPORTED_MODULE_11__.isCacheable)(destination) && !/(?:^|,|\s)(?:no-store|no-cache|private)(?:$|,|\s|=)/.test(cacheControl) && !pragma.includes("no-cache") && setCookieHeaders.filter(Boolean).length === 0;
+        const vary = String(responseHeaders["vary"] || "").toLowerCase().trim();
+        const verificationRuntime = /^(?:challenges\.cloudflare\.com|www\.google\.com|www\.gstatic\.com|www\.recaptcha\.net)$/.test(url.hostname) && /(?:captcha|challenge-platform|turnstile)/i.test(url.pathname);
+        const rewriteCacheAllowed = (0,_worker_cache__WEBPACK_IMPORTED_MODULE_11__.isCacheable)(destination) && !verificationRuntime && !/(?:^|,|\s)(?:no-store|no-cache|private)(?:$|,|\s|=)/.test(cacheControl) && !pragma.includes("no-cache") && (!vary || vary === "accept-encoding") && setCookieHeaders.filter(Boolean).length === 0;
         // ── ENHANCED: Cache check ───────────────────────────────────────────
         if (rewriteCacheAllowed) {
             const etagRaw = response.rawHeaders?.["etag"];
