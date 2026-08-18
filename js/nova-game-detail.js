@@ -93,7 +93,7 @@
       } else if (attempts >= 12) {
         clearInterval(timer);
         if (!activeGame || activeGame.name !== gameName) return;
-        renderPersonalRating('Sign in to save a community rating');
+        renderPersonalRating('Could not save your rating — try again');
       }
     }, 250);
   }

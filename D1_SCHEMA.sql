@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS nova_schema_meta (
   applied_at INTEGER NOT NULL
 );
 INSERT INTO nova_schema_meta(id, version, applied_at)
-VALUES (1, 716, unixepoch() * 1000)
+VALUES (1, 717, unixepoch() * 1000)
 ON CONFLICT(id) DO UPDATE SET version = excluded.version, applied_at = excluded.applied_at;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -96,6 +96,15 @@ CREATE TABLE IF NOT EXISTS game_ratings (
   PRIMARY KEY(user_id, slug)
 );
 CREATE INDEX IF NOT EXISTS game_ratings_slug_idx ON game_ratings(slug, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS game_guest_ratings (
+  device_id_hash TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  PRIMARY KEY(device_id_hash, slug)
+);
+CREATE INDEX IF NOT EXISTS game_guest_ratings_slug_idx ON game_guest_ratings(slug, updated_at DESC);
 
 -- Supernova Hub state is private to its owner and deliberately separate from
 -- normal settings.  Each section is independently validated by the Worker;

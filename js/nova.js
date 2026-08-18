@@ -153,7 +153,7 @@ document.getElementById("cp-btn").onclick=async()=>{if(cpLock)return;const curPa
     setMsg("av-msg","","");toast("Avatar removed");
   };
 })();
-}function getMyRatings(){try{return JSON.parse(localStorage.getItem("nova_my_ratings")||"{}")}catch{return{}}}async function submitRating(e,t){if(!_account)return toast("Sign in to rate games"),openAccountModal(),!1;const a=gameSlug(e);try{if(!window.NovaAPI||typeof window.NovaAPI.rateGame!=="function")throw new Error("Rating API unavailable");const n=await window.NovaAPI.rateGame(a,t),o=getMyRatings();o[e]=t,localStorage.setItem("nova_my_ratings",JSON.stringify(o));if(n&&n.stats)document.dispatchEvent(new CustomEvent("nova:game-stats-updated",{detail:{slug:a,stats:n.stats}}));return!0}catch(n){return 401===n?.status&&(openAccountModal(),toast("Sign in again to rate games")),401!==n?.status&&toast("Could not save rating"),!1}}async function incrementViews(e){
+}function getMyRatings(){try{return JSON.parse(localStorage.getItem("nova_my_ratings")||"{}")}catch{return{}}}async function submitRating(e,t){const a=gameSlug(e);try{if(!window.NovaAPI||typeof window.NovaAPI.rateGame!=="function")throw new Error("Rating API unavailable");const n=await window.NovaAPI.rateGame(a,t),o=getMyRatings();o[e]=t,localStorage.setItem("nova_my_ratings",JSON.stringify(o));if(n&&n.stats)document.dispatchEvent(new CustomEvent("nova:game-stats-updated",{detail:{slug:a,stats:n.stats}}));return!0}catch(n){return toast("Could not save rating — try again"),!1}}async function incrementViews(e){
 const KEY='nova_viewed_'+gameSlug(e);
 if(sessionStorage.getItem(KEY))return;
 sessionStorage.setItem(KEY,'1');

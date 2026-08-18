@@ -236,7 +236,7 @@ async function health(env) {
   ]);
   const schema = schemaResult.results?.[0] || null;
   const userColumns = Number(columnResult.results?.[0]?.count || 0);
-  if (!schema || Number(schema.version) < 716 || userColumns !== 5) {
+  if (!schema || Number(schema.version) < 717 || userColumns !== 5) {
     return apiError("DATABASE_SCHEMA_MISMATCH", "Nova's database needs the clean Nova 7 schema", 503);
   }
   return apiJson({
@@ -466,6 +466,12 @@ async function getGameStats(request, url, db) {
   if (auth) {
     const ratings = await db.prepare(`SELECT slug, rating FROM game_ratings WHERE user_id = ? AND slug IN (${placeholders})`).bind(auth.id, ...slugs).all();
     ratingMap = new Map((ratings.results || []).map(row => [row.slug, row.rating]));
+  } else {
+    const deviceId = deviceIdFrom(request);
+    if (deviceId) {
+      const ratings = await db.prepare(`SELECT slug, rating FROM game_guest_ratings WHERE device_id_hash = ? AND slug IN (${placeholders})`).bind(await sha256(deviceId), ...slugs).all();
+      ratingMap = new Map((ratings.results || []).map(row => [row.slug, row.rating]));
+    }
   }
   const stats = {};
   slugs.forEach(slug => { stats[slug] = exposeGameStats(rowMap.get(slug), ratingMap.get(slug)); });
@@ -474,27 +480,40 @@ async function getGameStats(request, url, db) {
 
 async function rateGame(request, db) {
   requireSameOrigin(request);
-  const auth = await requireUser(request, db);
-  await enforceUserRateLimit(db, auth.id, "game-rating", 80, 10 * 60 * 1000, 10 * 60 * 1000);
+  const auth = await optionalUser(request, db);
+  const deviceId = deviceIdFrom(request);
+  if (!auth && !deviceId) return apiError("DEVICE_REQUIRED", "Nova could not identify this device", 400);
+  if (auth) await enforceUserRateLimit(db, auth.id, "game-rating", 80, 10 * 60 * 1000, 10 * 60 * 1000);
+  else await enforceAuthRateLimit(request, db, "game-rating", 40, 10 * 60 * 1000, 10 * 60 * 1000);
   const body = await readJson(request);
   const slug = normalizeGameSlug(body.slug);
   const rating = Number(body.rating);
   if (!slug || !Number.isInteger(rating) || rating < 1 || rating > 5) {
     return apiError("INVALID_RATING", "Choose a rating from 1 to 5", 400);
   }
-  const existing = await db.prepare("SELECT rating FROM game_ratings WHERE user_id = ? AND slug = ?").bind(auth.id, slug).first();
+  const deviceHash = auth ? "" : await sha256(deviceId);
+  const existing = auth
+    ? await db.prepare("SELECT rating FROM game_ratings WHERE user_id = ? AND slug = ?").bind(auth.id, slug).first()
+    : await db.prepare("SELECT rating FROM game_guest_ratings WHERE device_id_hash = ? AND slug = ?").bind(deviceHash, slug).first();
   const now = Date.now();
+  const saveRating = auth
+    ? (existing
+      ? db.prepare("UPDATE game_ratings SET rating = ?, updated_at = ? WHERE user_id = ? AND slug = ?").bind(rating, now, auth.id, slug)
+      : db.prepare("INSERT INTO game_ratings(user_id, slug, rating, updated_at) VALUES(?,?,?,?)").bind(auth.id, slug, rating, now))
+    : (existing
+      ? db.prepare("UPDATE game_guest_ratings SET rating = ?, updated_at = ? WHERE device_id_hash = ? AND slug = ?").bind(rating, now, deviceHash, slug)
+      : db.prepare("INSERT INTO game_guest_ratings(device_id_hash, slug, rating, updated_at) VALUES(?,?,?,?)").bind(deviceHash, slug, rating, now));
   if (existing) {
     const delta = rating - Number(existing.rating || 0);
     await db.batch([
-      db.prepare("UPDATE game_ratings SET rating = ?, updated_at = ? WHERE user_id = ? AND slug = ?").bind(rating, now, auth.id, slug),
+      saveRating,
       db.prepare(`INSERT INTO game_stats(slug, rating_sum, rating_count, updated_at) VALUES(?,?,1,?)
         ON CONFLICT(slug) DO UPDATE SET rating_sum = MAX(0, game_stats.rating_sum + ?), updated_at = excluded.updated_at`)
         .bind(slug, rating, now, delta)
     ]);
   } else {
     await db.batch([
-      db.prepare("INSERT INTO game_ratings(user_id, slug, rating, updated_at) VALUES(?,?,?,?)").bind(auth.id, slug, rating, now),
+      saveRating,
       db.prepare(`INSERT INTO game_stats(slug, rating_sum, rating_count, updated_at) VALUES(?,?,1,?)
         ON CONFLICT(slug) DO UPDATE SET rating_sum = game_stats.rating_sum + excluded.rating_sum, rating_count = game_stats.rating_count + 1, updated_at = excluded.updated_at`)
         .bind(slug, rating, now)
