@@ -848,7 +848,11 @@ function makeMsg(msg,mine,showSender){
   if(msg._clientId)el.dataset.clientId=msg._clientId;
   if(msg._id)el.dataset.streamId=msg._id;
   let sender="";
-  if(showSender&&!mine){
+  if(showSender){
+    const senderKey=String(msg.from||"").toLowerCase();
+    const ownAccount=mine?getAccount():null;
+    const knownAvatar=msg.avatarUrl||ownAccount?.avatarUrl||ownAccount?.avatar;
+    if(senderKey&&knownAvatar&&!String(knownAvatar).startsWith("__builtin__"))_avatarCache[senderKey]=knownAvatar;
     const avHtml=avatarHtml(msg.from);
     sender='<div class="social-msg-sender-row" style="display:flex;align-items:center;gap:.3rem;margin-bottom:.15rem;"><div class="social-msg-avatar" style="width:18px;height:18px;min-width:18px;border-radius:50%;background:var(--glass-bg-h);display:flex;align-items:center;justify-content:center;font-size:.45rem;overflow:hidden;">'+avHtml+'</div><div style="display:flex;align-items:center;gap:.25rem;flex-wrap:wrap;overflow:visible;"><div class="social-msg-sender" data-np-user="'+esc((msg.from||'').toLowerCase())+'">'+esc(displayName(msg.from||'?'))+'</div>'+adminBadgeHtml(msg.from||'')+supernovaBadgeHtml(msg.from||'')+"</div></div>";
   }
@@ -877,10 +881,10 @@ function makeMsg(msg,mine,showSender){
   el.querySelector('[data-message-action="react"]')?.addEventListener("click",e=>{e.stopPropagation();openReactionPicker(e.currentTarget,msg,el);});
   el.querySelector('[data-message-action="copy"]')?.addEventListener("click",e=>{e.stopPropagation();copyMessage(msg,e.currentTarget);});
   renderReactionChips(el,msg);
-  if(showSender&&!mine&&msg.from&&!_avatarCache[msg.from.toLowerCase()]){
+  if(showSender&&msg.from&&!_avatarCache[msg.from.toLowerCase()]){
     const avEl=el.querySelector(".social-msg-avatar");if(avEl)applyAvatarToEl(avEl,msg.from);
   }
-  if(showSender&&!mine){
+  if(showSender){
     const npEl=el.querySelector(".social-msg-sender[data-np-user]");
     const bubbleEl=el.querySelector(".social-msg-bubble");
     // Defer nameplate styling to next idle moment — avoids blocking paint on Chromebooks
