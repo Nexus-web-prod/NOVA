@@ -167,6 +167,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/boardgames/uno/action" && method === "POST") return unoAction(request, env.DB);
   if (pathname === "/api/boardgames/uno/invite" && method === "POST") return inviteUnoFriend(request, env.DB);
   if (pathname === "/api/boardgames/uno/invites" && method === "GET") return getUnoInvites(request, env.DB);
+  if (pathname === "/api/boardgames/uno/social-invite" && method === "POST") return createUnoSocialInvite(request, env.DB);
   if (pathname === "/api/boardgames/uno/call" && method === "POST") return joinUnoCall(request, env);
   if (pathname === "/api/presence" && method === "POST") return setPresence(request, env.DB);
   if (pathname === "/api/social" && method === "GET") return socialOverview(request, env.DB);
@@ -690,16 +691,65 @@ async function createUnoLobby(request, db) {
   return apiJson({ lobby: await exposeUnoLobby(db, row, auth.id) }, 201);
 }
 
+async function createUnoLobbyRecord(db, ownerId) {
+  const id = "uno_" + randomId();
+  let code = unoCode();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (!(await db.prepare("SELECT 1 FROM uno_lobbies WHERE code=?").bind(code).first())) break;
+    code = unoCode();
+  }
+  const now = Date.now();
+  await db.batch([
+    db.prepare("INSERT INTO uno_lobbies(id,code,owner_id,status,state_json,version,created_at,updated_at) VALUES(?,?,?,'lobby','{}',1,?,?)").bind(id, code, ownerId, now, now),
+    db.prepare("INSERT INTO uno_lobby_members(lobby_id,user_id,seat,joined_at) VALUES(?,?,0,?)").bind(id, ownerId, now)
+  ]);
+  return db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(id).first();
+}
+
+async function createUnoSocialInvite(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "uno-social-create", 12, 10 * 60 * 1000, 10 * 60 * 1000);
+  const body = await readJson(request);
+  const kind = cleanText(body.kind, 12);
+  let invitees = [];
+  if (kind === "dm") {
+    const username = normalizeUsername(body.username);
+    const target = await db.prepare("SELECT id,username FROM users WHERE username=? COLLATE NOCASE AND account_status='active'").bind(username).first();
+    if (!target) return apiError("USER_NOT_FOUND", "That friend could not be found", 404);
+    const friend = await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?))").bind(auth.id,target.id,target.id,auth.id).first();
+    if (!friend || await isBlockedBetween(db, auth.id, target.id)) return apiError("FRIENDS_ONLY", "UNO can only be started with an accepted friend", 403);
+    invitees = [target];
+  } else if (kind === "group") {
+    const groupId = cleanText(body.groupId, 80);
+    const membership = await db.prepare("SELECT 1 FROM social_channel_members m JOIN social_channels c ON c.id=m.channel_id WHERE m.channel_id=? AND m.user_id=? AND c.kind='group'").bind(groupId, auth.id).first();
+    if (!membership) return apiError("GROUP_ACCESS", "You are not a member of this group", 403);
+    const rows = await db.prepare("SELECT u.id,u.username FROM social_channel_members m JOIN users u ON u.id=m.user_id WHERE m.channel_id=? AND m.user_id<>? AND u.account_status='active' ORDER BY lower(u.username)").bind(groupId, auth.id).all();
+    invitees = rows.results || [];
+    if (!invitees.length) return apiError("GROUP_EMPTY", "Add another friend before starting UNO", 409);
+    if (invitees.length > 3) return apiError("UNO_GROUP_SIZE", "UNO supports up to four players. Use a smaller group chat.", 409);
+  } else return apiError("INVALID_INVITE", "Choose a friend or group chat", 400);
+  const lobby = await createUnoLobbyRecord(db, auth.id);
+  const now = Date.now();
+  await db.batch(invitees.map(target => db.prepare("INSERT INTO uno_lobby_invites(lobby_id,invited_user_id,invited_by,created_at) VALUES(?,?,?,?) ON CONFLICT(lobby_id,invited_user_id) DO UPDATE SET created_at=excluded.created_at,invited_by=excluded.invited_by").bind(lobby.id,target.id,auth.id,now)));
+  return apiJson({ lobby: await exposeUnoLobby(db, lobby, auth.id), invitees: invitees.map(item => item.username), launchUrl: "https://games.nova-7.pages.dev/?lobby=" + encodeURIComponent(lobby.id) }, 201);
+}
+
 async function joinUnoLobby(request, db) {
   requireSameOrigin(request);
   const auth = await requireSocialUser(request, db);
   const body = await readJson(request);
   const code = cleanText(body.code, 6).toUpperCase();
-  const row = await db.prepare("SELECT * FROM uno_lobbies WHERE code=?").bind(code).first();
-  if (!row) return apiError("LOBBY_NOT_FOUND", "Check the six-character lobby code", 404);
+  const lobbyId = cleanText(body.lobbyId, 80);
+  const row = lobbyId ? await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first() : await db.prepare("SELECT * FROM uno_lobbies WHERE code=?").bind(code).first();
+  if (!row) return apiError("LOBBY_NOT_FOUND", lobbyId ? "That UNO invite is no longer available" : "Check the six-character lobby code", 404);
   if (row.status !== "lobby") return apiError("GAME_STARTED", "This game has already started", 409);
   const current = await db.prepare("SELECT seat FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(row.id, auth.id).first();
   if (!current) {
+    if (lobbyId) {
+      const invite = await db.prepare("SELECT 1 FROM uno_lobby_invites WHERE lobby_id=? AND invited_user_id=?").bind(row.id, auth.id).first();
+      if (!invite) return apiError("INVITE_REQUIRED", "This private UNO table is for invited players", 403);
+    }
     const members = await unoMembers(db, row.id);
     if (members.length >= 4) return apiError("LOBBY_FULL", "This lobby is full", 409);
     const seats = new Set(members.map(member => Number(member.seat)));

@@ -859,7 +859,11 @@ function makeMsg(msg,mine,showSender){
   }
   const time='<div class="social-msg-time">'+fmtTime(msg.ts)+"</div>";
   let bubble="";
-  if(msg.type==="image"){
+  const unoMatch=msg.type==="text"&&String(msg.text||"").match(/^\[\[NOVA_UNO:([A-Za-z0-9_-]+)\]\]$/);
+  if(unoMatch){
+    const joinUrl="https://games.nova-7.pages.dev/?lobby="+encodeURIComponent(unoMatch[1]);
+    bubble='<div class="social-msg-bubble social-uno-invite"><div class="social-uno-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div class="social-uno-copy"><small>NOVA TABLE</small><strong>UNO</strong><span>'+(mine?'Invites sent — your table is ready.':'You were invited to play.')+'</span></div><a class="social-uno-join" href="'+joinUrl+'" target="_blank" rel="noopener">'+(mine?'Open':'Join')+' table<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>';
+  }else if(msg.type==="image"){
     bubble='<div class="social-msg-bubble social-msg-bubble--img"><img src="'+esc(msg.text)+'" alt="photo" class="social-chat-photo" loading="lazy"></div>';
   }else{
     bubble='<div class="social-msg-bubble">'+esc(msg.text)+"</div>";
@@ -889,6 +893,26 @@ function makeMsg(msg,mine,showSender){
     }
   }
   return el;
+}
+
+async function startUnoFromSocial(button){
+  const acct=getAccount();if(!acct)return toast("Sign in to start UNO");
+  const group=activePane.startsWith("group:");
+  if(!group&&(activePane==="everyone"||activePane==="none"))return;
+  const gameTab=window.open("about:blank","_blank");
+  button.disabled=true;button.classList.add("is-loading");
+  try{
+    const payload=group?{kind:"group",groupId:activeGroupId}:{kind:"dm",username:activePane};
+    const data=await NovaAPI.request("/api/boardgames/uno/social-invite",{method:"POST",body:payload});
+    const marker="[[NOVA_UNO:"+data.lobby.id+"]]";
+    const channel=group?groupStreamKey(activeGroupId):dmKey(acct.username.toLowerCase(),activePane.toLowerCase());
+    const sid=await streamAdd(channel,{from:acct.username.toLowerCase(),text:marker,ts:String(Date.now()),type:"text",cid:uid()});
+    if(!sid)throw new Error("The table was created, but its chat invite could not be sent");
+    const container=document.getElementById(group?"social-group-messages":"social-messages");
+    if(container){container.appendChild(makeMsg({_id:sid,from:acct.username.toLowerCase(),text:marker,ts:Date.now(),type:"text"},true,group));container.scrollTop=container.scrollHeight;}
+    toast("UNO table created — invites sent");if(gameTab){gameTab.opener=null;gameTab.location.replace(data.launchUrl)}else window.location.href=data.launchUrl;
+  }catch(error){if(gameTab)gameTab.close();toast(error.message||"Could not start UNO");}
+  finally{button.disabled=false;button.classList.remove("is-loading");}
 }
 function emptyState(txt){return'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.6rem;opacity:.35;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-family:\'Space Mono\',monospace;font-size:.5rem;color:var(--muted);">'+txt+"</div></div>"}
 function renderMessages(msgs,containerId,showSender){
@@ -1481,6 +1505,8 @@ function wireDom(){
   document.getElementById("social-chat-nickname-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openNicknameModal(activePane);});
   document.getElementById("social-chat-report-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openReportUserModal(activePane);});
   document.getElementById("social-chat-block-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openBlockUserModal(activePane);});
+  document.getElementById("social-dm-uno-btn")?.addEventListener("click",e=>startUnoFromSocial(e.currentTarget));
+  document.getElementById("social-group-uno-btn")?.addEventListener("click",e=>startUnoFromSocial(e.currentTarget));
 
   const groupModal=document.getElementById("social-group-modal");
   document.getElementById("social-new-group-btn")?.addEventListener("click",()=>{

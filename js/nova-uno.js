@@ -1,6 +1,6 @@
 (function(){
   "use strict";
-  var user=null,lobby=null,pollTimer=null,inviteTimer=null,pollBusy=false,registerMode=false,pendingCard=-1;
+  var user=null,lobby=null,pollTimer=null,inviteTimer=null,pollBusy=false,registerMode=false,pendingCard=-1,pendingLobbyId=new URLSearchParams(location.search).get("lobby")||"";
   var voice={roomId:"",ws:null,stream:null,meId:"",ice:[],peers:new Map(),muted:false};
   var $=function(id){return document.getElementById(id)};
   function show(id){$(id).hidden=false} function hide(id){$(id).hidden=true}
@@ -8,13 +8,14 @@
   async function call(path,options){return NovaAPI.request(path,options)}
   function setConnected(ok){document.querySelector(".connection").classList.toggle("online",ok);$("connection-text").textContent=ok?"Live":"Offline"}
   function setUser(next){user=next||null;$("account-label").textContent=user?(user.displayName||user.username):"Sign in";$("account-avatar").textContent=user?(user.displayName||user.username).charAt(0).toUpperCase():"?"}
-  async function boot(){try{var me=await NovaAPI.me();setUser(me.user);setConnected(true);if(user){await loadFriends();await loadInvites();inviteTimer=setInterval(function(){if(!lobby)loadInvites()},5000)}}catch(e){setConnected(false)}}
+  async function boot(){try{var me=await NovaAPI.me();setUser(me.user);setConnected(true);if(user){await loadFriends();await loadInvites();if(pendingLobbyId)await joinLobbyById(pendingLobbyId);inviteTimer=setInterval(function(){if(!lobby)loadInvites()},5000)}else if(pendingLobbyId)show("auth-modal")}catch(e){setConnected(false)}}
   function requireUser(){if(user)return true;show("auth-modal");setTimeout(function(){$("auth-username").focus()},30);return false}
   async function loadFriends(){try{var data=await NovaAPI.social();var picker=$("friend-picker");picker.innerHTML='<option value="">Choose a Nova friend</option>';data.friends.forEach(function(friend){var option=document.createElement("option");option.value=friend.username;option.textContent=friend.displayName||friend.username;picker.appendChild(option)})}catch(e){}}
   async function loadInvites(){try{var data=await call("/api/boardgames/uno/invites");var list=$("invite-list");list.innerHTML="";$("invite-count").textContent=data.invites.length;$("invites-panel").hidden=!data.invites.length;data.invites.forEach(function(invite){var row=document.createElement("div");row.className="invite-row";row.innerHTML="<span><b>"+escapeHtml(invite.fromUsername)+"</b><br><small>UNO · "+invite.code+"</small></span><button type='button'>Join</button>";row.querySelector("button").onclick=function(){joinLobby(invite.code)};list.appendChild(row)})}catch(e){}}
   function escapeHtml(value){var div=document.createElement("div");div.textContent=value||"";return div.innerHTML}
   async function createLobby(){if(!requireUser())return;disable($("create-lobby"),true,"Creating…");try{var data=await call("/api/boardgames/uno/lobbies",{method:"POST",body:{}});enterLobby(data.lobby)}catch(e){toast(e.message)}finally{disable($("create-lobby"),false,"Create a lobby")}}
   async function joinLobby(code){if(!requireUser())return;try{var data=await call("/api/boardgames/uno/join",{method:"POST",body:{code:code}});hide("join-modal");enterLobby(data.lobby)}catch(e){$("join-error").textContent=e.message}}
+  async function joinLobbyById(id){if(!requireUser())return;try{var data=await call("/api/boardgames/uno/join",{method:"POST",body:{lobbyId:id}});pendingLobbyId="";history.replaceState(null,"",location.pathname);hide("auth-modal");enterLobby(data.lobby)}catch(e){toast(e.message);pendingLobbyId=""}}
   function disable(button,on,label){button.disabled=on;button.textContent=label}
   function enterLobby(next){lobby=next;hide("landing");hide("table-view");show("lobby-view");$("call-button").hidden=false;renderLobby();startPoll()}
   function enterTable(next){lobby=next;hide("landing");hide("lobby-view");show("table-view");$("call-button").hidden=false;renderTable();startPoll()}
@@ -56,7 +57,7 @@
   $("account-button").onclick=function(){if(user){toast("Signed in as "+user.username);return}show("auth-modal")};
   document.querySelectorAll(".close-modal").forEach(function(button){button.onclick=function(){button.closest(".modal").hidden=true}});
   $("auth-mode").onclick=function(){registerMode=!registerMode;$("auth-title").textContent=registerMode?"Create your Nova account":"Sign in to play";$("auth-mode").textContent=registerMode?"Already have an account? Sign in":"New to Nova? Create an account";$("auth-form").querySelector("button").textContent=registerMode?"Create account":"Sign in"};
-  $("auth-form").onsubmit=async function(event){event.preventDefault();$("auth-error").textContent="";try{var method=registerMode?NovaAPI.register:NovaAPI.login;await method({username:$("auth-username").value,password:$("auth-password").value});var me=await NovaAPI.me();NovaAPI.cacheUser(me.user);setUser(me.user);hide("auth-modal");await loadFriends();await loadInvites();toast("Welcome, "+me.user.username)}catch(e){$("auth-error").textContent=e.message}};
+  $("auth-form").onsubmit=async function(event){event.preventDefault();$("auth-error").textContent="";try{var method=registerMode?NovaAPI.register:NovaAPI.login;await method({username:$("auth-username").value,password:$("auth-password").value});var me=await NovaAPI.me();NovaAPI.cacheUser(me.user);setUser(me.user);hide("auth-modal");await loadFriends();await loadInvites();if(pendingLobbyId)await joinLobbyById(pendingLobbyId);toast("Welcome, "+me.user.username)}catch(e){$("auth-error").textContent=e.message}};
   $("create-lobby").onclick=createLobby;$("open-join").onclick=function(){if(requireUser()){show("join-modal");$("join-code").focus()}};$("join-form").onsubmit=function(event){event.preventDefault();joinLobby($("join-code").value)};$("join-code").oninput=function(){this.value=this.value.toUpperCase().replace(/[^A-Z2-9]/g,"")};
   $("copy-code").onclick=function(){navigator.clipboard.writeText(lobby.code).then(function(){toast("Lobby code copied")})};
   $("invite-friend").onclick=async function(){var username=$("friend-picker").value;if(!username)return toast("Choose a friend first");try{await call("/api/boardgames/uno/invite",{method:"POST",body:{lobbyId:lobby.id,username:username}});toast("Invite sent to "+username)}catch(e){toast(e.message)}};
