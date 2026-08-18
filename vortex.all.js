@@ -6182,6 +6182,7 @@ function errorTemplate(trace, fetchedURL) {
                 fetchedURL.textContent = ${JSON.stringify(fetchedURL)};
                 for (const node of document.querySelectorAll("#hostname")) node.textContent = ${JSON.stringify(location.hostname)};
                 reload.addEventListener("click", () => location.reload());
+                back.addEventListener("click", () => history.length > 1 ? history.back() : location.assign('/'));
                 version.textContent = ${JSON.stringify(globalThis.$vortexVersion?.version || "unknown")};
                 build.textContent = ${JSON.stringify(globalThis.$vortexVersion?.build || "unknown")};
 
@@ -6416,40 +6417,56 @@ function errorTemplate(trace, fetchedURL) {
                         #info { flex-direction: column; }
                         #inner { padding: 1.5rem; }
                     }
+
+                    html, body { align-items: stretch; justify-content: stretch; overflow: auto; }
+                    body { min-height: 100vh; background: #050509; }
+                    .nova-bg { background: radial-gradient(circle at 72% 18%, rgba(139,143,255,.1), transparent 34%); }
+                    #inner {
+                        width: min(920px, calc(100% - 48px)); max-width: none; min-height: 100vh;
+                        margin: 0 auto; padding: clamp(2rem, 7vw, 6rem) 0; align-items: flex-start;
+                        justify-content: center; gap: 0; background: none; border: 0; border-radius: 0;
+                        backdrop-filter: none; box-shadow: none;
+                    }
+                    .nova-logo { margin: 0 0 clamp(3rem, 8vh, 6rem); font-size: .72rem; color: var(--white); opacity: .78; }
+                    .error-icon { display: none; }
+                    .error-kicker { display: flex; align-items: center; gap: .55rem; margin-bottom: 1rem; color: #9d9fff; font: 700 .68rem var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+                    .error-kicker::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px var(--accent); }
+                    h1#errorTitle { max-width: 760px; margin: 0; font: 700 clamp(2.5rem, 7vw, 5.4rem)/1.02 var(--font-sans); letter-spacing: -.045em; text-align: left; }
+                    .subtitle { max-width: 680px; margin-top: 1.1rem; color: rgba(200,200,216,.72); font-size: clamp(.98rem, 2vw, 1.2rem); line-height: 1.6; text-align: left; }
+                    .subtitle b { display: block; max-width: 100%; margin-top: .7rem; overflow: hidden; color: var(--white); font: 600 .74rem var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+                    .error-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 2rem; }
+                    .error-actions button { min-width: 132px; min-height: 46px; padding: 0 1.15rem; border: 1px solid rgba(255,255,255,.17); border-radius: 7px; font: 700 .7rem var(--font-mono); letter-spacing: .04em; cursor: pointer; transition: transform .18s, border-color .18s, background .18s; }
+                    button#reload { min-height: 46px; padding: 0 1.15rem; border-radius: 7px; background: var(--white); color: #08080e; box-shadow: none; font-size: .7rem; letter-spacing: .04em; }
+                    button#back { background: rgba(255,255,255,.035); color: var(--white); }
+                    .error-actions button:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.5); }
+                    #troubleshooting { max-width: 680px; margin-top: 2.3rem; padding-top: 1.4rem; border-top: 1px solid rgba(255,255,255,.1); font-size: .86rem; line-height: 1.6; }
+                    #troubleshooting p { margin-bottom: .6rem; color: var(--white); }
+                    #troubleshooting ul { display: grid; gap: .4rem; padding-left: 1.1rem; }
+                    #troubleshooting .about-list { display: none; }
+                    #info { display: block; }
+                    details { width: min(680px, 100%); margin-top: 1.4rem; border-top: 1px solid rgba(255,255,255,.1); }
+                    summary { min-height: 46px; display: flex; align-items: center; color: rgba(200,200,216,.68); font: 700 .66rem var(--font-mono); cursor: pointer; }
+                    summary::after { content: '+'; margin-left: auto; color: var(--accent); font-size: 1rem; }
+                    details[open] summary::after { content: '−'; }
+                    #errorTrace-wrapper { margin-bottom: 1rem; }
+                    textarea#errorTrace { height: 8rem; border-radius: 7px; background: #08080e; font-size: .66rem; }
+                    #copy-button { opacity: 1 !important; }
+                    .powered-badge { margin-top: 1.25rem; padding: 0; border: 0; background: none; font-size: .58rem; }
+                    #version-wrapper { top: auto; right: 1rem; bottom: .75rem; font-size: .55rem; }
+                    @media (max-width: 560px) { #inner { width: calc(100% - 32px); padding: 2rem 0; } .nova-logo { margin-bottom: 4rem; } h1#errorTitle { font-size: 2.65rem; } }
                     </style>
                 </head>
                 <body>
                     <div class="nova-bg"><div class="a1"></div><div class="a2"></div></div>
                     <div id="inner">
                         <div class="nova-logo">◈ Nova</div>
-                        <div class="error-icon">⚡</div>
-                        <h1 id="errorTitle">Uh oh!</h1>
-                        <p class="subtitle">Nova couldn't load <b id="fetchedURL"></b><br>The Vortex proxy ran into a connection issue.</p>
-                        <div class="powered-badge">Proxy engine: <span>Vortex</span> — powered by Nova</div>
-
-                        <div id="info">
-                            <div id="errorTrace-wrapper">
-                                <textarea id="errorTrace" cols="40" rows="10" readonly></textarea>
-                                <button id="copy-button" class="primary">Copy</button>
-                            </div>
-                            <div id="troubleshooting">
-                                <p>Try:</p>
-                                <ul>
-                                    <li>Check your internet connection</li>
-                                    <li>Verify you entered the correct address</li>
-                                    <li>Clear site data and reload</li>
-                                    <li>The site may be blocked by your network</li>
-                                </ul>
-                                <p style="margin-top:0.6rem">About this error:</p>
-                                <ul>
-                                    <li>Nova uses the <a href="https://github.com/MercuryWorkshop/vortex" target="_blank">Vortex proxy</a> to unblock sites</li>
-                                    <li>This page shows when Vortex can't reach the destination</li>
-                                    <li>Your browsing stays private — nothing is logged</li>
-                                </ul>
-                            </div>
-                        </div>
-
-                        <button id="reload" class="primary">Try Again</button>
+                        <div class="error-kicker">Connection interrupted</div>
+                        <h1 id="errorTitle">Couldn't reach this page.</h1>
+                        <p class="subtitle">The destination did not respond through Nova's secure connection.<b id="fetchedURL"></b></p>
+                        <div class="error-actions"><button id="reload" class="primary">Try again</button><button id="back" type="button">Go back</button></div>
+                        <div id="troubleshooting"><p>Quick checks</p><ul><li>Make sure the address is correct</li><li>Wait a moment and try again</li><li>The destination may block proxy connections</li></ul></div>
+                        <details><summary>Technical details</summary><div id="info"><div id="errorTrace-wrapper"><textarea id="errorTrace" cols="40" rows="10" readonly></textarea><button id="copy-button" class="primary">Copy</button></div></div></details>
+                        <div class="powered-badge">Secure connection by <span>Vortex</span></div>
                     </div>
                     <p id="version-wrapper"><i>Nova · Vortex v<span id="version"></span></i></p>
                     <script src="${"data:application/javascript," + encodeURIComponent(script)}"></script>
