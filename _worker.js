@@ -1496,6 +1496,7 @@ async function voiceSfuAction(request, env) {
   if (action === "publish") {
     const trackName = cleanText(body.trackName, 120);
     const result = await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { sessionDescription: body.sessionDescription, tracks: [{ location: "local", mid: cleanText(body.mid, 20), trackName }] });
+    await voiceEvent(env.DB, roomId, auth.id, auth.id, "sfu_publish_accepted", {});
     return apiJson(result);
   }
   if (action === "ready") {
