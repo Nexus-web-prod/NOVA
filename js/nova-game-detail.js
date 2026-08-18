@@ -13,7 +13,7 @@
 
   function loadCatalog() {
     if (!catalogPromise) {
-      catalogPromise = fetch('/games.json?v=730', { cache: 'no-store' }).then(function (response) {
+      catalogPromise = fetch('/games.json?v=731', { cache: 'no-store' }).then(function (response) {
         if (!response.ok) throw new Error('Game catalog unavailable');
         return response.json();
       }).then(function (items) {
@@ -253,8 +253,8 @@
     setText('game-detail-rating', stats.count ? Number(stats.avg || 0).toFixed(1) + ' / 5' : '—');
     setText('game-detail-rating-count', stats.count ? stats.count.toLocaleString() + (stats.count === 1 ? ' rating' : ' ratings') : 'Not rated yet');
     setText('game-detail-plays', Number(stats.views || 0).toLocaleString());
-    setText('game-detail-launch-mode', game.direct ? 'Direct' : 'Instant');
-    setText('game-detail-launch-note', game.direct ? 'Opens the official WebGL game' : 'Opens inside Nova Browser');
+    setText('game-detail-launch-mode', 'Instant');
+    setText('game-detail-launch-note', 'Opens inside Nova Browser');
     var meta = document.getElementById('game-detail-meta');
     if (meta) {
       meta.innerHTML = '';
@@ -319,11 +319,6 @@
         cacheCommunityStats(gameSlug, stats);
         if (activeGame && slug(activeGame.name) === gameSlug) setText('game-detail-plays', Number(views).toLocaleString());
       }).catch(function () {});
-    }
-    if (launchedGame.direct) {
-      var directWindow = window.open(launchedGame.url, '_blank', 'noopener,noreferrer');
-      if (!directWindow) window.location.assign(launchedGame.url);
-      return;
     }
     window.goTo?.(launchedGame.url);
   }

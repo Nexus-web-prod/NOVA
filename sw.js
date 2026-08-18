@@ -4,7 +4,7 @@ if (navigator.userAgent.includes("Firefox")) {
   Object.defineProperty(globalThis, "crossOriginIsolated", { value: true, writable: false });
 }
 
-importScripts("/vortex.all.js?v=1787033473");
+importScripts("/vortex.all.js?v=1787036427");
 
 const { VortexServiceWorker } = $vortexLoadWorker();
 const vortex = new VortexServiceWorker();
@@ -64,6 +64,10 @@ function isNovaRuntimeRequest(request) {
   try {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return false;
+    // Vortex intentionally imports its WASM file as a script inside proxied
+    // pages and workers. Its fetch handler converts the binary into the JS
+    // bootstrap those contexts expect, so do not short-circuit that request.
+    if (url.pathname === "/vortex.wasm.wasm") return false;
     return NOVA_RUNTIME_FILES.has(url.pathname)
       || NOVA_RUNTIME_PREFIXES.some(prefix => url.pathname.startsWith(prefix));
   } catch {
@@ -157,7 +161,10 @@ async function handleRequest(event) {
 
   // Non-proxy traffic should never depend on Vortex configuration. This keeps
   // fonts and other third-party assets working while the proxy boots.
-  if (requestUrl.origin !== self.location.origin || !requestUrl.pathname.startsWith("/vortex/")) {
+  const isVortexWasmBootstrap = requestUrl.origin === self.location.origin
+    && requestUrl.pathname === "/vortex.wasm.wasm";
+  if (requestUrl.origin !== self.location.origin
+      || (!requestUrl.pathname.startsWith("/vortex/") && !isVortexWasmBootstrap)) {
     return fetch(event.request);
   }
 

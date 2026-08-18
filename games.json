@@ -8,7 +8,6 @@
         "name": "Equinox",
         "url": "https://equinox.space/",
         "image": "/assets/media/icons/equinox.svg",
-        "direct": true,
         "categories": ["Adventure"]
     },
     {

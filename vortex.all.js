@@ -2311,12 +2311,40 @@ __webpack_require__.d(__webpack_exports__, {
 /* ESM import */var _rewriters_url__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @rewriters/url */ "./src/shared/rewriters/url.ts");
 
 /* ESM default export */ function __WEBPACK_DEFAULT_EXPORT__(client) {
+    const objectUrls = new Map();
+    client.serviceWorker?.addEventListener("message", async ({ data })=>{
+        if (!data || data.vortex$type !== "blob" || !("vortex$token" in data)) return;
+        const blob = objectUrls.get(data.url);
+        let body = null;
+        let type = "";
+        if (blob) {
+            try {
+                body = await blob.arrayBuffer();
+                type = blob.type || "";
+            } catch  {}
+        }
+        const message = {
+            vortex$type: "blob",
+            vortex$token: data.vortex$token,
+            vortex$blob: body ? {
+                body,
+                type
+            } : null
+        };
+        const transfer = body ? [
+            body
+        ] : [];
+        client.serviceWorker.controller?.postMessage(message, transfer);
+    });
     // hide the origin from object urls from the page
     client.Proxy("URL.createObjectURL", {
         apply (ctx) {
+            const blob = ctx.args[0];
             const url = ctx.call();
             if (url.startsWith("blob:")) {
-                ctx.return((0,_rewriters_url__WEBPACK_IMPORTED_MODULE_0__.rewriteBlob)(url, client.meta));
+                const rewritten = (0,_rewriters_url__WEBPACK_IMPORTED_MODULE_0__.rewriteBlob)(url, client.meta);
+                objectUrls.set(rewritten, blob);
+                ctx.return(rewritten);
             } else {
                 ctx.return(url);
             }
@@ -2324,7 +2352,9 @@ __webpack_require__.d(__webpack_exports__, {
     });
     client.Proxy("URL.revokeObjectURL", {
         apply (ctx) {
+            const rewritten = ctx.args[0];
             ctx.args[0] = (0,_rewriters_url__WEBPACK_IMPORTED_MODULE_0__.unrewriteBlob)(ctx.args[0]);
+            setTimeout(()=>objectUrls.delete(rewritten), 30000);
         }
     });
 }
@@ -6733,8 +6763,27 @@ async function handleFetch(request, client) {
         };
         if (requestUrl.pathname.startsWith(`${this.config.prefix}blob:`) || requestUrl.pathname.startsWith(`${this.config.prefix}data:`)) {
             let dataUrl = requestUrl.pathname.substring(this.config.prefix.length);
-            if (dataUrl.startsWith("blob:")) dataUrl = (0,_rewriters_url__WEBPACK_IMPORTED_MODULE_3__.unrewriteBlob)(dataUrl);
-            const response = await fetch(dataUrl, {});
+            let response;
+            if (dataUrl.startsWith("blob:")) {
+                const result = client ? await this.dispatch(client, {
+                    vortex$type: "blob",
+                    url: dataUrl
+                }) : null;
+                if (result?.vortex$blob) {
+                    response = new Response(result.vortex$blob.body, {
+                        headers: result.vortex$blob.type ? {
+                            "Content-Type": result.vortex$blob.type
+                        } : undefined
+                    });
+                } else response = new Response("", {
+                    status: 404,
+                    headers: {
+                        "Content-Type": "application/javascript; charset=utf-8"
+                    }
+                });
+            } else {
+                response = await fetch(dataUrl, {});
+            }
             response.finalURL = dataUrl.startsWith("blob:") ? dataUrl : "(data url)";
             let body;
             if (response.body) body = await rewriteBody(response, meta, request.destination, scriptType, this.cookieStore);
@@ -7129,7 +7178,7 @@ __webpack_require__.d(__webpack_exports__, {
                 // (ack message)
                 const cb = this.syncPool[data.vortex$token];
                 delete this.syncPool[data.vortex$token];
-                cb(data);
+                if (cb) cb(data);
                 return;
             }
             if (data.vortex$type === "registerServiceWorker") {
@@ -7154,12 +7203,24 @@ __webpack_require__.d(__webpack_exports__, {
 	 * Dispatches a message in the message queues.
 	 */ async dispatch(client, data) {
         const token = this.synctoken++;
-        let cb;
-        const promise = new Promise((r)=>cb = r);
-        this.syncPool[token] = cb;
         data.vortex$token = token;
-        client.postMessage(data);
-        return await promise;
+        return await new Promise((resolve)=>{
+            const timer = setTimeout(()=>{
+                delete this.syncPool[token];
+                resolve(null);
+            }, 5000);
+            this.syncPool[token] = (result)=>{
+                clearTimeout(timer);
+                resolve(result);
+            };
+            try {
+                client.postMessage(data);
+            } catch  {
+                clearTimeout(timer);
+                delete this.syncPool[token];
+                resolve(null);
+            }
+        });
     }
     /**
 	 * Persists the current Vortex config into an IndexedDB store.
