@@ -117,7 +117,7 @@ function _showNovaUpdateBanner(){
   });
 })();
 </script>
-<script src="/store.js?v=721"></script>
+<script src="/store.js?v=722"></script>
 <style>
 /* ── Spinner keyframe for loading tabs ── */
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -2981,7 +2981,6 @@ function pollVortex(){
     }).catch(function(error){
       _vStarting=false;
       console.error('[Nova] Proxy startup failed:',error);
-      setTimeout(pollVortex,500);
     });
   }else{setTimeout(pollVortex,80);}
 }

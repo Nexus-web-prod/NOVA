@@ -88,14 +88,23 @@
     setInterval(() => reg.update().catch(() => {}), 60000);
     await navigator.serviceWorker.ready;
     if (!navigator.serviceWorker.controller) {
+      const reloadKey = "nova-sw-control-reload-v1";
+      if (sessionStorage.getItem(reloadKey) !== "1") {
+        sessionStorage.setItem(reloadKey, "1");
+        const nextUrl = new URL(location.href);
+        nextUrl.searchParams.delete("proxyReset");
+        location.replace(nextUrl.toString());
+        await new Promise(() => {});
+      }
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("Proxy service worker did not take control")), 10000);
+        const timeout = setTimeout(() => reject(new Error("Proxy service worker could not control this tab")), 20000);
         navigator.serviceWorker.addEventListener("controllerchange", () => {
           clearTimeout(timeout);
           resolve();
         }, { once: true });
       });
     }
+    sessionStorage.removeItem("nova-sw-control-reload-v1");
     await vortex.init();
     await confirmWorkerConfig();
     return true;
