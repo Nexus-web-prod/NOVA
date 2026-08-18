@@ -16,56 +16,12 @@
     transport: TRANSPORT
   });
 
-  // Dreamland expects its persisted graph format, not a raw URL or ordinary
-  // JSON object. Remove legacy/corrupt values before constructing the store.
-  try {
-    const saved = localStorage.getItem(STORE_KEY);
-    if (saved !== null) {
-      const parsed = JSON.parse(saved);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed[0]?.values) {
-        localStorage.removeItem(STORE_KEY);
-      }
-    }
-  } catch (_) {
-    localStorage.removeItem(STORE_KEY);
-  }
-
-  const safeLocalBacking = {
-    read(key) {
-      const saved = localStorage.getItem(key);
-      if (saved === null) return null;
-      try {
-        const graph = JSON.parse(saved);
-        if (!graph || typeof graph !== "object" || Array.isArray(graph) || !graph[0]?.values) {
-          throw new TypeError("Invalid Nova proxy store");
-        }
-        return saved;
-      } catch (_) {
-        localStorage.removeItem(key);
-        return null;
-      }
-    },
-    write(key, value) {
-      localStorage.setItem(key, value);
-    }
-  };
-
-  function createStore() {
-    return $store(INITIAL_STATE(), {
-      ident: STORE_KEY,
-      backing: safeLocalBacking,
-      autosave: "auto"
-    });
-  }
-
-  let store;
-  try {
-    store = createStore();
-  } catch (error) {
-    localStorage.removeItem(STORE_KEY);
-    store = createStore();
-    console.info("[Nova] Recovered damaged proxy settings.");
-  }
+  // Proxy transport values come from the deployed runtime config. The old
+  // Dreamland-backed store repeatedly reloaded legacy values (including raw
+  // URLs that were not valid JSON) and could corrupt proxy startup again.
+  // Keep the runtime state in memory and remove that obsolete persisted graph.
+  try { localStorage.removeItem(STORE_KEY); } catch (_) {}
+  const store = INITIAL_STATE();
 
   store.wispurl = WISP_URL;
   store.transport = TRANSPORT;
