@@ -37,9 +37,65 @@
   }
 
   function descriptionFor(game) {
+    var copy = window.NOVA_GAME_COPY && window.NOVA_GAME_COPY[game.name];
+    if (copy && copy.description) return copy.description;
     if (game.description) return game.description;
     var category = categoryFor(game).toLowerCase();
     return 'Jump into ' + game.name + ', a ' + category + ' game ready to play instantly inside Nova. Launch it without leaving your space, then come back anytime from Recently Played.';
+  }
+
+  function sourceFor(game) {
+    var copy = window.NOVA_GAME_COPY && window.NOVA_GAME_COPY[game.name];
+    return copy && copy.source || game.descriptionSource || game.url || '';
+  }
+
+  function myRatings() {
+    try { return JSON.parse(localStorage.getItem('nova_my_ratings') || '{}'); }
+    catch (error) { return {}; }
+  }
+
+  function renderPersonalRating(message) {
+    var value = activeGame ? Number(myRatings()[activeGame.name] || 0) : 0;
+    var buttons = Array.from(document.querySelectorAll('#game-detail-rating-stars button'));
+    buttons.forEach(function (button) {
+      var rating = Number(button.dataset.rating || 0);
+      button.classList.toggle('selected', value > 0 && rating <= value);
+      button.setAttribute('aria-checked', rating === value ? 'true' : 'false');
+    });
+    setText('game-detail-rating-feedback', message || (value ? 'Your rating: ' + value + ' out of 5' : 'Choose one to five stars'));
+  }
+
+  function submitPersonalRating(value) {
+    if (!activeGame) return;
+    var gameName = activeGame.name;
+    var cards = Array.from(document.querySelectorAll('#page-games .game-card'));
+    var matching = cards.find(function (card) { return card.querySelector('.game-name')?.textContent.trim() === gameName; });
+    var star = matching?.querySelector('.game-star[data-val="' + value + '"]');
+    if (!star) {
+      setText('game-detail-rating-feedback', 'Rating is unavailable right now');
+      return;
+    }
+    star.click();
+    setText('game-detail-rating-feedback', 'Saving your rating…');
+    var attempts = 0;
+    var timer = setInterval(function () {
+      attempts += 1;
+      var saved = Number(myRatings()[gameName] || 0);
+      if (saved === value) {
+        clearInterval(timer);
+        if (!activeGame || activeGame.name !== gameName) return;
+        renderPersonalRating('Saved — ' + value + ' out of 5');
+        var stats = activeGame ? statsFor(activeGame) : null;
+        if (stats) {
+          setText('game-detail-rating', stats.count ? Number(stats.avg || 0).toFixed(1) + ' / 5' : '—');
+          setText('game-detail-rating-count', stats.count ? stats.count.toLocaleString() + (stats.count === 1 ? ' rating' : ' ratings') : 'Not rated yet');
+        }
+      } else if (attempts >= 12) {
+        clearInterval(timer);
+        if (!activeGame || activeGame.name !== gameName) return;
+        renderPersonalRating('Sign in to save a community rating');
+      }
+    }, 250);
   }
 
   function statsFor(game) {
@@ -131,6 +187,14 @@
     var stats = statsFor(game);
     setText('game-detail-title', game.name);
     setText('game-detail-description', descriptionFor(game));
+    var source = document.getElementById('game-detail-description-source');
+    if (source) {
+      var sourceUrl = sourceFor(game);
+      source.href = sourceUrl || '#';
+      source.hidden = !/^https?:\/\//i.test(sourceUrl);
+      try { source.title = 'Description based on ' + new URL(sourceUrl).hostname.replace(/^www\./, ''); }
+      catch (error) { source.title = 'Game overview source'; }
+    }
     setText('game-detail-rating', stats.count ? Number(stats.avg || 0).toFixed(1) + ' / 5' : '—');
     setText('game-detail-rating-count', stats.count ? stats.count.toLocaleString() + (stats.count === 1 ? ' rating' : ' ratings') : 'Not rated yet');
     setText('game-detail-plays', Number(stats.views || 0).toLocaleString());
@@ -154,6 +218,7 @@
     var art = document.getElementById('game-detail-art');
     if (art) art.setAttribute('aria-label', 'Play ' + game.name);
     updateFavoriteButton();
+    renderPersonalRating();
     renderRelated(game);
     if (options.history !== false) {
       var nextUrl = new URL(location.href);
@@ -283,6 +348,17 @@
     document.getElementById('game-detail-art')?.addEventListener('click', launch);
     document.getElementById('game-detail-favorite')?.addEventListener('click', toggleFavorite);
     document.getElementById('game-detail-share')?.addEventListener('click', share);
+    var ratingButtons = Array.from(document.querySelectorAll('#game-detail-rating-stars button'));
+    ratingButtons.forEach(function (button) {
+      button.addEventListener('click', function () { submitPersonalRating(Number(button.dataset.rating)); });
+      button.addEventListener('pointerenter', function () {
+        var value = Number(button.dataset.rating);
+        ratingButtons.forEach(function (item) { item.classList.toggle('preview', Number(item.dataset.rating) <= value); });
+      });
+    });
+    document.getElementById('game-detail-rating-stars')?.addEventListener('pointerleave', function () {
+      ratingButtons.forEach(function (button) { button.classList.remove('preview'); });
+    });
     var requested = new URL(location.href).searchParams.get('game');
     if (!requested) return;
     loadCatalog().then(function () {

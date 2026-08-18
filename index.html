@@ -37,7 +37,7 @@ function _showNovaUpdateBanner(){
 <link rel="icon" id="favicon-link" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' ry='22' fill='%230a0a14'/><path d='M50,24 C51.5,35 62,47.5 76,50 C62,52.5 51.5,65 50,76 C48.5,65 38,52.5 24,50 C38,47.5 48.5,35 50,24Z' fill='%23ffffff' opacity='0.92'/><circle cx='50' cy='50' r='3' fill='%23ffffff'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="stylesheet" href="/css/nova.css?v=733">
-<link rel="stylesheet" href="/css/nova-game-detail.css?v=721">
+<link rel="stylesheet" href="/css/nova-game-detail.css?v=723">
 <link rel="stylesheet" href="/css/nova-vc.css?v=715">
 <link rel="stylesheet" href="/css/nova-supernova-hub.css?v=723">
 <link rel="stylesheet" href="/css/nova-holiday-themes.css?v=723">
@@ -1977,9 +1977,12 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <div class="game-detail-kicker"><span></span>Nova game spotlight</div>
 <h1 id="game-detail-title" tabindex="-1">Game</h1>
 <div class="game-detail-meta" id="game-detail-meta" aria-label="Game details"></div>
+<div class="game-detail-description-wrap">
 <p id="game-detail-description"></p>
+<a id="game-detail-description-source" href="#" target="_blank" rel="noopener noreferrer">Game overview source <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"></path><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"></path></svg></a>
+</div>
 <div class="game-detail-actions">
-<button id="game-detail-play" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg><span>Play now</span></button>
+<button id="game-detail-play" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="m10.5 8.8 5 3.2-5 3.2V8.8Z"></path></svg><span>Play now</span></button>
 <button id="game-detail-favorite" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3z"></path></svg><span>Favorite</span></button>
 <button id="game-detail-share" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"></path></svg><span>Share</span></button>
 </div>
@@ -1988,13 +1991,29 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <img id="game-detail-image" src="" alt="">
 <span class="game-detail-art-fallback" id="game-detail-art-fallback" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 9h8l3 2.5a5 5 0 0 1 1.5 5.5l-.4 1.1a2.5 2.5 0 0 1-4.3.7L14.4 17H9.6l-1.4 1.8a2.5 2.5 0 0 1-4.3-.7L3.5 17A5 5 0 0 1 5 11.5L8 9Z"></path><path d="M8 12v3M6.5 13.5h3M16.5 13h.01M18 15h.01"></path></svg></span>
 <span class="game-detail-watermark" aria-hidden="true">NOVA PLAY</span>
-<span class="game-detail-art-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></span>
+<span class="game-detail-art-play" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="m10.5 8.8 5 3.2-5 3.2V8.8Z"></path></svg></span>
 </button>
 </section>
 <section class="game-detail-info" aria-label="Game information">
-<article><span>Community rating</span><strong id="game-detail-rating">—</strong><small id="game-detail-rating-count">Not rated yet</small></article>
-<article><span>Nova plays</span><strong id="game-detail-plays">0</strong><small>Across the Nova universe</small></article>
-<article><span>Launch mode</span><strong>Instant</strong><small>Opens inside Nova Browser</small></article>
+<article><i class="game-detail-info-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg></i><div><span>Community rating</span><strong id="game-detail-rating">—</strong><small id="game-detail-rating-count">Not rated yet</small></div></article>
+<article><i class="game-detail-info-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h3l2-5 4 10 2-5h3"></path><path d="M4 4h16v16H4z"></path></svg></i><div><span>Nova plays</span><strong id="game-detail-plays">0</strong><small>Across the Nova universe</small></div></article>
+<article><i class="game-detail-info-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-8 12h6l-1 8 9-13h-6V2Z"></path></svg></i><div><span>Launch mode</span><strong>Instant</strong><small>Opens inside Nova Browser</small></div></article>
+</section>
+<section class="game-detail-rate" aria-labelledby="game-detail-rate-title">
+<div class="game-detail-rate-copy">
+<i class="game-detail-rate-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg></i>
+<div><span>Your take</span><h2 id="game-detail-rate-title">Rate this game</h2><p>Help the Nova community find the games worth playing.</p></div>
+</div>
+<div class="game-detail-rate-control">
+<div id="game-detail-rating-stars" role="radiogroup" aria-label="Choose a rating from 1 to 5 stars">
+<button type="button" role="radio" aria-checked="false" aria-label="Rate 1 out of 5" data-rating="1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg></button>
+<button type="button" role="radio" aria-checked="false" aria-label="Rate 2 out of 5" data-rating="2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg></button>
+<button type="button" role="radio" aria-checked="false" aria-label="Rate 3 out of 5" data-rating="3"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg></button>
+<button type="button" role="radio" aria-checked="false" aria-label="Rate 4 out of 5" data-rating="4"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg></button>
+<button type="button" role="radio" aria-checked="false" aria-label="Rate 5 out of 5" data-rating="5"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg></button>
+</div>
+<p id="game-detail-rating-feedback" role="status" aria-live="polite">Choose one to five stars</p>
+</div>
 </section>
 <section class="game-detail-related" aria-labelledby="game-detail-related-title">
 <header><div><span>Keep exploring</span><h2 id="game-detail-related-title">More like this</h2></div><button id="game-detail-see-all" type="button">See all games</button></header>
@@ -3537,7 +3556,8 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 <script src="/js/nova-movies.js?v=710"></script>
-<script src="/js/nova-game-detail.js?v=722"></script>
+<script src="/js/nova-game-copy.js?v=723"></script>
+<script src="/js/nova-game-detail.js?v=723"></script>
 <div id="nova-orbit-panel" style="display:none;position:fixed;top:2.6rem;right:.7rem;z-index:9990;background:var(--bg);border:1px solid rgba(139,143,255,.22);border-radius:16px;padding:1.2rem 1.3rem 1.1rem;min-width:230px;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.5);backdrop-filter:blur(16px);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
     <div style="display:flex;align-items:center;gap:.4rem;">
