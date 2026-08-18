@@ -13,7 +13,7 @@ DB_CREATED=0
 cd "$(dirname "$0")"
 
 RUNTIME_FILES=(
-  _headers _redirects _worker.js index.html config.js store.js sw.js
+  _headers _redirects _worker.js index.html proxy-frame.html config.js store.js sw.js
   baremux-worker.js epoxy.mjs vortex.all.js vortex.bundle.js vortex.sync.js
   vortex.wasm.wasm games.json apps.json movies.json info.json whats-new.json favicon.webp
 )

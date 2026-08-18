@@ -3137,6 +3137,17 @@ function newTab(url){
   iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-pointer-lock allow-presentation');
   iframe.referrerPolicy = 'no-referrer';
   iframe.allow = 'fullscreen';
+  iframe.src = '/proxy-frame.html';
+  var framePrimed = false;
+  var startProxyNavigation = null;
+  iframe.addEventListener('load', function(){
+    framePrimed = true;
+    if(startProxyNavigation){
+      var start = startProxyNavigation;
+      startProxyNavigation = null;
+      start();
+    }
+  }, {once:true});
   frameWrap.appendChild(iframe);
   var tab = { id:id, title:'New Tab', url:url||'', loading:!!url, iframe:iframe, scFrame:null };
   tabs.push(tab);
@@ -3146,13 +3157,18 @@ function newTab(url){
     var sc = vortex.createFrame(iframe);
     tab.scFrame = sc;
     iframe.addEventListener('load', function(){
+      if(iframe.getAttribute('src')==='/proxy-frame.html') return;
       tab.loading = false;
       try{ var real=sc.url&&sc.url.toString(); if(real&&real!=='about:blank'){tab.url=real; if(activeId===id)urlBar.value=real;} }catch(e){}
       try{ var t2=iframe.contentDocument&&iframe.contentDocument.title; if(t2&&t2.trim()&&t2!=='about:blank')tab.title=t2; }catch(e){}
       renderTabs();
       if(activeId===id){ if(loadingEl)loadingEl.style.display='none'; plbEnd(); }
     });
-    if(tab.url){ tab.loading=true; renderTabs(); sc.go(tab.url); }
+    if(tab.url){
+      var startNavigation = function(){ tab.loading=true; renderTabs(); sc.go(tab.url); };
+      if(framePrimed) startNavigation();
+      else startProxyNavigation = startNavigation;
+    }
   });
   return tab;
 }
