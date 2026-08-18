@@ -105,7 +105,7 @@ function _showNovaUpdateBanner(){
 (function(){
   // Rotate this marker with the proxy runtime so already-open clients discard
   // the previous service-worker configuration exactly once.
-  var key='nova_proxy_reset_v590';
+  var key='nova_proxy_reset_v591';
   if(localStorage.getItem(key)==='1') return;
   localStorage.setItem(key,'1');
   (navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function(rs){

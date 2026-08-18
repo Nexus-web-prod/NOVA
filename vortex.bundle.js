@@ -6271,7 +6271,7 @@ __webpack_require__.d(__webpack_exports__, {
  *
  * Cache key = sha256(original url + content-etag/last-modified)
  * so stale content is always invalidated.
- */ const CACHE_NAME = "vortex-rewrite-v1";
+ */ const CACHE_NAME = "vortex-rewrite-v2";
 const CACHEABLE_TYPES = new Set([
     "script",
     "style",
@@ -7066,7 +7066,11 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
         } // end else (unrewrittenLocation valid)
     }
     const maybeHeaders = responseHeaders["set-cookie"] || [];
-    for(const cookie in maybeHeaders){
+    const setCookieHeaders = Array.isArray(maybeHeaders) ? maybeHeaders : [
+        maybeHeaders
+    ];
+    for (const cookie of setCookieHeaders){
+        if (!cookie) continue;
         if (client) {
             const promise = swtarget.dispatch(client, {
                 vortex$type: "cookie",
@@ -7076,9 +7080,7 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
             if (destination !== "document" && destination !== "iframe") await promise;
         }
     }
-    await cookieStore.setCookies(maybeHeaders instanceof Array ? maybeHeaders : [
-        maybeHeaders
-    ], url);
+    await cookieStore.setCookies(setCookieHeaders.filter(Boolean), url);
     for(const header in responseHeaders){
         if (Array.isArray(responseHeaders[header])) responseHeaders[header] = responseHeaders[header][0];
     }
@@ -7118,8 +7120,11 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
         }
     }
     if (response.body && !isRedirect(response)) {
+        const cacheControl = String(responseHeaders["cache-control"] || "").toLowerCase();
+        const pragma = String(responseHeaders["pragma"] || "").toLowerCase();
+        const rewriteCacheAllowed = (0,_worker_cache__WEBPACK_IMPORTED_MODULE_11__.isCacheable)(destination) && !/(?:^|,|\s)(?:no-store|no-cache|private)(?:$|,|\s|=)/.test(cacheControl) && !pragma.includes("no-cache") && setCookieHeaders.filter(Boolean).length === 0;
         // ── ENHANCED: Cache check ───────────────────────────────────────────
-        if ((0,_worker_cache__WEBPACK_IMPORTED_MODULE_11__.isCacheable)(destination)) {
+        if (rewriteCacheAllowed) {
             const etagRaw = response.rawHeaders?.["etag"];
             const etag = Array.isArray(etagRaw) ? etagRaw[0] : etagRaw || null;
             const lastModRaw = response.rawHeaders?.["last-modified"];
@@ -7142,7 +7147,7 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
         // ───────────────────────────────────────────────────────────────────
         responseBody = await rewriteBody(response, meta, destination, scriptType, cookieStore);
         // ── ENHANCED: Store in cache ────────────────────────────────────────
-        if ((0,_worker_cache__WEBPACK_IMPORTED_MODULE_11__.isCacheable)(destination) && responseBody && !(responseBody instanceof ReadableStream)) {
+        if (rewriteCacheAllowed && responseBody && !(responseBody instanceof ReadableStream)) {
             const etagRaw = response.rawHeaders?.["etag"];
             const etag = Array.isArray(etagRaw) ? etagRaw[0] : etagRaw || null;
             const lastModRaw = response.rawHeaders?.["last-modified"];
