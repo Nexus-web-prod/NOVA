@@ -65,37 +65,50 @@
     setText('game-detail-rating-feedback', message || (value ? 'Your rating: ' + value + ' out of 5' : 'Choose one to five stars'));
   }
 
-  function submitPersonalRating(value) {
+  function updateGameCardRating(gameName, value, stats) {
+    Array.from(document.querySelectorAll('#page-games .game-card')).forEach(function (card) {
+      if (card.querySelector('.game-name')?.textContent.trim() !== gameName) return;
+      var number = card.querySelector('.gr-num');
+      if (number) number.textContent = stats.count ? Number(stats.avg || 0).toFixed(1) : '—';
+      var count = card.querySelector('.gr-count');
+      if (count) count.textContent = stats.count ? '(' + stats.count + ')' : '';
+      else if (stats.count) {
+        count = document.createElement('span');
+        count.className = 'gr-count';
+        count.textContent = '(' + stats.count + ')';
+        card.querySelector('.game-rating-row')?.appendChild(count);
+      }
+      card.querySelectorAll('.game-star').forEach(function (star, index) { star.classList.toggle('lit', index < value); });
+    });
+  }
+
+  async function submitPersonalRating(value) {
     if (!activeGame) return;
     var gameName = activeGame.name;
-    var cards = Array.from(document.querySelectorAll('#page-games .game-card'));
-    var matching = cards.find(function (card) { return card.querySelector('.game-name')?.textContent.trim() === gameName; });
-    var star = matching?.querySelector('.game-star[data-val="' + value + '"]');
-    if (!star) {
-      setText('game-detail-rating-feedback', 'Rating is unavailable right now');
-      return;
-    }
-    star.click();
+    var gameSlug = slug(gameName);
+    var buttons = Array.from(document.querySelectorAll('#game-detail-rating-stars button'));
+    buttons.forEach(function (button) { button.disabled = true; });
     setText('game-detail-rating-feedback', 'Saving your rating…');
-    var attempts = 0;
-    var timer = setInterval(function () {
-      attempts += 1;
-      var saved = Number(myRatings()[gameName] || 0);
-      if (saved === value) {
-        clearInterval(timer);
-        if (!activeGame || activeGame.name !== gameName) return;
+    try {
+      if (!window.NovaAPI || typeof window.NovaAPI.rateGame !== 'function') throw new Error('Rating API unavailable');
+      var payload = await window.NovaAPI.rateGame(gameSlug, value);
+      var stats = payload && payload.stats;
+      if (!stats) throw new Error('Rating response unavailable');
+      var ratings = myRatings();
+      ratings[gameName] = value;
+      localStorage.setItem('nova_my_ratings', JSON.stringify(ratings));
+      cacheCommunityStats(gameSlug, stats);
+      document.dispatchEvent(new CustomEvent('nova:game-stats-updated', { detail: { slug: gameSlug, stats: stats } }));
+      updateGameCardRating(gameName, value, stats);
+      if (activeGame && activeGame.name === gameName) {
+        showCommunityStats(stats);
         renderPersonalRating('Saved — ' + value + ' out of 5');
-        var stats = activeGame ? statsFor(activeGame) : null;
-        if (stats) {
-          setText('game-detail-rating', stats.count ? Number(stats.avg || 0).toFixed(1) + ' / 5' : '—');
-          setText('game-detail-rating-count', stats.count ? stats.count.toLocaleString() + (stats.count === 1 ? ' rating' : ' ratings') : 'Not rated yet');
-        }
-      } else if (attempts >= 12) {
-        clearInterval(timer);
-        if (!activeGame || activeGame.name !== gameName) return;
-        renderPersonalRating('Could not save your rating — try again');
       }
-    }, 250);
+    } catch (error) {
+      if (activeGame && activeGame.name === gameName) renderPersonalRating('Could not save your rating — try again');
+    } finally {
+      buttons.forEach(function (button) { button.disabled = false; });
+    }
   }
 
   function statsFor(game) {
@@ -114,6 +127,15 @@
     setText('game-detail-plays', Number(stats.views || 0).toLocaleString());
   }
 
+  function cacheCommunityStats(gameSlug, stats) {
+    var cache = {};
+    try { cache = JSON.parse(localStorage.getItem('nova_stats_cache') || '{}'); } catch (error) {}
+    cache.data = cache.data || {};
+    cache.data[gameSlug] = stats;
+    cache.ts = Date.now();
+    localStorage.setItem('nova_stats_cache', JSON.stringify(cache));
+  }
+
   async function refreshCommunityStats(game) {
     if (!game || !window.NovaAPI || typeof window.NovaAPI.gameStats !== 'function') return;
     var gameSlug = slug(game.name);
@@ -121,13 +143,22 @@
       var payload = await window.NovaAPI.gameStats([gameSlug]);
       var stats = payload && payload.stats && payload.stats[gameSlug];
       if (!stats) return;
-      var cache = {};
-      try { cache = JSON.parse(localStorage.getItem('nova_stats_cache') || '{}'); } catch (error) {}
-      cache.data = cache.data || {};
-      cache.data[gameSlug] = stats;
-      cache.ts = Date.now();
-      localStorage.setItem('nova_stats_cache', JSON.stringify(cache));
-      if (activeGame && slug(activeGame.name) === gameSlug) showCommunityStats(stats);
+      var ratings = myRatings();
+      var localRating = Number(ratings[game.name] || 0);
+      if (localRating && !Number(stats.myRating || 0) && typeof window.NovaAPI.rateGame === 'function') {
+        var synced = await window.NovaAPI.rateGame(gameSlug, localRating);
+        if (synced && synced.stats) stats = synced.stats;
+      } else if (Number(stats.myRating || 0) && localRating !== Number(stats.myRating)) {
+        ratings[game.name] = Number(stats.myRating);
+        localStorage.setItem('nova_my_ratings', JSON.stringify(ratings));
+        localRating = Number(stats.myRating);
+      }
+      cacheCommunityStats(gameSlug, stats);
+      updateGameCardRating(game.name, localRating || Number(stats.myRating || 0), stats);
+      if (activeGame && slug(activeGame.name) === gameSlug) {
+        showCommunityStats(stats);
+        renderPersonalRating();
+      }
     } catch (error) {}
   }
 
