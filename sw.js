@@ -4,7 +4,7 @@ if (navigator.userAgent.includes("Firefox")) {
   Object.defineProperty(globalThis, "crossOriginIsolated", { value: true, writable: false });
 }
 
-importScripts("/vortex.all.js?v=1787039000");
+importScripts("/vortex.all.js?v=1787041000");
 
 const { VortexServiceWorker } = $vortexLoadWorker();
 const vortex = new VortexServiceWorker();

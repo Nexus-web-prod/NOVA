@@ -6124,7 +6124,7 @@ __webpack_require__.d(__webpack_exports__, {
  *
  * Cache key = sha256(original url + content-etag/last-modified)
  * so stale content is always invalidated.
- */ const CACHE_NAME = "vortex-rewrite-v3";
+ */ const CACHE_NAME = "vortex-rewrite-v4";
 const CACHEABLE_TYPES = new Set([
     "script",
     "style",
@@ -7069,7 +7069,7 @@ async function rewriteBody(response, meta, destination, workertype, cookieStore)
                 try {
                     const finalUrl = response.finalURL || meta.base.href;
                     const host = new URL(finalUrl).hostname;
-                    if (host === "challenges.cloudflare.com" || host === "www.google.com" && finalUrl.includes("/recaptcha/") || host === "www.gstatic.com" && finalUrl.includes("/recaptcha/")) return source;
+                    if (host === "challenges.cloudflare.com") return source;
                 } catch  {}
                 return (0,_rewriters_js__WEBPACK_IMPORTED_MODULE_4__.rewriteJs)(source, response.finalURL, meta, workertype === "module");
             }
