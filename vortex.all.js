@@ -7090,6 +7090,9 @@ __webpack_require__.d(__webpack_exports__, {
 	 * Current VortexConfig saved in memory.
 	 */ config;
     /**
+	 * Whether the instance config has also been applied to Vortex's shared URL rewriter.
+	 */ configReady = false;
+    /**
 	 * Recorded sync messages in the message queue.
 	 */ syncPool = {};
     /**
@@ -7142,6 +7145,8 @@ __webpack_require__.d(__webpack_exports__, {
             }
             if (data.vortex$type === "loadConfig") {
                 this.config = data.config;
+                this.configReady = false;
+                await this.loadConfig();
             }
         });
     }
@@ -7167,12 +7172,15 @@ __webpack_require__.d(__webpack_exports__, {
 	 *   ...
 	 * });
 	 */ async loadConfig() {
-        if (this.config) return;
-        const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 2);
-        this.config = await db.get("config", "config");
+        if (this.configReady) return;
+        if (!this.config) {
+            const db = await (0,idb__WEBPACK_IMPORTED_MODULE_5__.openDB)("$vortex", 2);
+            this.config = await db.get("config", "config");
+        }
         if (this.config) {
             (0,_shared__WEBPACK_IMPORTED_MODULE_6__.setConfig)(this.config);
             await (0,_rewriters_wasm__WEBPACK_IMPORTED_MODULE_3__.asyncSetWasm)();
+            this.configReady = true;
         }
     }
     /**
