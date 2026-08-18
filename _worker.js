@@ -1455,8 +1455,10 @@ async function requireVoiceSfuMember(request, env, roomId) {
 
 async function realtimeFetch(env, suffix, method, body) {
   if (!env.REALTIME_APP_ID || !env.REALTIME_APP_SECRET) throw new ApiFailure("VOICE_SFU_UNAVAILABLE", "Nova Realtime is not configured", 503);
-  const response = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${env.REALTIME_APP_ID}${suffix}`, {
-    method, headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.REALTIME_APP_SECRET}` }, body: JSON.stringify(body || {})
+  const headers = { Authorization: `Bearer ${env.REALTIME_APP_SECRET}` };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const response = await fetch(`https://rtc.live.cloudflare.com/apps/${env.REALTIME_APP_ID}${suffix}`, {
+    method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) })
   });
   const result = await response.json().catch(() => ({}));
   const trackError = Array.isArray(result.tracks) && result.tracks.find(track => track && track.errorCode);
@@ -1480,7 +1482,7 @@ async function voiceSfuAction(request, env) {
   const action = cleanText(body.action, 24);
   const { auth } = await requireVoiceSfuMember(request, env, roomId);
   if (action === "new-session") {
-    const result = await realtimeFetch(env, "/sessions/new", "POST", { sessionDescription: body.sessionDescription });
+    const result = await realtimeFetch(env, "/sessions/new", "POST");
     await env.DB.prepare("INSERT INTO voice_sfu_tracks(room_id,user_id,session_id,track_name,updated_at) VALUES(?,?,?,'',?) ON CONFLICT(room_id,user_id) DO UPDATE SET session_id=excluded.session_id,track_name='',updated_at=excluded.updated_at").bind(roomId, auth.id, cleanText(result.sessionId, 120), Date.now()).run();
     await env.DB.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), Date.now(), roomId, auth.id).run();
     return apiJson(result);
