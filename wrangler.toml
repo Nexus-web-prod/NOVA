@@ -5,6 +5,9 @@ pages_build_output_dir = "."
 [vars]
 PUBLIC_ORIGIN = "https://dev.nova-7.pages.dev"
 
+[ai]
+binding = "AI"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "nova-db"

@@ -1,7 +1,7 @@
 /**
  * Nova 7 — Supernova Voice Rooms
  * Server-authoritative room admission + Durable Object signaling + WebRTC mesh.
- * Live dictation is ephemeral and can only originate from SpeechRecognition.
+ * Live dictation is ephemeral. Unsupported browsers use short-lived Workers AI audio chunks.
  */
 (function () {
   "use strict";
@@ -13,7 +13,7 @@
     ws: null, wsLobby: false, reconnects: 0, leaving: false,
     localStream: null, sfu: null, peers: new Map(), peerRetries: new Map(), remoteAudio: new Map(), iceServers: [], relayAvailable: true, relayConfigured: true,
     muted: false, hostMuted: false, deafened: false, pushToTalk: localStorage.getItem("nova_voice_ptt") === "1",
-    dictationEnabled: true, recognition: null, transcript: [], interim: "",
+    dictationEnabled: true, recognition: null, serverRecorder: null, serverRecorderTimer: 0, serverDictationBusy: false, dictationHadSpeech: false, transcript: [], interim: "",
     currentPane: "everyone", pollTimer: 0, speaking: false, pttPressed: false, audioContext: null, analyserTimer: 0,
     roomStartedAt: 0, durationTimer: 0, pendingIce: new Map(), lastRoomHash: "", documentBound: false, networkWarningShown: false
   };
@@ -244,6 +244,7 @@
 
   async function connectToRoom(room, lobby) {
     state.room = room; state.roomId = room.id; state.wsLobby = !!lobby; state.leaving = false;
+    state.dictationEnabled = room.yourDictationEnabled !== false;
     state.hostMuted = !!room.mutedByHost;
     if (state.hostMuted) state.muted = true;
     showStage(); renderRoom(room);
@@ -563,7 +564,7 @@
     stopLevelMeter(); if (!state.localStream || !window.AudioContext) return;
     try {
       state.audioContext = new AudioContext(); var source = state.audioContext.createMediaStreamSource(state.localStream); var analyser = state.audioContext.createAnalyser(); analyser.fftSize = 256; source.connect(analyser); var values = new Uint8Array(analyser.frequencyBinCount);
-      state.analyserTimer = setInterval(function () { analyser.getByteFrequencyData(values); var average = values.reduce(function (sum, value) { return sum + value; }, 0) / values.length; var speaking = average > 16 && !state.muted && (!state.pushToTalk || state.localStream.getAudioTracks().some(function (track) { return track.enabled; })); if (speaking !== state.speaking) { state.speaking = speaking; sendPresence(); } }, 240);
+      state.analyserTimer = setInterval(function () { analyser.getByteFrequencyData(values); var average = values.reduce(function (sum, value) { return sum + value; }, 0) / values.length; var micActive = !state.muted && (!state.pushToTalk || state.localStream.getAudioTracks().some(function (track) { return track.enabled; })); var speaking = average > 16 && micActive; if (average > 8 && micActive) state.dictationHadSpeech = true; if (speaking !== state.speaking) { state.speaking = speaking; sendPresence(); } }, 240);
     } catch (error) {}
   }
   function stopLevelMeter() { clearInterval(state.analyserTimer); state.analyserTimer = 0; if (state.audioContext) { state.audioContext.close().catch(function () {}); state.audioContext = null; } state.speaking = false; }
@@ -571,16 +572,38 @@
   function startDictation() {
     stopDictation(); if (!state.dictationEnabled || !state.room?.dictationEnabled) return;
     var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) { $('nova-vc-dictation-notice')?.classList.add('unsupported'); return; }
+    if (!Recognition || /OPR\//.test(navigator.userAgent)) return startServerDictation();
     try {
       var recognition = new Recognition(); recognition.continuous = true; recognition.interimResults = true; recognition.lang = navigator.language || 'en-US';
       recognition.onresult = function (event) { var interim = ''; for (var i = event.resultIndex; i < event.results.length; i++) { var text = event.results[i][0].transcript.trim(); if (!text) continue; if (event.results[i].isFinal) publishDictation(text); else interim += text + ' '; } state.interim = interim.trim(); renderInterim(); };
-      recognition.onerror = function (event) { if (!['no-speech', 'aborted'].includes(event.error)) console.warn('[Nova Voice] dictation', event.error); };
+      recognition.onerror = function (event) { if (!['no-speech', 'aborted'].includes(event.error)) { console.warn('[Nova Voice] dictation', event.error); if (['network','service-not-allowed','audio-capture'].includes(event.error)) { state.recognition = null; try { recognition.abort(); } catch (error) {} startServerDictation(); } } };
       recognition.onend = function () { if (state.recognition === recognition && state.roomId && state.dictationEnabled) setTimeout(function () { try { recognition.start(); } catch (error) {} }, 300); };
       recognition.start(); state.recognition = recognition;
-    } catch (error) {}
+    } catch (error) { startServerDictation(); }
   }
-  function stopDictation() { var recognition = state.recognition; state.recognition = null; if (recognition) try { recognition.stop(); } catch (error) {} state.interim = ''; renderInterim(); }
+  function startServerDictation() {
+    if (!state.localStream || !window.MediaRecorder || state.serverRecorder || !state.roomId) { var notice = $('nova-vc-dictation-notice'); if (notice) { notice.classList.add('unsupported'); notice.textContent = 'Live transcription is not available in this browser without microphone access.'; } return; }
+    var notice = $('nova-vc-dictation-notice'); if (notice) { notice.classList.remove('unsupported'); notice.textContent = 'Nova transcription is active. Short audio segments are processed securely and never stored.'; }
+    var mimeTypes = ['audio/webm;codecs=opus','audio/webm','audio/mp4'];
+    var mime = mimeTypes.find(function (type) { return MediaRecorder.isTypeSupported(type); }) || '';
+    function recordChunk() {
+      if (!state.roomId || !state.dictationEnabled || state.serverRecorder) return;
+      try {
+        var chunks = [], recorder = new MediaRecorder(state.localStream, mime ? { mimeType: mime } : undefined); state.serverRecorder = recorder; state.dictationHadSpeech = false;
+        recorder.ondataavailable = function (event) { if (event.data && event.data.size) chunks.push(event.data); };
+        recorder.onstop = function () { state.serverRecorder = null; var hadSpeech = state.dictationHadSpeech; if (hadSpeech && chunks.length && !state.muted) transcribeServerChunk(new Blob(chunks, { type: recorder.mimeType || mime || 'audio/webm' })); if (state.roomId && state.dictationEnabled) state.serverRecorderTimer = setTimeout(recordChunk, 80); };
+        recorder.start(); state.serverRecorderTimer = setTimeout(function () { if (recorder.state === 'recording') recorder.stop(); }, 5500);
+      } catch (error) { if (notice) { notice.classList.add('unsupported'); notice.textContent = 'Nova could not start transcription in this browser.'; } }
+    }
+    recordChunk();
+  }
+  async function transcribeServerChunk(blob) {
+    if (state.serverDictationBusy || !state.roomId) return; state.serverDictationBusy = true;
+    try { var response = await fetch('/api/voice/transcribe', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': blob.type || 'audio/webm', 'X-Nova-Voice-Room': state.roomId, 'X-Nova-Language': navigator.language || 'en-US' }, body: blob }); var payload = await response.json(); if (!response.ok) throw Object.assign(new Error(payload.message || 'Transcription failed'), payload); if (payload.text) await publishDictation(payload.text); }
+    catch (error) { console.warn('[Nova Voice] server dictation', error); }
+    finally { state.serverDictationBusy = false; }
+  }
+  function stopDictation() { var recognition = state.recognition; state.recognition = null; if (recognition) try { recognition.stop(); } catch (error) {} clearTimeout(state.serverRecorderTimer); state.serverRecorderTimer = 0; var recorder = state.serverRecorder; state.serverRecorder = null; if (recorder && recorder.state !== 'inactive') try { recorder.onstop = null; recorder.stop(); } catch (error) {} state.serverDictationBusy = false; state.dictationHadSpeech = false; state.interim = ''; renderInterim(); }
   async function setDictation(enabled) { state.dictationEnabled = !!enabled; try { if (state.roomId) await NovaAPI.voiceAction({ roomId: state.roomId, action: 'member-dictation', enabled: state.dictationEnabled }); } catch (error) { state.dictationEnabled = !enabled; toast(error.message); } if (state.dictationEnabled) startDictation(); else stopDictation(); updateControls(); }
   async function publishDictation(text) { if (!state.roomId || state.muted || !state.dictationEnabled || (state.pushToTalk && !state.pttPressed)) return; try { await NovaAPI.voiceTranscript(state.roomId, text); } catch (error) { if (error.code === 'DICTATION_FILTERED') toast('A dictated segment was hidden by Nova safety'); } }
   function addTranscript(line) { if (!line || !line.text) return; state.transcript.push(line); if (state.transcript.length > MAX_TRANSCRIPT_LINES) state.transcript.splice(0, state.transcript.length - MAX_TRANSCRIPT_LINES); renderTranscript(); }

@@ -197,6 +197,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/voice/admit" && method === "POST") return admitVoiceRoomMember(request, env);
   if (pathname === "/api/voice/leave" && method === "POST") return leaveVoiceRoom(request, env);
   if (pathname === "/api/voice/action" && method === "POST") return voiceRoomAction(request, env);
+  if (pathname === "/api/voice/transcribe" && method === "POST") return transcribeVoiceAudio(request, env);
   if (pathname === "/api/voice/transcript" && method === "POST") return publishVoiceTranscript(request, env);
   if (pathname === "/api/voice/report" && method === "POST") return reportVoiceParticipant(request, env);
   if (pathname === "/api/voice/ice" && method === "GET") return voiceIceServers(request, env);
@@ -1377,6 +1378,36 @@ async function publishVoiceTranscript(request, env) {
   const line = { id: randomToken(10), userId: auth.id, username: auth.username, displayName: auth.display_name || auth.username, avatarUrl: auth.avatar_url || "", text, createdAt };
   await notifyVoiceRoom(env, room.id, { type: "transcript", line }, false);
   return apiJson({ line }, 201);
+}
+
+async function transcribeVoiceAudio(request, env) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, env.DB);
+  await enforceUserRateLimit(env.DB, auth.id, "voice-transcribe", 15, 60 * 1000, 60 * 1000);
+  const roomId = cleanText(request.headers.get("X-Nova-Voice-Room"), 80);
+  const room = await loadVoiceRoom(env.DB, roomId);
+  if (!room || room.status !== "active" || !room.dictationEnabled) return apiError("VOICE_DICTATION_OFF", "Dictation is disabled for this room", 409);
+  const member = await env.DB.prepare("SELECT status,dictation_enabled,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  if (!member || member.status !== "connected" || !member.dictation_enabled || member.muted_by_host) return apiError("VOICE_DICTATION_FORBIDDEN", "Dictation is not available for your microphone", 403);
+  if (!env.AI) return apiError("VOICE_TRANSCRIPTION_UNAVAILABLE", "Nova transcription is temporarily unavailable", 503);
+  const length = Number(request.headers.get("Content-Length") || 0);
+  if (length > 1024 * 1024) return apiError("VOICE_AUDIO_TOO_LARGE", "Audio segment is too large", 413);
+  const buffer = await request.arrayBuffer();
+  if (!buffer.byteLength || buffer.byteLength > 1024 * 1024) return apiError("VOICE_AUDIO_INVALID", "Audio segment is empty or too large", 400);
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  try {
+    const language = cleanText(request.headers.get("X-Nova-Language"), 12).split("-")[0].toLowerCase();
+    const result = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
+      audio: btoa(binary), task: "transcribe", ...(language ? { language } : {}), vad_filter: true,
+      condition_on_previous_text: false, no_speech_threshold: 0.65
+    });
+    return apiJson({ text: cleanText(result?.text, 500), provider: "cloudflare-workers-ai" });
+  } catch (error) {
+    console.error("Nova voice transcription failed", { message: cleanText(error?.message, 120), bytes: buffer.byteLength });
+    return apiError("VOICE_TRANSCRIPTION_FAILED", "Nova could not transcribe that audio segment", 502);
+  }
 }
 
 async function reportVoiceParticipant(request, env) {
