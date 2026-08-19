@@ -1163,7 +1163,6 @@ async function getVoiceRoom(request, url, env) {
 async function createVoiceRoom(request, env) {
   requireSameOrigin(request);
   const auth = await requireSocialUser(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "voice-create", 5, 24 * 60 * 60 * 1000, 60 * 60 * 1000);
   if (!(await hasVoiceSponsorAccess(env.DB, auth))) return apiError("SUPERNOVA_REQUIRED", "Supernova is required to start a voice room", 403);
   const restriction = await activeVoiceRestriction(env.DB, auth.id);
   if (restriction) return voiceRestrictionError(restriction);
@@ -1199,6 +1198,9 @@ async function createVoiceRoom(request, env) {
     if (!friend || await isBlockedBetween(env.DB, auth.id, invited.id)) return apiError("VOICE_INVITE_NOT_FRIEND", `@${username} must be an accepted friend`, 403);
     invitedUsers.push(invited);
   }
+  // Count only valid room creations. The former 5-per-day limiter ran before
+  // validation and could lock users out for an hour during connection retries.
+  await enforceUserRateLimit(env.DB, auth.id, "voice-create-v2", 20, 10 * 60 * 1000, 2 * 60 * 1000);
   const id = `vc_${crypto.randomUUID()}`;
   const now = Date.now();
   const statements = [
