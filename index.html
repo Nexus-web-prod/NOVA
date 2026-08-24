@@ -33,35 +33,38 @@ function _showNovaUpdateBanner(){
 <style id="fg">html,body{background:#04040a;margin:0}html[data-theme=light],html[data-theme=light] body{background:#f2f2f8}</style>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="google-adsense-account" content="ca-pub-6082584609878503">
 <title>Nova 7.0</title>
 <link rel="icon" id="favicon-link" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' ry='22' fill='%230a0a14'/><path d='M50,24 C51.5,35 62,47.5 76,50 C62,52.5 51.5,65 50,76 C48.5,65 38,52.5 24,50 C38,47.5 48.5,35 50,24Z' fill='%23ffffff' opacity='0.92'/><circle cx='50' cy='50' r='3' fill='%23ffffff'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-<link rel="stylesheet" href="/css/nova.css?v=733">
+<link rel="stylesheet" href="/css/nova.css?v=735">
+<link rel="stylesheet" href="/css/nova-ads.css?v=20260824-ads1">
 <style id="nova-account-modal-fix">.acct-modal-box{background:#0d0d1d!important;color:#eeeef6!important;z-index:1;border-color:rgba(139,143,255,.34)!important;box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(139,143,255,.12),0 0 70px rgba(107,92,255,.14)!important}</style>
 <link rel="stylesheet" href="/css/nova-game-detail.css?v=730">
-<link rel="stylesheet" href="/css/nova-vc.css?v=715">
+<link rel="stylesheet" href="/css/nova-vc.css?v=822">
 <link rel="stylesheet" href="/css/nova-supernova-hub.css?v=723">
-<link rel="stylesheet" href="/css/nova-holiday-themes.css?v=723">
+<link rel="stylesheet" href="/css/nova-holiday-themes.css?v=727">
     <link rel="stylesheet" href="/css/nova-v7.css?v=723">
     <link rel="stylesheet" href="/css/nova-tickets.css?v=702">
     <link rel="stylesheet" href="/css/nova-settings-v7.css?v=705">
     <link rel="stylesheet" href="/css/nova-setup-v7.css?v=718">
+    <link rel="stylesheet" href="/css/nova-theme-global.css?v=731">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;900&family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
 <meta name="nova-version" content="7.0">
-<script src="/config.js?v=587"></script>
+<script src="/config.js?v=20260822-sj2067-r8.19"></script>
 <script src="/js/nova-security-ui.js?v=712"></script>
 <script>
-/* Legacy Supabase names are intentionally blank. Nova data uses Cloudflare D1. */
+/* Legacy Supabase names are intentionally blank. Nova data uses the authenticated Nova API backed by Turso. */
 (function(){
   window.__NOVA_SUPABASE_URL = '';
   window.__NOVA_SUPABASE_KEY = '';
-  window.__NOVA_DB_BACKEND = 'cloudflare-d1';
+  window.__NOVA_DB_BACKEND = 'turso-libsql';
   window.__NOVA_BACKEND_DISABLED = false;
 })();
 </script>
-<script src="/js/nova-db-shim.js?v=703"></script>
+<script src="/js/nova-storage-shim.js?v=704"></script>
 <script src="/js/nova-update.js?v=711"></script>
-<script src="/js/nova-preferences-boot.js?v=718"></script>
+<script src="/js/nova-preferences-boot.js?v=719"></script>
 <script>(function(){try{var k='nova_setup_v7_complete',v='7.0-launch',done=localStorage.getItem(k)===v;if(!done){var saved=JSON.parse(localStorage.getItem('nova_control_center')||'null');if(saved&&Number(saved.setupVersion)===7&&saved.setupCompletedAt){localStorage.setItem(k,v);done=true;}}if(!done)document.documentElement.classList.add('nova-setup-pending');}catch(e){document.documentElement.classList.add('nova-setup-pending');}})();</script>
 <script>(function(){
   var t=localStorage.getItem('nova_theme')||'dark';
@@ -98,26 +101,9 @@ function _showNovaUpdateBanner(){
   }
   root.setAttribute('data-theme',t==='light'?'light':'dark');
 })();</script>
-<script src="/baremux/index.js"></script>
-<script src="/vortex.all.js?v=1787043100"></script>
 <script src="/js/vendor/dreamland-0.0.25.js"></script>
-<script>
-(function(){
-  // Rotate this marker with the proxy runtime so already-open clients discard
-  // the previous service-worker configuration exactly once.
-  var key='nova_proxy_reset_v596';
-  if(localStorage.getItem(key)==='1') return;
-  localStorage.setItem(key,'1');
-  (navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function(rs){
-    return Promise.all(rs.map(function(r){return r.unregister().catch(function(){});}));
-  }).catch(function(){}) : Promise.resolve()).then(function(){
-    var u=new URL(location.href);
-    u.searchParams.set('proxyReset','1');
-    location.replace(u.toString());
-  });
-})();
-</script>
-<script src="/store.js?v=723"></script>
+<script src="/js/nova-proxy-manager.js?v=20260822-sj2067-r8.19-google-vortex4"></script>
+<script src="/store.js?v=20260822-sj2067-r8.19"></script>
 <style>
 /* ── Spinner keyframe for loading tabs ── */
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -791,6 +777,82 @@ html[data-island-close-button="off"] #nova-island-content > .ni-tabs .ni-tab-ind
 /* page-area adjustment base */
 .page-area { transition: margin-right .35s cubic-bezier(.34,1.2,.64,1); }
   </style>
+<link rel="stylesheet" href="/css/nova-games-social-native.css?v=1">
+<link rel="stylesheet" href="/css/nova-motion-v2.css?v=800">
+<style id="nova-v44-ui-polish">
+/* v4.4 UI polish */
+html[data-theme="light"]{
+  --bg:#ece7df!important;
+  --bg2:#e3ddd4!important;
+  --s1:#d6cfc5!important;
+  --text:#241f1a!important;
+  --muted:#6e655c!important;
+  --dim:#8b8176!important;
+  --white:#120f0d!important;
+  --accent:#6c60da!important;
+  --accent2:#5448c7!important;
+  --glow:rgba(108,96,218,.12)!important;
+  --glow-s:rgba(108,96,218,.05)!important;
+  --glass-bg:rgba(49,36,24,.035)!important;
+  --glass-bg-h:rgba(49,36,24,.06)!important;
+  --glass-b:rgba(37,26,17,.09)!important;
+  --glass-bh:rgba(108,96,218,.24)!important;
+  --toast-bg:rgba(28,24,20,.95)!important;
+  --theme-panel:rgba(255,252,247,.76)!important;
+  --theme-panel-strong:rgba(247,241,233,.92)!important;
+}
+html[data-theme="light"] body::before{opacity:.22;filter:saturate(.72)}
+html[data-theme="light"] .settings-panel,
+html[data-theme="light"] .settings-profile-card,
+html[data-theme="light"] .settings-island-preview,
+html[data-theme="light"] .settings-about,
+html[data-theme="light"] #ni-profile-card{box-shadow:0 12px 34px rgba(61,42,22,.08),inset 0 1px 0 rgba(255,255,255,.35)!important}
+html[data-theme="light"] .setting-input,
+html[data-theme="light"] .settings-sync-pill{background:rgba(255,250,244,.82)!important}
+
+.settings-field>span{align-items:center}
+.settings-avatar-editor{text-align:center;align-items:center!important;justify-content:center!important}
+.settings-avatar-orbit{left:50%!important;transform:translateX(-50%)!important}
+.settings-avatar-drop-copy{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.16rem;max-width:18rem}
+.settings-avatar-actions{justify-content:center;flex-wrap:wrap}
+.settings-account-panel{display:flex;flex-direction:column;gap:.9rem;margin-top:.1rem;padding:.95rem 1rem;border:1px solid rgba(139,143,255,.12);border-radius:12px;background:rgba(6,6,18,.32)}
+.settings-account-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.settings-account-copy strong{display:block;color:var(--white);font:800 .66rem "Lato",sans-serif;letter-spacing:0}
+.settings-account-copy span{display:block;color:var(--muted);font:500 .54rem/1.45 "Lato",sans-serif;letter-spacing:0}
+.settings-account-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .6rem;border:1px solid rgba(139,143,255,.18);border-radius:999px;background:rgba(139,143,255,.1);color:var(--accent);font:700 .34rem "Space Mono",monospace;letter-spacing:.12em;text-transform:uppercase}
+.settings-account-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+.settings-account-actions{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.settings-account-actions .settings-secondary-btn{min-width:150px}
+.settings-inline-status{color:var(--muted);font:500 .5rem/1.45 "Lato",sans-serif}
+.settings-inline-status.is-error{color:#ff8298}
+#ni-profile-card .ni-pc-hdr{align-items:center!important}
+#ni-profile-card .ni-pc-hdr > div:last-child{display:flex;min-width:0;flex-direction:column;justify-content:center}
+#ni-profile-card .ni-pc-actions{display:grid!important;grid-template-columns:1fr!important;gap:0!important}
+#ni-pc-settings-btn{display:none!important}
+#ni-profile-card .ni-pc-btn-primary{width:100%!important}
+#ni-social-sidebar-mount,.social-sidebar{padding-inline:max(.15rem, env(safe-area-inset-left)) max(.15rem, env(safe-area-inset-right))}
+#ni-social-sidebar-mount .social-sidebar,
+#social-sidebar{box-sizing:border-box}
+#ni-social-sidebar-mount .social-sidebar-header,
+#social-sidebar .social-sidebar-header{padding-inline:.85rem!important}
+#ni-social-sidebar-mount .social-everyone-tab,
+#social-sidebar .social-everyone-tab,
+#ni-social-sidebar-mount .social-search-wrap,
+#social-sidebar .social-search-wrap{margin-inline:.7rem!important;max-width:calc(100% - 1.4rem)}
+#ni-social-sidebar-mount .social-friends-list,
+#social-sidebar .social-friends-list{padding:.25rem .7rem .7rem!important}
+#ni-social-sidebar-mount .social-friend-item,
+#social-sidebar .social-friend-item{width:100%;max-width:100%;box-sizing:border-box;overflow:hidden}
+#ni-social-sidebar-mount .social-friend-copy,
+#social-sidebar .social-friend-copy{min-width:0}
+#ni-social-sidebar-mount .social-friend-status,
+#social-sidebar .social-friend-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@container nova-page-canvas (max-width:620px){
+  .settings-account-row{grid-template-columns:1fr}
+  .settings-account-actions{align-items:stretch;flex-direction:column}
+  .settings-account-actions .settings-secondary-btn{width:100%}
+}
+</style>
 </head>
 <body>
 
@@ -1268,19 +1330,15 @@ function openIslandSocialDock(target,paneAlreadyOpen){
   if(!chat) return;
   if(chat.parentNode !== socialMount) socialMount.appendChild(chat);
   socialMount.classList.add('ni-social-layout');
-  document.body.classList.add('ni-social-dock-open');
   socialDock.setAttribute('aria-hidden','false');
   if(!wasOpen){
     clearTimeout(socialDockEnterTimer);
     document.body.classList.remove('ni-social-entering');
-    void socialDock.offsetWidth;
-    document.body.classList.add('ni-social-entering');
     requestAnimationFrame(function(){
-      if(openToken === socialDockOpenToken) socialDock.classList.add('open');
+      if(openToken !== socialDockOpenToken) return;
+      document.body.classList.add('ni-social-dock-open');
+      socialDock.classList.add('open');
     });
-    socialDockEnterTimer = setTimeout(function(){
-      document.body.classList.remove('ni-social-entering');
-    },520);
   }
   setTimeout(function(){
     if(openToken !== socialDockOpenToken || !socialDock.classList.contains('open')) return;
@@ -1455,78 +1513,72 @@ document.addEventListener('nova:page-change', function(e){
 });
 setTimeout(syncIslandVisibility, 0);
 
-// ── REAL Recent Activity ──────────────────────────────
-var GAME_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M15 13h2"/></svg>';
-var WEB_ICON  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-
+// ── UNIVERSAL Recent Activity ──────────────────────────
+var NI_ACTIVITY_ICONS = {
+  page:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg>',
+  game:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M7 10v4M5 12h4M16 11h.01M18 13h.01"/></svg>',
+  app:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M9 18h6"/></svg>',
+  movie:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/></svg>',
+  search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>',
+  purchase:'<svg viewBox="0 0 24 24"><path d="M6 7h15l-2 8H8L6 3H3"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>',
+  settings:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21h-4v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 0 0 .3-1.8A1.7 1.7 0 0 0 3.2 14H3v-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3h4v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1h.2v4h-.2a1.7 1.7 0 0 0-1.4 1Z"/></svg>',
+  profile:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  account:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  social:'<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20a6 6 0 0 1 12 0M14 20a5 5 0 0 1 8 0"/></svg>',
+  web:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>'
+};
+function niEscape(v){
+  var d=document.createElement('div');d.textContent=v==null?'':String(v);return d.innerHTML;
+}
+function niActivityTime(ts){
+  var d=Math.max(0,Date.now()-Number(ts||0));
+  if(d<60000)return 'Just now';
+  if(d<3600000)return Math.floor(d/60000)+'m ago';
+  if(d<86400000)return Math.floor(d/3600000)+'h ago';
+  if(d<604800000)return Math.floor(d/86400000)+'d ago';
+  try{return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'})}catch(e){return ''}
+}
 function renderRecents(){
-  var body = document.getElementById('ni-recent-body');
-  if(!body) return;
-  var recents = [];
-  try { recents = JSON.parse(localStorage.getItem('nova_recents') || '[]'); } catch(e){}
-  if(!recents.length){ try { recents = JSON.parse(localStorage.getItem('nova_recents_v2') || '[]'); } catch(e){} }
-
-  if(!recents.length){
-    body.innerHTML = '<div style="padding:1.5rem 0;text-align:center;font-family:Space Mono,monospace;font-size:.45rem;color:var(--muted,#888)">No recent activity yet.<br>Play a game or browse to get started.</div>';
+  var body=document.getElementById('ni-recent-body');
+  if(!body)return;
+  var list=window.NovaActivity?window.NovaActivity.read():[];
+  if(!list.length){
+    body.innerHTML='<div class="ni-activity-empty">No recent activity yet.<br>Use Nova and your activity will appear here.</div>';
     return;
   }
-
-  // Nova stores newest-first already (uses unshift)
-  var list = recents.slice(0, 15);
-  var html = '';
-  list.forEach(function(r){
-    var name = r.name || r.title || 'Unknown';
-    var url  = r.url  || r.src  || '#';
-    var img  = r.image || r.img || r.thumb || '';
-    var isBrowser = !img && url && (url.startsWith('http')||url.startsWith('//')) && name.indexOf('.') > -1;
-    var iconHtml = img
-      ? '<img src="'+img+'" style="width:20px;height:20px;border-radius:4px;object-fit:cover;display:block;" onerror="this.style.display=\'none\'">'
-      : (isBrowser ? WEB_ICON : GAME_ICON);
-    var tag = isBrowser
-      ? '<span class="ni-tag web">Web</span>'
-      : '<span class="ni-tag game">Game</span>';
-    html += '<div class="ni-recent" data-url="'+url+'" style="cursor:pointer">'
-      + '<div class="ni-recent-icon">'+iconHtml+'</div>'
-      + '<div style="flex:1;min-width:0">'
-      +   '<div class="ni-recent-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>'
-      +   '<div class="ni-recent-meta">Tap to open</div>'
-      + '</div>'
-      + tag
-      + '</div>';
-  });
-  body.innerHTML = html;
-
-  body.querySelectorAll('.ni-recent[data-url]').forEach(function(row){
-    row.addEventListener('click', function(){
-      var u = row.dataset.url;
-      if(u && window.goTo) { window.goTo(u); closeIsland(); }
-      else if(u) {
-        var nb = document.querySelector('.nav-tab[data-page="browser"]');
-        if(nb) nb.click();
+  body.innerHTML=list.slice(0,60).map(function(a){
+    var type=a.type||'page';
+    var img=a.image?'<img src="'+niEscape(a.image)+'" alt="" onerror="this.remove()">':'';
+    var icon=img || (NI_ACTIVITY_ICONS[type]||NI_ACTIVITY_ICONS.page);
+    var clickable=!!(a.page||a.url);
+    return '<button class="ni-recent ni-activity-item" type="button" data-activity-id="'+niEscape(a.id)+'" '+(clickable?'':'disabled')+'>'
+      +'<span class="ni-recent-icon ni-activity-icon" data-type="'+niEscape(type)+'">'+icon+'</span>'
+      +'<span class="ni-activity-copy"><strong class="ni-recent-name">'+niEscape(a.label||'Nova activity')+'</strong>'
+      +'<span class="ni-recent-meta">'+niEscape(a.detail||'Nova')+' · '+niEscape(niActivityTime(a.time))+'</span></span>'
+      +'<span class="ni-activity-tag">'+niEscape(type)+'</span>'
+      +'</button>';
+  }).join('');
+  body.querySelectorAll('.ni-activity-item').forEach(function(row){
+    row.addEventListener('click',function(){
+      var feed=window.NovaActivity?window.NovaActivity.read():[];
+      var a=feed.find(function(x){return x.id===row.dataset.activityId});
+      if(!a)return;
+      if(a.url && /^https?:/i.test(a.url) && window.goTo){
+        window.goTo(a.url);closeIsland();return;
+      }
+      if(a.page){
+        var p=a.page==='social'?'home':a.page;
+        var tab=document.querySelector('.nav-tab[data-page="'+p+'"]');
+        if(tab)tab.click();
+        if(a.page==='social')setTimeout(function(){document.querySelector('.ni-tab[data-ni-tab="social"]')?.click()},120);
         closeIsland();
       }
     });
   });
 }
-
-document.addEventListener('nova:login', function(){ syncProfile(); syncXP(); });
-document.addEventListener('nova:logout', function(){ syncProfile(); syncXP(); });
-document.addEventListener('nova:account-changed', function(){ syncProfile(); syncXP(); });
-
-// ── Rewards sub-tabs ──────────────────────────────────
-var rBadgesBtn = document.getElementById('ni-r-badges-btn');
-var rShopBtn   = document.getElementById('ni-r-shop-btn');
-var badgeGrid  = document.getElementById('ni-badges-grid');
-var shopGrid   = document.getElementById('ni-shop-grid');
-if(rBadgesBtn) rBadgesBtn.addEventListener('click', function(){
-  rBadgesBtn.classList.add('active'); rShopBtn.classList.remove('active');
-  if(badgeGrid) badgeGrid.style.display = 'grid';
-  if(shopGrid)  shopGrid.style.display  = 'none';
-});
-if(rShopBtn) rShopBtn.addEventListener('click', function(){
-  rShopBtn.classList.add('active'); rBadgesBtn.classList.remove('active');
-  if(shopGrid)  shopGrid.style.display  = 'grid';
-  if(badgeGrid) badgeGrid.style.display = 'none';
+window.addEventListener('nova:activity-changed',function(){
+  var active=document.querySelector('.ni-tab.active[data-ni-tab="recent"]');
+  if(active)renderRecents();
 });
 
 // ── Profile Bar ───────────────────────────────────────
@@ -1538,16 +1590,33 @@ if(profileCard) profileCard.addEventListener('click', function(e){ e.stopPropaga
 
 var pcMain = document.getElementById('ni-pc-main-btn');
 var pcSettings = document.getElementById('ni-pc-settings-btn');
+function openProfileSettingsFromIsland(){
+  if(window._novaOpenProfileSettings){
+    window._novaOpenProfileSettings();
+  } else {
+    var _st = document.querySelector('.nav-tab[data-page="settings"]');
+    if(_st) _st.click();
+    setTimeout(function(){
+      var _profilePane = document.querySelector('.settings-rail-btn[data-settings-pane="profile"]');
+      if(_profilePane) _profilePane.click();
+    }, 80);
+  }
+  closeIsland();
+}
 if(pcMain) pcMain.addEventListener('click', function(){
+  var hasUser = !!window.__novaV7User;
+  if(!hasUser){
+    try{ hasUser = !!JSON.parse(localStorage.getItem('nova_account')||'null'); }catch(e){}
+  }
+  if(hasUser){
+    openProfileSettingsFromIsland();
+    return;
+  }
   var acctBtn = document.getElementById('account-btn');
   if(acctBtn) acctBtn.click();
   closeIsland();
 });
-if(pcSettings) pcSettings.addEventListener('click', function(){
-  var _st = document.querySelector('.nav-tab[data-page="settings"]');
-  if(_st) _st.click();
-  closeIsland();
-});
+if(pcSettings) pcSettings.addEventListener('click', openProfileSettingsFromIsland);
 
 // ── Sync profile from real Nova account ───────────────
 function syncProfile(){
@@ -1788,6 +1857,10 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <div class="home-inner">
 <div class="nova-hero">
 <div class="nova-hero-wordmark nova7-wordmark" id="hero-wordmark-trigger" title="Open Nova Island" role="button" tabindex="0" aria-label="Nova — open Nova Island">
+<img class="nova-christmas-logo" src="/assets/media/holiday/christmas/christmas-nova-logo.png" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
+<img class="nova-stpatricks-logo" src="/assets/media/holiday/st-patricks/st-patricks-nova-logo.png" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
+<img class="nova-thanksgiving-logo" src="/assets/media/holiday/thanksgiving/thanksgiving-nova-logo.png" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
+<img class="nova-newyear-logo" src="/assets/media/holiday/new-year/new-year-nova-logo.png" alt="" aria-hidden="true" decoding="async" fetchpriority="high"/>
 <span class="nova7-logo-part nova7-logo-n">N</span>
 <svg class="nova7-logo-star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg>
 <span class="nova7-logo-va" aria-hidden="true"><span class="nova7-logo-v">V</span><span class="nova7-logo-a">A</span></span>
@@ -1828,6 +1901,7 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 </div>
 <div class="recents-row" id="recents-row"></div>
 </div>
+<div class="nova-ad-slot nova-ad-slot--collapsed" data-nova-ad-page="home" data-nova-ad-location="home-lower" aria-label="Sponsored content"></div>
 </div>
 </div>
 <div id="bookmarks-modal" class="bm-overlay hidden">
@@ -1888,7 +1962,7 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 </div>
 </div>
 <div class="nt-shortcuts">
-<button class="nt-shortcut" data-url="https://www.startpage.com">
+<button class="nt-shortcut" data-url="https://search.brave.com">
 <div class="nt-shortcut-icon">
 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
 <circle cx="11" cy="11" r="7"/>
@@ -1896,7 +1970,7 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <path d="M7.5 11h7"/>
 </svg>
 </div>
-<span class="nt-shortcut-label">Startpage</span>
+<span class="nt-shortcut-label">Brave</span>
 </button>
 <button class="nt-shortcut" data-url="https://www.youtube.com">
 <div class="nt-shortcut-icon">
@@ -1958,6 +2032,7 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 </div>
 <div class="game-grid" id="game-grid"></div>
 <div class="nexus-footer"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <a href="https://nexus-n-co.pages.dev/nexus" target="_blank" class="nexus-footer-link"><strong>NEXUS</strong></a></span></div>
+<div class="nova-ad-slot nova-ad-slot--collapsed" data-nova-ad-page="games" data-nova-ad-location="games-lower" aria-label="Sponsored content"></div>
 </div>
 </div>
 <div class="page" id="page-game-detail">
@@ -2035,6 +2110,7 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <div class="section-label" style="margin-top:1.2rem;">All Apps</div>
 </div>
 <div class="game-grid" id="app-grid"></div>
+<div class="nova-ad-slot nova-ad-slot--collapsed" data-nova-ad-page="apps" data-nova-ad-location="apps-lower" aria-label="Sponsored content"></div>
 <div class="nexus-footer"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <a href="https://nexus-n-co.pages.dev/nexus" target="_blank" class="nexus-footer-link"><strong>NEXUS</strong></a></span></div>
 </div>
 </div>
@@ -2084,6 +2160,7 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <div id="movies-genre-bar" role="tablist" aria-label="Movie genres"></div>
 </div>
 <div id="movies-grid"></div>
+<div class="nova-ad-slot nova-ad-slot--collapsed" data-nova-ad-page="movies" data-nova-ad-location="movies-lower" aria-label="Sponsored content"></div>
 <div id="movies-empty">
 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m10 9 5 3-5 3z"></path></svg>
 <strong>No matching movies</strong>
@@ -2170,11 +2247,33 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
   </ul>
   <div class="plan-card-cta" id="plans-sn-cta-wrap">
     <span class="plan-cta-note plan-cta-note--sn" id="plans-sn-cta-note">Contact a Nova admin to upgrade</span>
+    <button class="plan-cta-btn plan-cta-btn--trial" id="plans-sn-trial-btn" type="button" hidden>Start free 3-day trial</button>
     <button class="plan-cta-btn plan-cta-btn--sn" id="plans-sn-request-btn" style="margin-top:.5rem;display:none;">Request Supernova Pro ✦</button>
   </div>
 </div>
 
 </div>
+<section class="sn-referral-panel" id="sn-referral-panel" aria-labelledby="sn-referral-title" hidden>
+  <header class="sn-referral-head">
+    <div>
+      <span class="sn-referral-eyebrow">SHARE SUPERNOVA</span>
+      <h2 id="sn-referral-title">Referral access</h2>
+      <p id="sn-referral-summary">Invite up to five people. Each accepted invite unlocks Supernova for seven days.</p>
+    </div>
+    <span class="sn-referral-count" id="sn-referral-count" aria-live="polite"></span>
+  </header>
+  <div class="sn-referral-incoming" id="sn-referral-incoming" hidden></div>
+  <form class="sn-referral-form" id="sn-referral-form" novalidate>
+    <label for="sn-referral-username">Nova username</label>
+    <div class="sn-referral-form-row">
+      <input id="sn-referral-username" name="username" autocomplete="off" maxlength="20" placeholder="username" />
+      <button type="submit" id="sn-referral-send">Send invite</button>
+    </div>
+    <p class="sn-referral-help">Invites use one of your five referral spots when sent.</p>
+    <p class="sn-referral-feedback" id="sn-referral-feedback" role="status" aria-live="polite"></p>
+  </form>
+  <div class="sn-referral-list" id="sn-referral-list"></div>
+</section>
 <div class="nexus-footer"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <a href="https://nexus-n-co.pages.dev/nexus" target="_blank" class="nexus-footer-link"><strong>NEXUS</strong></a></span></div>
 </div>
 </div>
@@ -2468,32 +2567,37 @@ General
 <button type="button" class="sn-ai-gate-btn" id="sn-theme-gate-signin">Sign In to Unlock</button>
 </div>
 </div>
-<div class="sn-theme-studio" id="sn-theme-studio" style="display:none;">
-<div class="sn-theme-col sn-theme-col--pick">
-<div class="sn-theme-card">
-<div class="sn-theme-card-label">Color Wheel</div>
+<div class="sn-theme-studio sn-theme-studio--remade" id="sn-theme-studio" style="display:none;">
+<div class="sn-theme-studio-head">
+<div>
+<div class="sn-theme-eyebrow">THEME STUDIO</div>
+<div class="sn-theme-studio-title">Build your Nova look</div>
+<div class="sn-theme-studio-sub">Pick a color, fine tune it, preview it live, then apply it across Nova.</div>
+</div>
+<div class="sn-theme-live-chip"><span></span> LIVE PREVIEW</div>
+</div>
+
+<div class="sn-theme-workspace">
+<div class="sn-theme-editor-stack">
+<div class="sn-theme-card sn-theme-card--color">
+<div class="sn-theme-card-head">
+<div>
+<div class="sn-theme-card-label">Color</div>
+<div class="sn-theme-card-sub">Choose the main accent and brightness.</div>
+</div>
+<button type="button" class="sn-theme-random-btn" id="sn-theme-random" title="Randomize">🎲 Random</button>
+</div>
+<div class="sn-theme-color-layout">
 <div class="sn-theme-wheel-wrap">
 <canvas id="sn-theme-wheel" class="sn-theme-wheel" width="220" height="220"></canvas>
 </div>
-<div class="sn-theme-card-label" style="margin-top:.65rem;">Saturation &amp; Brightness</div>
+<div class="sn-theme-color-side">
+<div class="sn-theme-control-label">Saturation &amp; Brightness</div>
 <canvas id="sn-theme-sv" class="sn-theme-sv" width="220" height="120"></canvas>
-<div class="sn-theme-hex-row">
+<div class="sn-theme-hex-row sn-theme-hex-row--remade">
 <span class="sn-theme-hex-label">Accent</span>
 <span class="sn-theme-hex" id="sn-theme-hex">#8B8FFF</span>
-<button type="button" class="sn-theme-random-btn" id="sn-theme-random" title="Randomize">🎲 Random</button>
 </div>
-</div>
-<div class="sn-theme-card">
-<div class="sn-theme-card-label">Fine Tune</div>
-<label class="sn-theme-slider-row">
-<span>Secondary hue</span>
-<input type="range" id="sn-theme-hue2" min="0" max="360" value="280"/>
-</label>
-<label class="sn-theme-slider-row">
-<span>Background depth</span>
-<input type="range" id="sn-theme-depth" min="2" max="10" value="4"/>
-<span class="sn-theme-slider-val" id="sn-theme-depth-val">4</span>
-</label>
 <div class="sn-theme-swatches" id="sn-theme-swatches">
 <div class="sn-theme-swatch" data-var="--accent" title="Accent"></div>
 <div class="sn-theme-swatch" data-var="--accent2" title="Accent 2"></div>
@@ -2502,22 +2606,56 @@ General
 <div class="sn-theme-swatch" data-var="--text" title="Text"></div>
 </div>
 </div>
-<div class="sn-theme-card">
+</div>
+</div>
+
+<div class="sn-theme-card sn-theme-card--tune">
+<div class="sn-theme-card-head">
+<div>
+<div class="sn-theme-card-label">Fine Tune</div>
+<div class="sn-theme-card-sub">Adjust the secondary glow and background depth.</div>
+</div>
+</div>
+<div class="sn-theme-tune-grid">
+<label class="sn-theme-slider-row sn-theme-slider-row--remade">
+<span>Secondary hue</span>
+<input type="range" id="sn-theme-hue2" min="0" max="360" value="280"/>
+</label>
+<label class="sn-theme-slider-row sn-theme-slider-row--remade">
+<span>Background depth</span>
+<input type="range" id="sn-theme-depth" min="2" max="10" value="4"/>
+<span class="sn-theme-slider-val" id="sn-theme-depth-val">4</span>
+</label>
+</div>
+</div>
+
+<div class="sn-theme-card sn-theme-card--presets">
+<div class="sn-theme-card-head">
+<div>
 <div class="sn-theme-card-label">Quick Presets</div>
-<div class="sn-theme-presets">
-<button type="button" class="sn-theme-preset" data-h="250" data-s="72" data-l="58" data-h2="280" data-depth="4" style="background:linear-gradient(135deg,#8b8fff,#5d5df6)">Nova</button>
-<button type="button" class="sn-theme-preset" data-h="330" data-s="85" data-l="55" data-h2="280" data-depth="3" style="background:linear-gradient(135deg,#f72585,#7209b7)">Synth</button>
-<button type="button" class="sn-theme-preset" data-h="195" data-s="80" data-l="62" data-h2="210" data-depth="4" style="background:linear-gradient(135deg,#67d1f5,#0891b2)">Ice</button>
-<button type="button" class="sn-theme-preset" data-h="32" data-s="90" data-l="58" data-h2="15" data-depth="3" style="background:linear-gradient(135deg,#fb923c,#ea580c)">Ember</button>
-<button type="button" class="sn-theme-preset" data-h="130" data-s="75" data-l="52" data-h2="100" data-depth="3" style="background:linear-gradient(135deg,#84cc16,#22c55e)">Toxic</button>
-<button type="button" class="sn-theme-preset" data-h="45" data-s="95" data-l="55" data-h2="330" data-depth="4" style="background:linear-gradient(135deg,#f5c518,#ff6ef7)">Supernova</button>
+<div class="sn-theme-card-sub">Start with a Nova palette, then customize it.</div>
+</div>
+</div>
+<div class="sn-theme-presets sn-theme-presets--remade">
+<button type="button" class="sn-theme-preset" data-h="250" data-s="72" data-l="58" data-h2="280" data-depth="4" style="background:linear-gradient(135deg,#8b8fff,#5d5df6)"><span>Nova</span></button>
+<button type="button" class="sn-theme-preset" data-h="330" data-s="85" data-l="55" data-h2="280" data-depth="3" style="background:linear-gradient(135deg,#f72585,#7209b7)"><span>Synth</span></button>
+<button type="button" class="sn-theme-preset" data-h="195" data-s="80" data-l="62" data-h2="210" data-depth="4" style="background:linear-gradient(135deg,#67d1f5,#0891b2)"><span>Ice</span></button>
+<button type="button" class="sn-theme-preset" data-h="32" data-s="90" data-l="58" data-h2="15" data-depth="3" style="background:linear-gradient(135deg,#fb923c,#ea580c)"><span>Ember</span></button>
+<button type="button" class="sn-theme-preset" data-h="130" data-s="75" data-l="52" data-h2="100" data-depth="3" style="background:linear-gradient(135deg,#84cc16,#22c55e)"><span>Toxic</span></button>
+<button type="button" class="sn-theme-preset" data-h="45" data-s="95" data-l="55" data-h2="330" data-depth="4" style="background:linear-gradient(135deg,#f5c518,#ff6ef7)"><span>Supernova</span></button>
 </div>
 </div>
 </div>
-<div class="sn-theme-col sn-theme-col--preview">
-<div class="sn-theme-card sn-theme-card--preview">
+
+<div class="sn-theme-preview-stack">
+<div class="sn-theme-card sn-theme-card--preview sn-theme-card--preview-remade">
+<div class="sn-theme-card-head">
+<div>
 <div class="sn-theme-card-label">Live Preview</div>
-<p class="sn-theme-preview-hint">Preview only — click <strong style="color:var(--white);font-weight:700;">Apply Theme</strong> to keep changes across Nova.</p>
+<div class="sn-theme-card-sub">This preview updates while you edit.</div>
+</div>
+<div class="sn-theme-preview-dot"></div>
+</div>
 <div class="sn-theme-preview" id="sn-theme-preview">
 <div class="sn-pv-nav">
 <span class="sn-pv-logo">NOVA</span>
@@ -2533,18 +2671,27 @@ General
 </div>
 </div>
 </div>
+<p class="sn-theme-preview-hint">Preview only — click <strong style="color:var(--white);font-weight:700;">Apply Theme</strong> to keep it across Nova.</p>
 </div>
-<div class="sn-theme-card">
-<div class="sn-theme-card-label">Saved Themes <span class="sn-theme-hint">click to load · right-click to delete</span></div>
+
+<div class="sn-theme-card sn-theme-card--saved-remade">
+<div class="sn-theme-card-head">
+<div>
+<div class="sn-theme-card-label">Saved Themes</div>
+<div class="sn-theme-card-sub">Click to load · right-click to delete.</div>
+</div>
+</div>
 <div class="sn-theme-slots" id="sn-theme-slots"></div>
 </div>
-<div class="sn-theme-actions">
+
+<div class="sn-theme-actions sn-theme-actions--remade">
 <button type="button" class="sn-theme-apply-btn" id="sn-theme-apply">Apply Theme ✦</button>
 <button type="button" class="sn-theme-reset-btn" id="sn-theme-reset">Reset to Default</button>
 </div>
 <p class="sn-theme-note">Your custom theme applies across all of Nova and syncs on this device.</p>
 </div>
 </div>
+</div></div>
 </div>
 </div>
 </div>
@@ -2634,6 +2781,8 @@ General
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Hide Badges</div><div class="setting-desc">Hide badge surfaces from view</div></div><label class="toggle-switch"><input class="nova-control" data-control="hideBadges" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Disable Activity Tracking</div><div class="setting-desc">Reduces local recent activity</div></div><label class="toggle-switch"><input class="nova-control" data-control="disableActivity" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Clear Recent Activity</div><div class="setting-desc">Remove locally saved recent items</div></div><button class="save-btn" data-control-action="clear-recents">Clear</button></div></div>
+<div class="settings-block settings-card-wide"><div class="setting-row"><div><div class="setting-label">Privacy Policy</div><div class="setting-desc">How Nova handles account, social, voice, moderation, staff task, audit, device, and proxy data.</div></div><a class="save-btn" href="/privacy-policy.html" target="_blank" rel="noopener">Read</a></div></div>
+<div class="settings-block settings-card-wide"><div class="setting-row"><div><div class="setting-label">Staff & Voice Transparency</div><div class="setting-desc">Explains Admin/Developer/Owner powers, staff requests, VC bypass, and Developer vanish mode.</div></div><a class="save-btn" href="/staff-privacy-policy.html" target="_blank" rel="noopener">Read</a></div></div>
 </div>
 </section>
 <section class="settings-pane" data-settings-pane-panel="performance">
@@ -2649,7 +2798,7 @@ General
 <section class="settings-pane" data-settings-pane-panel="accessibility">
 <div class="settings-pane-head"><div><div class="section-label">Accessibility</div><h3>Comfort</h3></div></div>
 <div class="settings-grid">
-<div class="settings-block"><div class="setting-row"><div><div class="setting-label">Text Size</div><div class="setting-desc">Scale readable UI text</div></div><select class="setting-input nova-control" data-control="textSize"><option value="normal">Normal</option><option value="large">Large</option><option value="xl">Extra Large</option></select></div></div>
+<div class="settings-block"><div class="setting-row"><div><div class="setting-label">Text Size</div><div class="setting-desc">Scale readable UI text</div></div><select class="setting-input nova-control" data-control="textSize"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">High Contrast</div><div class="setting-desc">Stronger borders and text</div></div><label class="toggle-switch"><input class="nova-control" data-control="highContrast" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Reduce Motion</div><div class="setting-desc">Disable most animation</div></div><label class="toggle-switch"><input class="nova-control" data-control="reduceMotion" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
 <div class="settings-block"><div class="setting-row"><div><div class="setting-label">Focus Outlines</div><div class="setting-desc">Make keyboard focus visible</div></div><label class="toggle-switch"><input class="nova-control" data-control="focusOutlines" type="checkbox"><span class="toggle-track"><span class="toggle-thumb"></span></span></label></div></div>
@@ -2703,6 +2852,10 @@ General
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Everyone
           </div>
+<button class="social-games-tab" id="social-games-tab" type="button" aria-label="Open Nova Games">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12h4M10 10v4M16 10h.01M18 12h.01"/></svg>
+<span>Games</span><small>UNO</small>
+</button>
 <div class="social-search-wrap">
 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 <input class="social-search-input" id="social-friend-search" placeholder="Search friends…" autocomplete="off" spellcheck="false"/>
@@ -2726,6 +2879,60 @@ General
 <div class="social-requests-list" id="social-group-invites-list"></div>
 </div>
 <div class="social-chat-area" id="social-chat-area">
+<div class="social-game-shell" id="social-game-shell" hidden aria-label="Nova Games">
+  <div class="social-game-bar">
+    <div class="social-game-brand"><span class="social-game-star">✦</span><div><small>NOVA SOCIAL</small><strong>UNO TABLE</strong></div></div>
+    <div class="social-game-bar-actions">
+      <span class="social-game-status" id="social-game-status"><i></i><span id="social-game-status-text">Live</span></span><button class="call-button" id="call-button" type="button" hidden aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" width="15" height="15"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3M8 22h8"/></svg><span id="call-label">Join call</span></button>
+      <button type="button" class="social-game-close" id="social-game-close" aria-label="Back to chat">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        <span>Back to chat</span>
+      </button>
+    </div>
+  </div>
+  <div class="social-game-native" id="social-game-native">
+<main id="main">
+    <section class="landing" id="landing">
+      <div class="landing-copy">
+        <span class="eyebrow">Nova Social game night</span>
+        <h1>One table.<br><em>Zero chill.</em></h1>
+        <p>Start an UNO lobby, invite up to three Nova friends, and play live from any device.</p>
+        <div class="landing-actions">
+          <button class="primary" id="create-lobby" type="button">Create a lobby <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+          <button class="secondary" id="open-join" type="button">Join with code</button>
+        </div>
+      </div>
+      <div class="hero-cards" aria-hidden="true">
+        <div class="hero-card red"><span>7</span><b>7</b><span>7</span></div>
+        <div class="hero-card blue"><span>↻</span><b>↻</b><span>↻</span></div>
+        <div class="hero-card wild"><span>✦</span><b>WILD</b><span>✦</span></div>
+      </div>
+      <section class="invites-panel" id="invites-panel" hidden><header><span>Your invitations</span><b id="invite-count">0</b></header><div id="invite-list"></div></section>
+    </section>
+
+    <section class="lobby-view" id="lobby-view" hidden>
+      <div class="lobby-card">
+        <span class="eyebrow">Private lobby</span><h1>Bring the crew.</h1><p>Share this code or invite a Nova friend.</p>
+        <button class="lobby-code" id="copy-code" type="button"><span id="lobby-code">------</span><small>Click to copy</small></button>
+        <div class="player-list" id="player-list"></div>
+        <div class="invite-friends"><label for="friend-picker">Invite a friend</label><div><select id="friend-picker"><option value="">Choose a Nova friend</option></select><button id="invite-friend" type="button">Send invite</button></div></div>
+        <div class="lobby-actions"><button class="secondary" id="leave-lobby" type="button">Leave</button><button class="primary" id="start-game" type="button">Start game</button></div>
+      </div>
+    </section>
+
+    <section class="table-view" id="table-view" hidden aria-label="UNO game table">
+      <div class="table-glow"></div><div class="opponents" id="opponents"></div>
+      <div class="table-center"><div class="active-color" id="active-color"><i></i><span>Current color</span><strong>—</strong></div><div class="deck" id="draw-pile" role="button" tabindex="0" aria-label="Draw a card"><span>✦</span><b>NOVA</b></div><div id="discard-pile" aria-label="Drop a playable card here"></div><p id="turn-label" role="status" aria-live="polite">Waiting…</p><div class="uno-actions"><button id="call-uno" class="uno-call-button" type="button" hidden>UNO!</button><button id="play-again" class="play-again-button" type="button" hidden>Play again</button></div></div>
+      <div class="your-zone"><div class="you-row"><span id="you-name">You</span><b id="card-count">0 cards</b></div><div class="hand" id="hand" aria-label="Your hand"></div></div>
+    </section>
+  </main>
+<div class="modal" id="auth-modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="icon-button close-modal" type="button" aria-label="Close">×</button><span class="eyebrow">Nova account</span><h2 id="auth-title">Sign in to play</h2><p>Your Nova Games session stays on this domain.</p><form id="auth-form"><label>Username<input id="auth-username" autocomplete="username" required maxlength="24"></label><label>Password<input id="auth-password" type="password" autocomplete="current-password" required minlength="8"></label><button class="primary" type="submit">Sign in</button><p class="form-error" id="auth-error" role="alert"></p></form><button class="text-button" id="auth-mode" type="button">New to Nova? Create an account</button></div></div>
+<div class="modal" id="join-modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="join-title"><button class="icon-button close-modal" type="button" aria-label="Close">×</button><span class="eyebrow">Join friends</span><h2 id="join-title">Enter lobby code</h2><form id="join-form"><label>Six-character code<input id="join-code" class="code-input" maxlength="6" autocomplete="off" required></label><button class="primary" type="submit">Join table</button><p class="form-error" id="join-error" role="alert"></p></form></div></div>
+<div class="modal" id="color-modal" hidden><div class="modal-card color-card" role="dialog" aria-modal="true" aria-labelledby="color-title"><h2 id="color-title">Choose a color</h2><div class="color-grid"><button data-color="red" aria-label="Red"></button><button data-color="yellow" aria-label="Yellow"></button><button data-color="green" aria-label="Green"></button><button data-color="blue" aria-label="Blue"></button></div></div></div>
+<aside class="call-panel" id="call-panel" hidden aria-label="UNO voice call"><div><i></i><span><b>UNO call</b><small id="call-status">Connecting…</small></span></div><div><button id="mute-call" type="button" aria-pressed="false">Mute</button><button id="leave-call" type="button">Leave</button></div></aside>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+</div>
 <div class="social-everyone-panel" id="social-everyone-panel" style="display:none;flex-direction:column;height:100%;">
 <div class="social-chat-header">
 <div class="social-chat-peer-avatar" style="background:linear-gradient(135deg,rgba(139,143,255,.25),rgba(139,143,255,.08));display:flex;align-items:center;justify-content:center;">
@@ -2914,25 +3121,29 @@ General
   </script>
 <script src="/js/nova-stars.js?v=714" defer></script>
 <script src="/js/nova-ip-guard.js?v=716" defer></script>
-<script src="/js/nova-v7-api.js?v=727" defer></script>
+<script src="/js/nova-v7-api.js?v=821" defer></script>
 <script src="/js/nova-v7-account.js?v=719" defer></script>
+<script src="/js/nova-activity.js?v=900" defer></script>
 <script src="/js/nova.js?v=566" defer></script>
 <script src="/js/nova-settings-v7-ui.js?v=717" defer></script>
 <script src="/js/nova-settings-control.js?v=718" defer></script>
 <script src="/js/nova-sound.js?v=714" defer></script>
 <script src="/js/nova-v7-profile.js?v=714" defer></script>
+<script src="/js/nova-v7-profile-account-bridge.js?v=744" defer></script>
 <script src="/js/nova-setup-v7.js?v=718" defer></script>
-<script src="/js/nova-wisp-override.js?v=1" defer></script>
 <script src="/js/nova-message-island.js?v=595" defer></script>
-<script src="/js/nova-proxy.js?v=725" defer></script>
+<script src="/js/nova-proxy.js?v=20260822-sj2067-r8.19" defer></script>
 <script src="/js/nova-supernova-tier.js?v=721"></script>
-<script src="/js/nova-holiday-themes.js?v=723" defer></script>
+<script src="/js/nova-supernova-referrals.js?v=724" defer></script>
+<script src="/js/nova-ads.js?v=20260824-ads1" defer></script>
+<script src="/js/nova-holiday-themes.js?v=725" defer></script>
 <script src="/js/nova-supernova-hub.js?v=723" defer></script>
 <script src="/js/nova-supernova-themes.js?v=722" defer></script>
 <script src="/js/nova-ai.js?v=722" defer></script>
-<script src="/js/social.js?v=718" defer></script>
-<script src="/js/nova-realtime-voice.js?v=4" defer></script>
-<script src="/js/nova-social-vc.js?v=719" defer></script>
+<script src="/js/social-uno-native.js?v=1"></script>
+<script src="/js/social.js?v=719" defer></script>
+<script src="/js/nova-realtime-voice.js?v=818" defer></script>
+<script src="/js/nova-social-vc.js?v=20260823-staff-r8.22" defer></script>
 <script src="/js/nova-tickets.js?v=716" defer></script>
 <script src="/js/nova-profile-hover.js?v=702" defer></script>
 <script src="/js/nova-ecosystem-6.js?v=587" defer></script>
@@ -2970,24 +3181,24 @@ General
 <script>
 (function(){
 'use strict';
-/* ── wait for Vortex ── */
-var _vReady=false, _vCbs=[], _vStarting=false;
-function waitVortex(cb){ if(_vReady){cb();return;} _vCbs.push(cb); }
-function pollVortex(){
-  if(_vStarting)return;
-  if(typeof vortex!=='undefined'&&typeof vortex.createFrame==='function'){
-    _vStarting=true;
+/* ── wait for NovaProxyManager ── */
+var _pReady=false, _pCbs=[], _pStarting=false;
+function waitProxy(cb){ if(_pReady){cb();return;} _pCbs.push(cb); }
+function pollProxy(){
+  if(_pStarting)return;
+  if(window.NovaProxyManager&&typeof window.NovaProxyManager.createFrame==='function'){
+    _pStarting=true;
     Promise.resolve(window.novaProxyReady).then(function(){
-      _vReady=true;
-      _vCbs.forEach(function(f){f();});
-      _vCbs=[];
+      _pReady=true;
+      _pCbs.forEach(function(f){f();});
+      _pCbs=[];
     }).catch(function(error){
-      _vStarting=false;
+      _pStarting=false;
       console.error('[Nova] Proxy startup failed:',error);
     });
-  }else{setTimeout(pollVortex,80);}
+  }else{setTimeout(pollProxy,80);}
 }
-pollVortex();
+pollProxy();
 /* ── constants ── */
 var MAX_TABS = 8;
 var SILKSONG  = 'https://html-classic.itch.zone/html/14847754/index.html';
@@ -3027,9 +3238,9 @@ function resolveURL(input){
   input=(input||'').trim(); if(!input)return null;
   if(/^https?:\/\//i.test(input))return input;
   if(/^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}([/?#].*)?$/.test(input)&&!input.includes(' '))return 'https://'+input;
-  var eng=localStorage.getItem('nova_search_engine')||'startpage';
-  var S={startpage:function(q){return'https://www.startpage.com/search?q='+encodeURIComponent(q);},ddg:function(q){return'https://duckduckgo.com/?q='+encodeURIComponent(q);},bing:function(q){return'https://www.bing.com/search?q='+encodeURIComponent(q);},google:function(q){return'https://www.google.com/search?q='+encodeURIComponent(q);},brave:function(q){return'https://search.brave.com/search?q='+encodeURIComponent(q);},};
-  return (S[eng]||S.startpage)(input);
+  var eng=localStorage.getItem('nova_search_engine')||'brave';
+  var S={ddg:function(q){return'https://duckduckgo.com/?q='+encodeURIComponent(q);},bing:function(q){return'https://www.bing.com/search?q='+encodeURIComponent(q);},google:function(q){return'https://www.google.com/search?q='+encodeURIComponent(q);},brave:function(q){return'https://search.brave.com/search?q='+encodeURIComponent(q);}};
+  return (S[eng]||S.brave)(input);
 }
 /* ── helpers ── */
 function getTab(id){ return tabs.find(function(t){return t.id===id;}); }
@@ -3126,9 +3337,8 @@ function newTab(url){
   var id = ++_tid;
   var iframe = document.createElement('iframe');
   iframe.className = 'tab-iframe';
-  // Vortex needs a same-origin scripted frame. A sandbox that grants both
-  // allow-scripts and allow-same-origin provides no isolation and triggers a
-  // browser security warning, so the frame is governed by Nova's CSP instead.
+  // Nova proxy frames stay same-origin so Scramjet can manage navigation and
+  // history while Nova's CSP continues to govern the host frame.
   iframe.referrerPolicy = 'no-referrer';
   iframe.allow = 'fullscreen';
   iframe.src = '/proxy-frame';
@@ -3147,8 +3357,8 @@ function newTab(url){
   tabs.push(tab);
   renderTabs();
   activateTab(id);
-  waitVortex(function(){
-    var sc = vortex.createFrame(iframe);
+  waitProxy(function(){
+    var sc = window.NovaProxyManager.createFrame(iframe);
     tab.scFrame = sc;
     iframe.addEventListener('load', function(){
       if(iframe.getAttribute('src')==='/proxy-frame') return;
@@ -3187,7 +3397,7 @@ function navigateTo(url){
   if(resolved===SILKSONG){ frameWrap.classList.add('silksong-crop'); }
   else { frameWrap.classList.remove('silksong-crop'); }
   if(tab.scFrame){ tab.scFrame.go(resolved); }
-  else { waitVortex(function(){ if(tab.scFrame) tab.scFrame.go(resolved); }); }
+  else { waitProxy(function(){ if(tab.scFrame) tab.scFrame.go(resolved); }); }
   // Fire nova:navigate so weblogs captures every navigation
   var _sq=''; try{ var _u=new URL(resolved); _sq=_u.searchParams.get('q')||_u.searchParams.get('query')||''; }catch(e){}
   document.dispatchEvent(new CustomEvent('nova:navigate',{detail:{url:resolved,query:_sq}}));
@@ -3342,7 +3552,7 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 </script>
-<script src="/js/nova-v7-admin.js?v=719" defer></script>
+<script src="/js/nova-v7-admin.js?v=820" defer></script>
 <script src="/js/nova-badges.js?v=561"></script>
 <script src="/js/nova-shop.js?v=561"></script>
 <script>
@@ -3580,7 +3790,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(updateRequestBtn, 800);
 })();
 </script>
-<script src="/js/nova-movies.js?v=710"></script>
+<script src="/js/nova-movies.js?v=1000"></script>
 <script src="/js/nova-game-copy.js?v=725"></script>
 <script src="/js/nova-game-detail.js?v=731"></script>
 <div id="nova-orbit-panel" style="display:none;position:fixed;top:2.6rem;right:.7rem;z-index:9990;background:var(--bg);border:1px solid rgba(139,143,255,.22);border-radius:16px;padding:1.2rem 1.3rem 1.1rem;min-width:230px;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.5);backdrop-filter:blur(16px);">

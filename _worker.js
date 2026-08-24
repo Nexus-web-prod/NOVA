@@ -8,8 +8,13 @@ const AUDIT_LOG_MS = 365 * 24 * 60 * 60 * 1000;
 const CHAT_MODERATION_LOG_MS = 30 * 24 * 60 * 60 * 1000;
 const VOICE_EVENT_LOG_MS = 90 * 24 * 60 * 60 * 1000;
 const VOICE_ROOM_MAX_MS = 2 * 60 * 60 * 1000;
+const VOICE_MEMBER_STALE_MS = 3 * 60 * 1000;
+const VOICE_EMPTY_ROOM_GRACE_MS = 3 * 60 * 1000;
 const VOICE_SPONSOR_GRACE_MS = 60 * 1000;
 const VOICE_MAX_MEMBERS = 4;
+const SUPERNOVA_DEVICE_TRIAL_MS = 3 * 24 * 60 * 60 * 1000;
+const SUPERNOVA_REFERRAL_MS = 7 * 24 * 60 * 60 * 1000;
+const SUPERNOVA_REFERRAL_LIMIT = 5;
 const OPEN_RELAY_HOST = "staticauth.openrelay.metered.ca";
 const OPEN_RELAY_STATIC_SECRET = "openrelayprojectsecret";
 const OPEN_RELAY_TTL_SECONDS = 2 * 60 * 60;
@@ -33,7 +38,9 @@ const PASSWORD_ITERATIONS = 100000;
 const PASSWORD_MAX_ITERATIONS = 100000;
 const LEGACY_PASSWORD_ITERATIONS = 100000;
 const STAFF_ROLES = new Set(["developer", "admin", "owner"]);
-const ADMIN_ROLES = new Set(["admin", "owner"]);
+// Nova hierarchy: user < admin < developer < owner.
+const ADMIN_ROLES = new Set(["admin", "developer", "owner"]);
+const DEVELOPER_ROLES = new Set(["developer", "owner"]);
 const MAINTENANCE_API_PATHS = new Set([
   "/api/health",
   "/api/device-status",
@@ -44,16 +51,16 @@ const MAINTENANCE_API_PATHS = new Set([
 ]);
 const PRIVATE_DEPLOYMENT_FILES = new Set([
   "/_worker.js",
-  "/d1_schema.sql",
-  "/reset_d1.sql",
+  "/turso_schema.sql",
+
   "/wrangler.toml",
-  "/deploy-pages-d1.sh",
+  "/deploy-pages-turso.sh",
   "/fix-cloud-placeholders.sh",
   "/make-deploy-clean.sh",
-  "/reset-d1.sh",
+
   "/grant-owner.sh",
   "/configure-google-ai.sh",
-  "/cloudflare_d1_readme.md",
+  "/turso_migration_readme.md",
   "/nova_7_release_audit_2026-07-15.md",
   "/nova_7_release_stabilization_2026-07-16.md",
   "/nova-full-prototype.html",
@@ -67,9 +74,276 @@ const PRIVATE_DEPLOYMENT_FILES = new Set([
 ]);
 let lastCleanupAt = 0;
 let maintenanceCache = { checkedAt: 0, state: null };
+const deviceBanCache = new Map();
+const sessionUserCache = new Map();
+let tursoSchemaReady = null;
 let unoSchemaReady = null;
 const requestUserCache = new WeakMap();
 const geminiModelCache = new Map();
+
+
+// -----------------------------------------------------------------------------
+// Turso/libSQL database adapter
+// Nova database adapter. All persistent application data is stored in Turso/libSQL.
+// The prepared-statement surface keeps the route code small while the transport
+// uses Turso's SQL-over-HTTP endpoint, which works in Cloudflare Pages Workers.
+// -----------------------------------------------------------------------------
+const tursoDbCache = new WeakMap();
+
+function hasDatabaseConfig(env) {
+  return !!(env && env.TURSO_DATABASE_URL && env.TURSO_AUTH_TOKEN);
+}
+
+function tursoHttpUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) throw new Error("Missing TURSO_DATABASE_URL");
+  const base = raw.replace(/^libsql:\/\//i, "https://").replace(/\/$/, "");
+  return base + "/v2/pipeline";
+}
+
+function tursoArg(value) {
+  if (value === null || value === undefined) return { type: "null" };
+  if (typeof value === "bigint") return { type: "integer", value: String(value) };
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return { type: "null" };
+    return Number.isInteger(value)
+      ? { type: "integer", value: String(value) }
+      : { type: "float", value: String(value) };
+  }
+  if (typeof value === "boolean") return { type: "integer", value: value ? "1" : "0" };
+  if (value instanceof Uint8Array) {
+    let binary = "";
+    for (let i = 0; i < value.length; i += 1) binary += String.fromCharCode(value[i]);
+    return { type: "blob", base64: btoa(binary) };
+  }
+  if (value instanceof ArrayBuffer) return tursoArg(new Uint8Array(value));
+  return { type: "text", value: String(value) };
+}
+
+function tursoValue(cell) {
+  if (!cell || cell.type === "null") return null;
+  if (cell.type === "integer") {
+    const n = Number(cell.value);
+    return Number.isSafeInteger(n) ? n : String(cell.value);
+  }
+  if (cell.type === "float") return Number(cell.value);
+  if (cell.type === "blob") {
+    const binary = atob(cell.base64 || "");
+    return Uint8Array.from(binary, ch => ch.charCodeAt(0));
+  }
+  return cell.value == null ? null : String(cell.value);
+}
+
+function tursoRows(result) {
+  const cols = Array.isArray(result?.cols) ? result.cols.map(col => col.name) : [];
+  return (Array.isArray(result?.rows) ? result.rows : []).map(row => {
+    const out = {};
+    cols.forEach((name, index) => { out[name] = tursoValue(row[index]); });
+    return out;
+  });
+}
+
+class TursoPreparedStatement {
+  constructor(db, sql, args) {
+    this.db = db;
+    this.sql = String(sql || "");
+    this.args = Array.isArray(args) ? args : [];
+  }
+  bind(...args) { return new TursoPreparedStatement(this.db, this.sql, args); }
+  async first(column) {
+    const result = await this.db._execute(this.sql, this.args);
+    const row = tursoRows(result)[0] || null;
+    return row && column ? row[column] : row;
+  }
+  async all() {
+    const result = await this.db._execute(this.sql, this.args);
+    return {
+      success: true,
+      results: tursoRows(result),
+      meta: this.db._meta(result)
+    };
+  }
+  async run() {
+    const result = await this.db._execute(this.sql, this.args);
+    return {
+      success: true,
+      results: tursoRows(result),
+      meta: this.db._meta(result)
+    };
+  }
+}
+
+class TursoDatabase {
+  constructor(env) {
+    this.url = tursoHttpUrl(env.TURSO_DATABASE_URL);
+    this.token = String(env.TURSO_AUTH_TOKEN || "");
+    if (!this.token) throw new Error("Missing TURSO_AUTH_TOKEN");
+  }
+  prepare(sql) { return new TursoPreparedStatement(this, sql, []); }
+  _stmt(sql, args) {
+    return { type: "execute", stmt: { sql: String(sql || ""), args: (args || []).map(tursoArg) } };
+  }
+  _meta(result) {
+    return {
+      changes: Number(result?.affected_row_count || 0),
+      last_row_id: result?.last_insert_rowid == null ? 0 : Number(result.last_insert_rowid),
+      rows_read: Number(result?.rows_read || 0),
+      rows_written: Number(result?.rows_written || 0),
+      duration: Number(result?.query_duration_ms || 0)
+    };
+  }
+  async _send(requests, baton = null, endpoint = this.url) {
+    const body = { requests };
+    if (baton) body.baton = baton;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+    let payload = null;
+    try { payload = await response.json(); } catch {}
+    if (!response.ok) {
+      const detail = payload?.message || payload?.error || `HTTP ${response.status}`;
+      throw new Error(`Turso request failed: ${detail}`);
+    }
+    return payload || {};
+  }
+  _executeResults(payload, expected) {
+    const entries = Array.isArray(payload?.results) ? payload.results.slice(0, expected) : [];
+    if (entries.length < expected) throw new Error("Turso SQL error: incomplete pipeline response");
+    return entries.map((entry, index) => {
+      if (!entry || entry.type !== "ok" || entry.response?.type !== "execute") {
+        const detail = entry?.error?.message || entry?.error || `statement ${index + 1} failed`;
+        const error = new Error(`Turso SQL error: ${detail}`);
+        error.tursoStatementIndex = index;
+        throw error;
+      }
+      return entry.response.result || {};
+    });
+  }
+  async _pipeline(statements) {
+    const payload = await this._send([...statements, { type: "close" }]);
+    return this._executeResults(payload, statements.length);
+  }
+  async _execute(sql, args) {
+    return (await this._pipeline([this._stmt(sql, args)]))[0];
+  }
+  async batch(statements) {
+    const prepared = (statements || []).map(stmt => {
+      if (!(stmt instanceof TursoPreparedStatement)) throw new Error("Turso batch expects prepared statements");
+      return this._stmt(stmt.sql, stmt.args);
+    });
+    if (!prepared.length) return [];
+
+    // Read-only batches do not need a transaction and stay to one HTTP request.
+    const readOnly = (statements || []).every(stmt => /^\s*(SELECT|PRAGMA|WITH\b[^;]*SELECT)/i.test(stmt.sql));
+    if (readOnly) {
+      const results = await this._pipeline(prepared);
+      return results.map(result => ({ success: true, results: tursoRows(result), meta: this._meta(result) }));
+    }
+
+    // Write batches use a real Turso transaction. We open the transaction and
+    // execute the statements in one round trip, then commit only after every
+    // statement reports success. Any error is rolled back before it escapes.
+    const opening = await this._send([this._stmt("BEGIN IMMEDIATE", []), ...prepared]);
+    const baton = opening.baton || null;
+    try {
+      const all = this._executeResults(opening, prepared.length + 1);
+      if (!baton) throw new Error("Turso transaction did not return a baton");
+      await this._send([this._stmt("COMMIT", []), { type: "close" }], baton);
+      return all.slice(1).map(result => ({ success: true, results: tursoRows(result), meta: this._meta(result) }));
+    } catch (error) {
+      if (baton) {
+        try { await this._send([this._stmt("ROLLBACK", []), { type: "close" }], baton); } catch {}
+      }
+      throw error;
+    }
+  }
+}
+
+function getDb(env) {
+  if (!hasDatabaseConfig(env)) return null;
+  let db = tursoDbCache.get(env);
+  if (!db) { db = new TursoDatabase(env); tursoDbCache.set(env, db); }
+  return db;
+}
+
+async function ensureTursoSchema(db) {
+  if (!db) throw new Error("Turso database is not configured");
+  if (!tursoSchemaReady) {
+    tursoSchemaReady = (async () => {
+      // These indexes match Nova's high-frequency polling paths. They are
+      // intentionally narrow so a 3-second message/typing/reaction check uses
+      // indexed lookups instead of rescanning large social tables.
+      await db.batch([
+        db.prepare("CREATE INDEX IF NOT EXISTS social_members_user_channel_idx ON social_channel_members(user_id,channel_id,last_read_message_id)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS social_messages_live_channel_idx ON social_messages(channel_id,deleted_at,id DESC)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS social_messages_channel_created_idx ON social_messages(channel_id,created_at,id)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS social_reactions_user_message_idx ON social_message_reactions(user_id,message_id)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS social_group_invites_user_idx ON social_group_invites(invited_user_id,created_at DESC)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS social_typing_channel_updated_idx ON social_typing(channel_id,updated_at DESC)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS user_presence_seen_idx ON user_presence(last_seen_at DESC,user_id)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS uno_members_user_lobby_idx ON uno_lobby_members(user_id,lobby_id)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS uno_lobbies_status_updated_idx ON uno_lobbies(status,updated_at DESC)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS admin_tasks(
+          id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL DEFAULT 'task',
+          task_type TEXT NOT NULL DEFAULT 'general',
+          title TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          priority TEXT NOT NULL DEFAULT 'normal',
+          status TEXT NOT NULL DEFAULT 'open',
+          created_by TEXT NOT NULL,
+          assigned_to TEXT,
+          assigned_role TEXT,
+          target_type TEXT,
+          target_id TEXT,
+          target_username TEXT,
+          action_json TEXT NOT NULL DEFAULT '{}',
+          resolution TEXT NOT NULL DEFAULT '',
+          due_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          completed_at INTEGER,
+          completed_by TEXT
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS admin_tasks_status_updated_idx ON admin_tasks(status,updated_at DESC)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS admin_tasks_assignee_idx ON admin_tasks(assigned_to,assigned_role,status,updated_at DESC)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS voice_staff_presence(
+          room_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          vanished INTEGER NOT NULL DEFAULT 0,
+          joined_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          PRIMARY KEY(room_id,user_id)
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS supernova_device_trials(
+          device_id_hash TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL UNIQUE,
+          claimed_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS supernova_referrals(
+          id TEXT PRIMARY KEY,
+          inviter_id TEXT NOT NULL,
+          invited_user_id TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at INTEGER NOT NULL,
+          responded_at INTEGER,
+          expires_at INTEGER,
+          UNIQUE(inviter_id,invited_user_id)
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS supernova_referrals_inviter_idx ON supernova_referrals(inviter_id,status,created_at DESC)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS supernova_referrals_invited_idx ON supernova_referrals(invited_user_id,status,created_at DESC)")
+      ]);
+      return true;
+    })().catch(error => { tursoSchemaReady = null; throw error; });
+  }
+  return tursoSchemaReady;
+}
 
 export default {
   async fetch(request, env) {
@@ -77,16 +351,17 @@ export default {
 
     if (url.pathname.startsWith("/api/")) {
       if (request.method === "OPTIONS") return apiJson(null, 204);
-      if (!env.DB) return apiError("DATABASE_UNAVAILABLE", "Missing D1 binding named DB", 503);
+      if (!hasDatabaseConfig(env)) return apiError("DATABASE_UNAVAILABLE", "Missing Turso database configuration", 503);
       try {
-        await maybeCleanup(env.DB);
+        await ensureTursoSchema(getDb(env));
+        await maybeCleanup(getDb(env));
         if (!["/api/health", "/api/device-status"].includes(url.pathname)) {
-          const ban = await activeDeviceBan(request, env.DB);
+          const ban = await activeDeviceBan(request, getDb(env));
           if (ban) return apiError("DEVICE_BANNED", ban.reason || "This device is banned from Nova", 403);
         }
         if (!isMaintenanceApiPath(url.pathname)) {
-          const maintenance = await maintenanceState(env.DB);
-          if (maintenance.enabled && !(await hasStaffSession(request, env.DB))) {
+          const maintenance = await maintenanceState(getDb(env));
+          if (maintenance.enabled && !(await hasStaffSession(request, getDb(env)))) {
             return maintenanceApiResponse(maintenance);
           }
         }
@@ -102,6 +377,17 @@ export default {
       return apiError("LEGACY_API_REMOVED", "This browser-controlled database endpoint was removed in Nova 7", 410);
     }
 
+    // Scramjet proxy routes are service-worker-only. If one reaches Pages,
+    // the browser is not yet controlled by the current proxy worker. Return a
+    // clean transient error instead of involving Nova APIs/maintenance reads
+    // or allowing any host-side fallback to claim the route.
+    if (url.pathname.startsWith("/~/sj/")) {
+      return new Response("Nova's Scramjet proxy is still starting. Please retry the navigation.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
     // Vortex routes are normally intercepted by the service worker. If one
     // reaches Pages, never serve Nova's SPA inside its own game iframe.
     if (url.pathname.startsWith("/vortex/")) {
@@ -114,10 +400,10 @@ export default {
     if (isPrivateDeploymentPath(url.pathname)) return privateAssetNotFound();
 
     if (isDocumentRequest(request, url)) {
-      if (!env.DB) return maintenanceDocument({ message: "Nova is temporarily unavailable." });
+      if (!hasDatabaseConfig(env)) return maintenanceDocument({ message: "Nova is temporarily unavailable." });
       try {
-        const maintenance = await maintenanceState(env.DB);
-        if (maintenance.enabled && !(await hasStaffSession(request, env.DB))) {
+        const maintenance = await maintenanceState(getDb(env));
+        if (maintenance.enabled && !(await hasStaffSession(request, getDb(env)))) {
           return maintenanceDocument(maintenance);
         }
       } catch (error) {
@@ -127,7 +413,11 @@ export default {
     }
 
     if (url.hostname === "games.nova-7.pages.dev" && (url.pathname === "/" || url.pathname === "/index.html")) {
-      return env.ASSETS.fetch(new Request(new URL("/nova-games", url), request));
+      // Serve the standalone Nova Games landing page on the games subdomain.
+      // Keep the query string so invite links such as ?lobby=ABC123 still work.
+      const gamesUrl = new URL(url);
+      gamesUrl.pathname = "/nova-games.html";
+      return env.ASSETS.fetch(new Request(gamesUrl, request));
     }
     return env.ASSETS.fetch(request);
   }
@@ -137,59 +427,73 @@ async function routeApi(request, env, url) {
   const { pathname } = url;
   const method = request.method.toUpperCase();
 
-  if (pathname.startsWith("/api/boardgames/uno/")) await ensureUnoSchema(env.DB);
+  if (pathname.startsWith("/api/boardgames/uno/")) await ensureUnoSchema(getDb(env));
 
   if (pathname === "/api/health" && method === "GET") return health(env);
-  if (pathname === "/api/device-status" && method === "GET") return deviceStatus(request, env.DB);
-  if (pathname === "/api/site-state" && method === "GET") return siteState(env.DB);
+  if (pathname === "/api/device-status" && method === "GET") return deviceStatus(request, getDb(env));
+  if (pathname === "/api/site-state" && method === "GET") return siteState(getDb(env));
   if (pathname === "/api/auth/register" && method === "POST") return register(request, env);
   if (pathname === "/api/auth/login" && method === "POST") return login(request, env);
-  if (pathname === "/api/auth/logout" && method === "POST") return logout(request, env.DB);
-  if (pathname === "/api/auth/change-password" && method === "POST") return changePassword(request, env.DB);
+  if (pathname === "/api/auth/logout" && method === "POST") return logout(request, getDb(env));
+  if (pathname === "/api/auth/change-password" && method === "POST") return changePassword(request, getDb(env));
   if (pathname === "/api/me" && method === "GET") return me(request, env);
-  if (pathname === "/api/profile" && method === "GET") return myProfile(request, env.DB);
-  if (pathname === "/api/profile" && method === "PATCH") return updateProfile(request, env.DB);
-  if (pathname === "/api/settings" && method === "GET") return getSettings(request, env.DB);
-  if (pathname === "/api/settings" && method === "PATCH") return updateSettings(request, env.DB);
-  if (pathname === "/api/profiles" && method === "GET") return publicProfiles(url, env.DB);
+  if (pathname === "/api/profile" && method === "GET") return myProfile(request, getDb(env));
+  if (pathname === "/api/profile" && method === "PATCH") return updateProfile(request, getDb(env));
+  if (pathname === "/api/settings" && method === "GET") return getSettings(request, getDb(env));
+  if (pathname === "/api/settings" && method === "PATCH") return updateSettings(request, getDb(env));
+  if (pathname === "/api/profiles" && method === "GET") return publicProfiles(url, getDb(env));
   if (pathname.startsWith("/api/profiles/") && method === "GET") {
-    return publicProfile(decodeURIComponent(pathname.slice("/api/profiles/".length)), env.DB);
+    return publicProfile(decodeURIComponent(pathname.slice("/api/profiles/".length)), getDb(env));
   }
-  if (pathname === "/api/activity" && method === "GET") return getActivity(request, env.DB);
-  if (pathname === "/api/activity" && method === "POST") return saveActivity(request, env.DB);
-  if (pathname === "/api/games/stats" && method === "GET") return getGameStats(request, url, env.DB);
-  if (pathname === "/api/games/rating" && method === "POST") return rateGame(request, env.DB);
-  if (pathname === "/api/games/view" && method === "POST") return recordGameView(request, env.DB);
-  if (pathname === "/api/boardgames/uno/lobbies" && method === "GET") return getUnoLobby(request, url, env.DB);
-  if (pathname === "/api/boardgames/uno/lobbies" && method === "POST") return createUnoLobby(request, env.DB);
-  if (pathname === "/api/boardgames/uno/join" && method === "POST") return joinUnoLobby(request, env.DB);
-  if (pathname === "/api/boardgames/uno/leave" && method === "POST") return leaveUnoLobby(request, env.DB);
-  if (pathname === "/api/boardgames/uno/action" && method === "POST") return unoAction(request, env.DB);
-  if (pathname === "/api/boardgames/uno/invite" && method === "POST") return inviteUnoFriend(request, env.DB);
-  if (pathname === "/api/boardgames/uno/invites" && method === "GET") return getUnoInvites(request, env.DB);
-  if (pathname === "/api/boardgames/uno/social-invite" && method === "POST") return createUnoSocialInvite(request, env.DB);
+  if (pathname === "/api/activity" && method === "GET") return getActivity(request, getDb(env));
+  if (pathname === "/api/activity" && method === "POST") return saveActivity(request, getDb(env));
+  if (pathname === "/api/games/stats" && method === "GET") return getGameStats(request, url, getDb(env));
+  if (pathname === "/api/games/rating" && method === "POST") return rateGame(request, getDb(env));
+  if (pathname === "/api/games/view" && method === "POST") return recordGameView(request, getDb(env));
+  if (pathname === "/api/boardgames/uno/lobbies" && method === "GET") return getUnoLobby(request, url, getDb(env));
+  if (pathname === "/api/boardgames/uno/lobbies" && method === "POST") return createUnoLobby(request, getDb(env));
+  if (pathname === "/api/boardgames/uno/join" && method === "POST") return joinUnoLobby(request, getDb(env));
+  if (pathname === "/api/boardgames/uno/leave" && method === "POST") return leaveUnoLobby(request, getDb(env));
+  if (pathname === "/api/boardgames/uno/action" && method === "POST") return unoAction(request, getDb(env));
+  if (pathname === "/api/boardgames/uno/invite" && method === "POST") return inviteUnoFriend(request, getDb(env));
+  if (pathname === "/api/boardgames/uno/invites" && method === "GET") return getUnoInvites(request, getDb(env));
+  if (pathname === "/api/boardgames/uno/social-invite" && method === "POST") return createUnoSocialInvite(request, getDb(env));
   if (pathname === "/api/boardgames/uno/call" && method === "POST") return joinUnoCall(request, env);
-  if (pathname === "/api/presence" && method === "POST") return setPresence(request, env.DB);
-  if (pathname === "/api/social" && method === "GET") return socialOverview(request, env.DB);
-  if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, env.DB);
-  if (pathname === "/api/social/requests" && method === "GET") return socialRequests(request, env.DB);
-  if (pathname === "/api/social/friend-request" && method === "POST") return sendFriendRequest(request, env.DB);
-  if (pathname === "/api/social/friend-request/respond" && method === "POST") return respondFriendRequest(request, env.DB);
-  if (pathname === "/api/social/friend" && method === "DELETE") return removeFriend(request, env.DB);
-  if (pathname === "/api/social/blocks" && method === "GET") return getSocialBlocks(request, env.DB);
+  if (pathname === "/api/presence" && method === "POST") return setPresence(request, getDb(env));
+  if (pathname === "/api/social" && method === "GET") return socialOverview(request, getDb(env));
+  if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, getDb(env));
+  if (pathname === "/api/social/requests" && method === "GET") return socialRequests(request, getDb(env));
+  if (pathname === "/api/social/friend-request" && method === "POST") return sendFriendRequest(request, getDb(env));
+  if (pathname === "/api/social/friend-request/respond" && method === "POST") return respondFriendRequest(request, getDb(env));
+  if (pathname === "/api/social/friend" && method === "DELETE") return removeFriend(request, getDb(env));
+  if (pathname === "/api/social/blocks" && method === "GET") return getSocialBlocks(request, getDb(env));
   if (pathname === "/api/social/blocks" && method === "POST") return blockSocialUser(request, env);
-  if (pathname === "/api/social/blocks" && method === "DELETE") return unblockSocialUser(request, env.DB);
-  if (pathname === "/api/social/messages" && method === "GET") return getMessages(request, url, env.DB);
-  if (pathname === "/api/social/messages" && method === "POST") return sendMessage(request, env.DB);
-  if (pathname === "/api/social/reactions" && method === "GET") return getMessageReactions(request, url, env.DB);
-  if (pathname === "/api/social/reactions" && method === "POST") return toggleMessageReaction(request, env.DB);
-  if (pathname === "/api/social/typing" && method === "GET") return getTyping(request, url, env.DB);
-  if (pathname === "/api/social/typing" && method === "POST") return setTyping(request, env.DB);
-  if (pathname === "/api/message-island/recent" && method === "GET") return getMessageIslandRecent(request, url, env.DB);
-  if (pathname === "/api/social/groups" && method === "POST") return createGroup(request, env.DB);
-  if (pathname === "/api/social/groups/invite" && method === "POST") return inviteGroupMember(request, env.DB);
-  if (pathname === "/api/social/groups/respond" && method === "POST") return respondGroupInvite(request, env.DB);
-  if (pathname === "/api/social/groups/member" && method === "DELETE") return leaveGroup(request, env.DB);
+  if (pathname === "/api/social/blocks" && method === "DELETE") return unblockSocialUser(request, getDb(env));
+  if (pathname === "/api/social/messages" && method === "GET") return getMessages(request, url, getDb(env));
+  if (pathname === "/api/social/messages" && method === "POST") return sendMessage(request, getDb(env));
+  if (pathname === "/api/social/reactions" && method === "GET") return getMessageReactions(request, url, getDb(env));
+  if (pathname === "/api/social/reactions" && method === "POST") return toggleMessageReaction(request, getDb(env));
+  if (pathname === "/api/social/typing" && method === "GET") return getTyping(request, url, getDb(env));
+  if (pathname === "/api/social/typing" && method === "POST") return setTyping(request, getDb(env));
+  if (pathname === "/api/message-island/recent" && method === "GET") return getMessageIslandRecent(request, url, getDb(env));
+  if (pathname === "/api/social/groups" && method === "POST") return createGroup(request, getDb(env));
+  if (pathname === "/api/social/groups/invite" && method === "POST") return inviteGroupMember(request, getDb(env));
+  if (pathname === "/api/social/groups/respond" && method === "POST") return respondGroupInvite(request, getDb(env));
+  if (pathname === "/api/social/groups/member" && method === "DELETE") return leaveGroup(request, getDb(env));
+  // Voice Rooms V2 — self-contained room state, chat, admission, heartbeat,
+  // and WebRTC signaling. Does not depend on the legacy Durable Object or SFU.
+  if (pathname === "/api/voice/v2/rooms" && method === "GET") return voiceV2Rooms(request, env);
+  if (pathname === "/api/voice/v2/rooms" && method === "POST") return voiceV2Create(request, env);
+  if (pathname === "/api/voice/v2/state" && method === "GET") return voiceV2State(request, url, env);
+  if (pathname === "/api/voice/v2/join" && method === "POST") return voiceV2Join(request, env);
+  if (pathname === "/api/voice/v2/admit" && method === "POST") return voiceV2Admit(request, env);
+  if (pathname === "/api/voice/v2/leave" && method === "POST") return voiceV2Leave(request, env);
+  if (pathname === "/api/voice/v2/action" && method === "POST") return voiceV2Action(request, env);
+  if (pathname === "/api/voice/v2/chat" && method === "GET") return voiceV2ChatGet(request, url, env);
+  if (pathname === "/api/voice/v2/chat" && method === "POST") return voiceV2ChatPost(request, env);
+  if (pathname === "/api/voice/v2/signals" && method === "GET") return voiceV2SignalsGet(request, url, env);
+  if (pathname === "/api/voice/v2/signals" && method === "POST") return voiceV2SignalsPost(request, env);
+  if (pathname === "/api/voice/v2/ice" && method === "GET") return voiceV2Ice(request, url, env);
   if (pathname === "/api/voice/rooms" && method === "GET") return getVoiceRooms(request, env);
   if (pathname === "/api/voice/rooms" && method === "POST") return createVoiceRoom(request, env);
   if (pathname === "/api/voice/room" && method === "GET") return getVoiceRoom(request, url, env);
@@ -204,50 +508,58 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/voice/sfu/tracks" && method === "GET") return voiceSfuTracks(request, url, env);
   if (pathname === "/api/voice/sfu" && method === "POST") return voiceSfuAction(request, env);
   if (pathname === "/api/voice/ws" && method === "GET") return voiceRoomWebSocket(request, url, env);
-  if (pathname === "/api/reports" && method === "POST") return createReport(request, env.DB);
-  if (pathname === "/api/support/tickets" && method === "GET") return supportTickets(request, url, env.DB);
-  if (pathname === "/api/support/tickets" && method === "POST") return createSupportTicket(request, env.DB);
-  if (pathname === "/api/support/tickets/messages" && method === "POST") return replySupportTicket(request, env.DB);
-  if (pathname === "/api/support/tickets/status" && method === "POST") return setSupportTicketStatus(request, env.DB);
-  if (pathname === "/api/supernova/state" && method === "GET") return getSupernovaState(request, env.DB);
-  if (pathname === "/api/supernova/state" && method === "PUT") return updateSupernovaState(request, env.DB);
+  if (pathname === "/api/reports" && method === "POST") return createReport(request, getDb(env));
+  if (pathname === "/api/support/tickets" && method === "GET") return supportTickets(request, url, getDb(env));
+  if (pathname === "/api/support/tickets" && method === "POST") return createSupportTicket(request, getDb(env));
+  if (pathname === "/api/support/tickets/messages" && method === "POST") return replySupportTicket(request, getDb(env));
+  if (pathname === "/api/support/tickets/status" && method === "POST") return setSupportTicketStatus(request, getDb(env));
+  if (pathname === "/api/supernova/state" && method === "GET") return getSupernovaState(request, getDb(env));
+  if (pathname === "/api/supernova/state" && method === "PUT") return updateSupernovaState(request, getDb(env));
+  if (pathname === "/api/supernova/access" && method === "GET") return getSupernovaAccess(request, getDb(env));
+  if (pathname === "/api/supernova/trial" && method === "POST") return claimSupernovaTrial(request, getDb(env));
+  if (pathname === "/api/supernova/referrals" && method === "POST") return createSupernovaReferral(request, getDb(env));
+  if (pathname === "/api/supernova/referrals/respond" && method === "POST") return respondSupernovaReferral(request, getDb(env));
   if (pathname === "/api/ai/chat" && method === "POST") return supernovaAI(request, env);
-  if (pathname === "/api/proxy/navigation" && method === "POST") return logProxyNavigation(request, env.DB);
-  if (pathname === "/api/announcements" && method === "GET") return activeAnnouncements(env.DB);
-  if (pathname === "/api/admin/overview" && method === "GET") return adminOverview(request, env.DB);
-  if (pathname === "/api/admin/users" && method === "GET") return adminUsers(request, url, env.DB);
-  if (pathname === "/api/admin/staff" && method === "GET") return adminStaff(request, env.DB);
-  if (pathname === "/api/admin/users/status" && method === "POST") return adminSetUserStatus(request, env.DB);
-  if (pathname === "/api/admin/users/password" && method === "POST") return adminResetUserPassword(request, env.DB);
-  if (pathname === "/api/admin/chat/messages" && method === "GET") return adminChatMessages(request, url, env.DB);
-  if (pathname === "/api/admin/chat/restrictions" && method === "GET") return adminChatRestrictions(request, url, env.DB);
-  if (pathname === "/api/admin/chat/restrictions" && method === "POST") return adminCreateChatRestriction(request, env.DB);
-  if (pathname === "/api/admin/chat/restrictions" && method === "DELETE") return adminRevokeChatRestriction(request, env.DB);
-  if (pathname === "/api/admin/reports" && method === "GET") return adminReports(request, url, env.DB);
-  if (pathname === "/api/admin/reports/action" && method === "POST") return adminReportAction(request, env.DB);
-  if (pathname === "/api/admin/tickets" && method === "GET") return adminTickets(request, url, env.DB);
-  if (pathname === "/api/admin/tickets/action" && method === "POST") return adminTicketAction(request, env.DB);
-  if (pathname === "/api/admin/proxy-logs" && method === "GET") return adminProxyLogs(request, url, env.DB);
-  if (pathname === "/api/admin/device-bans" && method === "GET") return adminDeviceBans(request, env.DB);
-  if (pathname === "/api/admin/device-bans" && method === "POST") return adminBanDevice(request, env.DB);
-  if (pathname === "/api/admin/device-bans" && method === "DELETE") return adminUnbanDevice(request, env.DB);
-  if (pathname === "/api/admin/site" && method === "GET") return adminSite(request, env.DB);
-  if (pathname === "/api/admin/maintenance" && method === "PATCH") return adminSetMaintenance(request, env.DB);
-  if (pathname === "/api/admin/banners" && method === "POST") return adminCreateBanner(request, env.DB);
-  if (pathname === "/api/admin/banners" && method === "PATCH") return adminUpdateBanner(request, env.DB);
-  if (pathname === "/api/admin/banners" && method === "DELETE") return adminDeleteBanner(request, env.DB);
-  if (pathname === "/api/admin/supernova" && method === "GET") return adminSupernova(request, env.DB);
-  if (pathname === "/api/admin/supernova" && method === "POST") return adminSupernovaAction(request, env.DB);
+  if (pathname === "/api/proxy/navigation" && method === "POST") return logProxyNavigation(request, getDb(env));
+  if (pathname === "/api/announcements" && method === "GET") return activeAnnouncements(getDb(env));
+  if (pathname === "/api/admin/overview" && method === "GET") return adminOverview(request, getDb(env));
+  if (pathname === "/api/admin/tasks" && method === "GET") return adminTasks(request, url, getDb(env));
+  if (pathname === "/api/admin/tasks" && method === "POST") return adminCreateTask(request, getDb(env));
+  if (pathname === "/api/admin/tasks" && method === "PATCH") return adminUpdateTask(request, getDb(env));
+  if (pathname === "/api/admin/users" && method === "GET") return adminUsers(request, url, getDb(env));
+  if (pathname === "/api/admin/staff" && method === "GET") return adminStaff(request, getDb(env));
+  if (pathname === "/api/admin/users/status" && method === "POST") return adminSetUserStatus(request, getDb(env));
+  if (pathname === "/api/admin/users/password" && method === "POST") return adminResetUserPassword(request, getDb(env));
+  if (pathname === "/api/admin/chat/messages" && method === "GET") return adminChatMessages(request, url, getDb(env));
+  if (pathname === "/api/admin/chat/restrictions" && method === "GET") return adminChatRestrictions(request, url, getDb(env));
+  if (pathname === "/api/admin/chat/restrictions" && method === "POST") return adminCreateChatRestriction(request, getDb(env));
+  if (pathname === "/api/admin/chat/restrictions" && method === "DELETE") return adminRevokeChatRestriction(request, getDb(env));
+  if (pathname === "/api/admin/chat/everyone/clear" && method === "DELETE") return adminClearEveryoneChat(request, getDb(env));
+  if (pathname === "/api/admin/reports" && method === "GET") return adminReports(request, url, getDb(env));
+  if (pathname === "/api/admin/reports/action" && method === "POST") return adminReportAction(request, getDb(env));
+  if (pathname === "/api/admin/tickets" && method === "GET") return adminTickets(request, url, getDb(env));
+  if (pathname === "/api/admin/tickets/action" && method === "POST") return adminTicketAction(request, getDb(env));
+  if (pathname === "/api/admin/proxy-logs" && method === "GET") return adminProxyLogs(request, url, getDb(env));
+  if (pathname === "/api/admin/device-bans" && method === "GET") return adminDeviceBans(request, getDb(env));
+  if (pathname === "/api/admin/device-bans" && method === "POST") return adminBanDevice(request, getDb(env));
+  if (pathname === "/api/admin/device-bans" && method === "DELETE") return adminUnbanDevice(request, getDb(env));
+  if (pathname === "/api/admin/site" && method === "GET") return adminSite(request, getDb(env));
+  if (pathname === "/api/admin/maintenance" && method === "PATCH") return adminSetMaintenance(request, getDb(env));
+  if (pathname === "/api/admin/banners" && method === "POST") return adminCreateBanner(request, getDb(env));
+  if (pathname === "/api/admin/banners" && method === "PATCH") return adminUpdateBanner(request, getDb(env));
+  if (pathname === "/api/admin/banners" && method === "DELETE") return adminDeleteBanner(request, getDb(env));
+  if (pathname === "/api/admin/supernova" && method === "GET") return adminSupernova(request, getDb(env));
+  if (pathname === "/api/admin/supernova" && method === "POST") return adminSupernovaAction(request, getDb(env));
   if (pathname === "/api/admin/voice" && method === "GET") return adminVoice(request, env);
   if (pathname === "/api/admin/voice/action" && method === "POST") return adminVoiceAction(request, env);
-  if (pathname === "/api/admin/roles" && method === "POST") return adminSetRole(request, env.DB);
-  if (pathname === "/api/admin/audit" && method === "GET") return adminAudit(request, url, env.DB);
+  if (pathname === "/api/admin/roles" && method === "POST") return adminSetRole(request, getDb(env));
+  if (pathname === "/api/admin/audit" && method === "GET") return adminAudit(request, url, getDb(env));
 
   return apiError("NOT_FOUND", "API route not found", 404);
 }
 
 async function health(env) {
-  const db = env.DB;
+  const db = getDb(env);
   const [schemaResult, columnResult] = await db.batch([
     db.prepare("SELECT version, applied_at FROM nova_schema_meta WHERE id = 1"),
     db.prepare("SELECT COUNT(*) AS count FROM pragma_table_info('users') WHERE name IN ('id','username','password_hash','password_salt','account_status')")
@@ -259,7 +571,7 @@ async function health(env) {
   }
   return apiJson({
     ok: true,
-    backend: "cloudflare-d1",
+    backend: "turso-libsql",
     dbBound: true,
     voiceBound: !!env.VOICE_ROOMS,
     voiceRelayBound: true,
@@ -280,14 +592,14 @@ async function deviceStatus(request, db) {
 
 async function register(request, env) {
   requireSameOrigin(request);
-  await enforceAuthRateLimit(request, env.DB, "register", 5, 60 * 60 * 1000, 60 * 60 * 1000);
+  await enforceAuthRateLimit(request, getDb(env), "register", 5, 60 * 60 * 1000, 60 * 60 * 1000);
   const body = await readJson(request);
   const username = normalizeUsername(body.username);
   const password = String(body.password || "");
   if (!username) return apiError("INVALID_USERNAME", "Use 3-20 letters, numbers, or underscores", 400);
   if (weakPassword(password, username)) return apiError("WEAK_PASSWORD", "Use at least 8 characters and avoid common passwords", 400);
 
-  const existing = await env.DB.prepare("SELECT username FROM users WHERE username = ? COLLATE NOCASE LIMIT 1").bind(username).first();
+  const existing = await getDb(env).prepare("SELECT username FROM users WHERE username = ? COLLATE NOCASE LIMIT 1").bind(username).first();
   if (existing) return apiError("USERNAME_TAKEN", "That username is already in use", 409);
 
   const id = randomId();
@@ -301,37 +613,37 @@ async function register(request, env) {
   }
   const now = Date.now();
   try {
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO users(id, username, password_hash, password_salt, created_at, updated_at) VALUES(?,?,?,?,?,?)").bind(id, username, passwordHash, salt, now, now),
-      env.DB.prepare("INSERT INTO user_profiles(user_id, display_name, updated_at) VALUES(?,?,?)").bind(id, username, now),
-      env.DB.prepare("INSERT INTO user_settings(user_id, updated_at) VALUES(?,?)").bind(id, now),
-      env.DB.prepare("INSERT INTO user_stats(user_id, updated_at) VALUES(?,?)").bind(id, now),
-      env.DB.prepare("INSERT INTO user_roles(user_id, role) VALUES(?, 'user')").bind(id)
+    await getDb(env).batch([
+      getDb(env).prepare("INSERT INTO users(id, username, password_hash, password_salt, created_at, updated_at) VALUES(?,?,?,?,?,?)").bind(id, username, passwordHash, salt, now, now),
+      getDb(env).prepare("INSERT INTO user_profiles(user_id, display_name, updated_at) VALUES(?,?,?)").bind(id, username, now),
+      getDb(env).prepare("INSERT INTO user_settings(user_id, updated_at) VALUES(?,?)").bind(id, now),
+      getDb(env).prepare("INSERT INTO user_stats(user_id, updated_at) VALUES(?,?)").bind(id, now),
+      getDb(env).prepare("INSERT INTO user_roles(user_id, role) VALUES(?, 'user')").bind(id)
     ]);
   } catch (error) {
     console.error("Nova account insert error", error);
     throw new ApiFailure("ACCOUNT_CREATE_FAILED", "Nova could not create that account", 503);
   }
 
-  const session = await createSession(env.DB, id, deviceIdFrom(request));
-  const user = await loadUser(env.DB, id);
+  const session = await createSession(getDb(env), id, deviceIdFrom(request));
+  const user = await loadUser(getDb(env), id);
   return apiJson({ user: exposeMe(user) }, 201, { "Set-Cookie": sessionCookie(session.token) });
 }
 
 async function login(request, env) {
   requireSameOrigin(request);
-  const rateLimitKey = await enforceAuthRateLimit(request, env.DB, "login", 10, 10 * 60 * 1000, 15 * 60 * 1000);
+  const rateLimitKey = await enforceAuthRateLimit(request, getDb(env), "login", 10, 10 * 60 * 1000, 15 * 60 * 1000);
   const body = await readJson(request);
   const username = normalizeUsername(body.username);
   const password = String(body.password || "");
   if (!username || !password) return apiError("INVALID_CREDENTIALS", "Invalid username or password", 401);
 
-  const row = await env.DB.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE LIMIT 1").bind(username).first();
+  const row = await getDb(env).prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE LIMIT 1").bind(username).first();
   if (!row || row.account_status !== "active") return apiError("INVALID_CREDENTIALS", "Invalid username or password", 401);
 
   const storedIterations = passwordIterations(row.password_hash);
   if (storedIterations > PASSWORD_MAX_ITERATIONS) {
-    await clearAuthRateLimit(env.DB, rateLimitKey);
+    await clearAuthRateLimit(getDb(env), rateLimitKey);
     return apiError("PASSWORD_RESET_REQUIRED", "This account needs a one-time password reset after Nova's security upgrade. Use a device where you are still signed in or ask a Nova owner for help.", 409);
   }
 
@@ -347,12 +659,12 @@ async function login(request, env) {
   if (!row.password_hash || passwordIterations(row.password_hash) < PASSWORD_ITERATIONS) {
     const salt = randomToken(16);
     const hash = await derivePassword(password, salt);
-    await env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ?, legacy_hash = '', updated_at = ? WHERE id = ?").bind(hash, salt, Date.now(), row.id).run();
+    await getDb(env).prepare("UPDATE users SET password_hash = ?, password_salt = ?, legacy_hash = '', updated_at = ? WHERE id = ?").bind(hash, salt, Date.now(), row.id).run();
   }
 
-  const session = await createSession(env.DB, row.id, deviceIdFrom(request));
-  await clearAuthRateLimit(env.DB, rateLimitKey);
-  const user = await loadUser(env.DB, row.id);
+  const session = await createSession(getDb(env), row.id, deviceIdFrom(request));
+  await clearAuthRateLimit(getDb(env), rateLimitKey);
+  const user = await loadUser(getDb(env), row.id);
   return apiJson({ user: exposeMe(user) }, 200, { "Set-Cookie": sessionCookie(session.token) });
 }
 
@@ -400,9 +712,9 @@ async function changePassword(request, db) {
 }
 
 async function me(request, env) {
-  const auth = await optionalUser(request, env.DB);
+  const auth = await optionalUser(request, getDb(env));
   if (!auth) return apiJson({ user: null });
-  const user = await loadUser(env.DB, auth.id);
+  const user = await loadUser(getDb(env), auth.id);
   return apiJson({ user: exposeMe(user) });
 }
 
@@ -658,7 +970,12 @@ async function exposeUnoLobby(db, row, userId) {
     currentUserId: state.order?.[state.turn] || "",
     direction: state.direction || 1,
     winnerId: state.winnerId || "",
-    pendingDraw: Number(state.pendingDraw || 0)
+    pendingDraw: Number(state.pendingDraw || 0),
+    unoPendingUserId: state.unoPendingUserId || "",
+    unoCalledUserId: state.unoCalledUserId || "",
+    unoEvent: state.unoEvent || "",
+    unoEventType: state.unoEventType || "",
+    unoEventUserId: state.unoEventUserId || ""
   };
 }
 
@@ -735,7 +1052,7 @@ async function createUnoSocialInvite(request, db) {
   const lobby = await createUnoLobbyRecord(db, auth.id);
   const now = Date.now();
   await db.batch(invitees.map(target => db.prepare("INSERT INTO uno_lobby_invites(lobby_id,invited_user_id,invited_by,created_at) VALUES(?,?,?,?) ON CONFLICT(lobby_id,invited_user_id) DO UPDATE SET created_at=excluded.created_at,invited_by=excluded.invited_by").bind(lobby.id,target.id,auth.id,now)));
-  return apiJson({ lobby: await exposeUnoLobby(db, lobby, auth.id), invitees: invitees.map(item => item.username), launchUrl: "https://games.nova-7.pages.dev/?lobby=" + encodeURIComponent(lobby.id) }, 201);
+  return apiJson({ lobby: await exposeUnoLobby(db, lobby, auth.id), invitees: invitees.map(item => item.username), launchUrl: "/nova-games.html?lobby=" + encodeURIComponent(lobby.id) }, 201);
 }
 
 async function joinUnoLobby(request, db) {
@@ -812,28 +1129,29 @@ async function getUnoInvites(request, db) {
 
 async function joinUnoCall(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
+  const auth = await requireSocialUser(request, getDb(env));
+  await cleanupVoiceState(env, Date.now());
   const body = await readJson(request);
   const lobbyId = cleanText(body.lobbyId, 80);
-  const lobby = await env.DB.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
+  const lobby = await getDb(env).prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
   if (!lobby) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
-  const membership = await env.DB.prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(lobbyId, auth.id).first();
+  const membership = await getDb(env).prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(lobbyId, auth.id).first();
   if (!membership) return apiError("LOBBY_ACCESS", "Only lobby players can join its call", 403);
-  const restriction = await activeVoiceRestriction(env.DB, auth.id);
+  const restriction = await activeVoiceRestriction(getDb(env), auth.id);
   if (restriction) return voiceRestrictionError(restriction);
   const roomId = "uvc_" + lobbyId;
   const now = Date.now();
-  let room = await loadVoiceRoom(env.DB, roomId);
+  let room = await loadVoiceRoom(getDb(env), roomId);
   if (!room || room.status !== "active") {
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO voice_rooms(id,name,scope_type,scope_id,created_by,host_id,status,locked,dictation_enabled,max_members,created_at,updated_at) VALUES(?,?,'invite',NULL,?,?,'active',0,0,4,?,?) ON CONFLICT(id) DO UPDATE SET status='active',host_id=excluded.host_id,updated_at=excluded.updated_at,ended_at=NULL").bind(roomId, "UNO · " + lobby.code, lobby.owner_id, lobby.owner_id, now, now),
-      env.DB.prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,?,'admitted',?,0,?,?,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET status='admitted',left_at=NULL,last_seen_at=excluded.last_seen_at").bind(roomId, auth.id, auth.id === lobby.owner_id ? "host" : "member", lobby.owner_id, now, now, now, now)
+    await getDb(env).batch([
+      getDb(env).prepare("INSERT INTO voice_rooms(id,name,scope_type,scope_id,created_by,host_id,status,locked,dictation_enabled,max_members,created_at,updated_at) VALUES(?,?,'invite',NULL,?,?,'active',0,0,4,?,?) ON CONFLICT(id) DO UPDATE SET status='active',host_id=excluded.host_id,updated_at=excluded.updated_at,ended_at=NULL").bind(roomId, "UNO · " + lobby.code, lobby.owner_id, lobby.owner_id, now, now),
+      getDb(env).prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,?,'admitted',?,0,?,?,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET status='admitted',left_at=NULL,last_seen_at=excluded.last_seen_at").bind(roomId, auth.id, auth.id === lobby.owner_id ? "host" : "member", lobby.owner_id, now, now, now, now)
     ]);
   } else {
-    await env.DB.prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,?,'admitted',?,0,?,?,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET status='admitted',left_at=NULL,last_seen_at=excluded.last_seen_at").bind(roomId, auth.id, auth.id === lobby.owner_id ? "host" : "member", lobby.owner_id, now, now, now, now).run();
+    await getDb(env).prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,?,'admitted',?,0,?,?,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET status='admitted',left_at=NULL,last_seen_at=excluded.last_seen_at").bind(roomId, auth.id, auth.id === lobby.owner_id ? "host" : "member", lobby.owner_id, now, now, now, now).run();
   }
-  room = await loadVoiceRoom(env.DB, roomId);
-  return apiJson({ room: await exposeVoiceRoom(env.DB, auth, room, true) });
+  room = await loadVoiceRoom(getDb(env), roomId);
+  return apiJson({ room: await exposeVoiceRoom(getDb(env), auth, room, true) });
 }
 
 async function unoAction(request, db) {
@@ -841,28 +1159,58 @@ async function unoAction(request, db) {
   const auth = await requireSocialUser(request, db);
   const body = await readJson(request);
   const lobbyId = cleanText(body.lobbyId, 80);
-  const action = enumValue(body.action, ["start","play","draw"], "draw");
+  const action = enumValue(body.action, ["start","play","draw","uno","replay"], "draw");
   const row = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
   if (!row) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
   const members = await unoMembers(db, lobbyId);
   if (!members.some(member => member.userId === auth.id)) return apiError("LOBBY_ACCESS", "You are not in this lobby", 403);
   let state = parseJson(row.state_json, {});
   let status = row.status;
-  if (action === "start") {
-    if (row.owner_id !== auth.id) return apiError("HOST_ONLY", "Only the host can start", 403);
-    if (row.status !== "lobby") return apiError("ALREADY_STARTED", "The game has already started", 409);
+  if (action === "start" || action === "replay") {
+    if (row.owner_id !== auth.id) return apiError("HOST_ONLY", "Only the host can start a round", 403);
+    if (action === "start" && row.status !== "lobby") return apiError("ALREADY_STARTED", "The game has already started", 409);
+    if (action === "replay" && row.status !== "finished") return apiError("ROUND_ACTIVE", "Finish the current round first", 409);
     if (members.length < 2) return apiError("MORE_PLAYERS", "Invite at least one friend first", 409);
     const deck = unoDeck(), hands = {}, order = members.map(member => member.userId);
     order.forEach(userId => { hands[userId] = deck.splice(0, 7); });
     let first = deck.pop();
     while (first.color === "wild" || ["skip","reverse","draw2"].includes(first.value)) { deck.unshift(first); first = deck.pop(); }
-    state = { deck, hands, order, discard: [first], color: first.color, turn: 0, direction: 1, winnerId: "", pendingDraw: 0 };
+    state = { deck, hands, order, discard: [first], color: first.color, turn: 0, direction: 1, winnerId: "", pendingDraw: 0, unoPendingUserId: "", unoCalledUserId: "", unoEvent: "", unoEventType: "", unoEventUserId: "" };
     status = "playing";
+  } else if (action === "uno") {
+    if (row.status !== "playing") return apiError("NOT_PLAYING", "There is no active round", 409);
+    const hand = state.hands?.[auth.id] || [];
+    if (hand.length === 1 && state.unoPendingUserId === auth.id) {
+      state.unoCalledUserId = auth.id;
+      state.unoPendingUserId = "";
+      state.unoEventType = "called";
+      state.unoEventUserId = auth.id;
+      state.unoEvent = "called:" + auth.id + ":" + Date.now();
+    } else if (state.unoPendingUserId && state.unoPendingUserId !== auth.id) {
+      const caughtId = state.unoPendingUserId;
+      const caughtHand = state.hands?.[caughtId] || [];
+      if (caughtHand.length !== 1) {
+        state.unoPendingUserId = "";
+        return apiError("UNO_NOT_READY", "Nobody can be caught for missing UNO right now", 409);
+      }
+      for (let count = 0; count < 2; count++) {
+        if (!state.deck.length) state.deck = state.discard.splice(0, state.discard.length - 1).sort(() => Math.random() - .5);
+        if (state.deck.length) caughtHand.push(state.deck.pop());
+      }
+      state.unoCalledUserId = "";
+      state.unoPendingUserId = "";
+      state.unoEventType = "caught";
+      state.unoEventUserId = caughtId;
+      state.unoEvent = "caught:" + caughtId + ":" + Date.now();
+    } else {
+      return apiError("UNO_NOT_READY", "Nobody needs to call UNO right now", 409);
+    }
   } else {
     if (row.status !== "playing") return apiError("NOT_PLAYING", "Start the game first", 409);
     if (state.order[state.turn] !== auth.id) return apiError("NOT_YOUR_TURN", "Wait for your turn", 409);
     const hand = state.hands[auth.id] || [];
     if (action === "draw") {
+      if (state.unoPendingUserId && state.unoPendingUserId !== auth.id) state.unoPendingUserId = "";
       const drawCount = Math.max(1, Number(state.pendingDraw || 0));
       for (let count = 0; count < drawCount; count++) {
         if (!state.deck.length) state.deck = state.discard.splice(0, state.discard.length - 1).sort(() => Math.random() - .5);
@@ -874,9 +1222,17 @@ async function unoAction(request, db) {
       const index = Number(body.cardIndex);
       const card = hand[index];
       if (!card || !unoCanPlay(card, state)) return apiError("INVALID_CARD", "That card cannot be played now", 409);
+      if (state.unoPendingUserId && state.unoPendingUserId !== auth.id) state.unoPendingUserId = "";
       hand.splice(index, 1); state.discard.push(card);
       state.color = card.color === "wild" ? enumValue(body.color, ["red","yellow","green","blue"], "red") : card.color;
-      if (!hand.length) { state.winnerId = auth.id; status = "finished"; }
+      if (hand.length === 1) {
+        state.unoPendingUserId = auth.id;
+        state.unoCalledUserId = "";
+      } else if (state.unoPendingUserId === auth.id) {
+        state.unoPendingUserId = "";
+        state.unoCalledUserId = "";
+      }
+      if (!hand.length) { state.winnerId = auth.id; state.unoPendingUserId = ""; status = "finished"; }
       else {
         if (card.value === "reverse") state.direction *= -1;
         const steps = card.value === "skip" ? 2 : 1;
@@ -1096,7 +1452,7 @@ async function getSocialBlocks(request, db) {
 }
 
 async function blockSocialUser(request, env) {
-  const db = env.DB;
+  const db = getDb(env);
   requireSameOrigin(request);
   const auth = await requireUser(request, db);
   await enforceUserRateLimit(db, auth.id, "social-block", 20, 10 * 60 * 1000, 5 * 60 * 1000);
@@ -1132,21 +1488,495 @@ async function unblockSocialUser(request, db) {
   return apiJson({ ok: true, unblocked: target.username });
 }
 
+
+// ── Voice Rooms V2 ───────────────────────────────────────────────────────────
+// A deliberately simpler implementation than the original voice stack.
+// Persistent room/membership state lives in Turso; ephemeral WebRTC offers,
+// answers and ICE candidates use a short-lived signaling table. This removes
+// the old dependency on a separate Durable Object coordinator and Cloudflare
+// Realtime session state.
+
+const VOICE_V2_STALE_MS = 35000;
+const VOICE_V2_SIGNAL_TTL_MS = 45000;
+const VOICE_V2_CHAT_LIMIT = 140;
+
+async function ensureVoiceV2Schema(db) {
+  await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS voice_v2_signals(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id TEXT NOT NULL,
+      from_user_id TEXT NOT NULL,
+      to_user_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_voice_v2_signals_target
+      ON voice_v2_signals(room_id,to_user_id,id)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS voice_v2_messages(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      message TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'text',
+      created_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_voice_v2_messages_room
+      ON voice_v2_messages(room_id,id)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS voice_staff_presence(
+      room_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      vanished INTEGER NOT NULL DEFAULT 0,
+      joined_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY(room_id,user_id)
+    )`)
+  ]);
+}
+
+async function voiceV2Cleanup(env, now = Date.now()) {
+  const db = getDb(env);
+  await ensureVoiceV2Schema(db);
+  await db.batch([
+    db.prepare("DELETE FROM voice_v2_signals WHERE expires_at<?").bind(now),
+    db.prepare(`UPDATE voice_room_members
+      SET status='left',connected_at=NULL,left_at=?,last_seen_at=?
+      WHERE status='connected' AND COALESCE(last_seen_at,connected_at,0)<?`)
+      .bind(now, now, now - VOICE_V2_STALE_MS),
+    db.prepare(`DELETE FROM voice_staff_presence WHERE NOT EXISTS(
+      SELECT 1 FROM voice_room_members vm WHERE vm.room_id=voice_staff_presence.room_id
+      AND vm.user_id=voice_staff_presence.user_id AND vm.status IN ('admitted','connected'))`)
+  ]);
+
+  // If a host disappears, end their room instead of leaving zombie rooms open.
+  const staleHosts = await db.prepare(`SELECT vr.id
+    FROM voice_rooms vr
+    LEFT JOIN voice_room_members vm ON vm.room_id=vr.id AND vm.user_id=vr.host_id
+    WHERE vr.status='active'
+      AND (vm.user_id IS NULL OR vm.status NOT IN ('admitted','connected')
+        OR COALESCE(vm.last_seen_at,vm.connected_at,vm.admitted_at,0)<?)
+    LIMIT 25`).bind(now - VOICE_V2_STALE_MS).all();
+
+  for (const row of staleHosts.results || []) {
+    await db.batch([
+      db.prepare("UPDATE voice_rooms SET status='ended',updated_at=?,ended_at=? WHERE id=? AND status='active'").bind(now, now, row.id),
+      db.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,left_at=COALESCE(left_at,?),last_seen_at=? WHERE room_id=? AND status IN ('pending','invited','admitted','connected')").bind(now, now, row.id),
+      db.prepare("DELETE FROM voice_v2_signals WHERE room_id=?").bind(row.id)
+    ]);
+  }
+}
+
+async function voiceV2AuthRoom(request, env, roomId, allowedStatuses = ['admitted','connected']) {
+  const db = getDb(env);
+  const auth = await requireSocialUser(request, db);
+  const room = await loadVoiceRoom(db, cleanText(roomId, 80));
+  if (!room || room.status !== 'active') throw new ApiFailure("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
+  await ensureVoiceHostMembership(env, auth, room);
+  const membership = await db.prepare("SELECT role,status,muted_by_host AS mutedByHost FROM voice_room_members WHERE room_id=? AND user_id=?")
+    .bind(room.id, auth.id).first();
+  if (!membership || !allowedStatuses.includes(membership.status)) {
+    throw new ApiFailure("VOICE_NOT_ADMITTED", "You are not admitted to this voice room", 403);
+  }
+  return { db, auth, room, membership };
+}
+
+async function exposeVoiceV2Room(db, auth, room, includeMembers = true) {
+  const own = await db.prepare("SELECT role,status,muted_by_host AS mutedByHost FROM voice_room_members WHERE room_id=? AND user_id=?")
+    .bind(room.id, auth.id).first();
+  const staffObserver = isDeveloperOrOwner(auth);
+  const visibleCounts = await db.prepare(`SELECT
+      SUM(CASE WHEN vm.status IN ('admitted','connected') AND COALESCE(sp.vanished,0)=0 THEN 1 ELSE 0 END) AS memberCount,
+      SUM(CASE WHEN vm.status='connected' AND COALESCE(sp.vanished,0)=0 THEN 1 ELSE 0 END) AS connectedCount
+    FROM voice_room_members vm LEFT JOIN voice_staff_presence sp ON sp.room_id=vm.room_id AND sp.user_id=vm.user_id
+    WHERE vm.room_id=?`).bind(room.id).first();
+  const exposed = {
+    ...exposeVoiceRoomSummary(room),
+    memberCount: Number(visibleCounts?.memberCount || 0),
+    connectedCount: Number(visibleCounts?.connectedCount || 0),
+    yourStatus: own?.status || 'none',
+    yourRole: own?.role || 'none',
+    mutedByHost: !!own?.mutedByHost,
+    canManage: room.hostId === auth.id,
+    isHost: room.hostId === auth.id,
+    developerBypass: isDeveloperOrOwner(auth),
+    me: voiceIdentity(auth)
+  };
+  if (!includeMembers) return exposed;
+  const rows = await db.prepare(`SELECT vm.user_id AS userId,u.username,
+      COALESCE(p.display_name,u.username) AS displayName,
+      COALESCE(p.avatar_url,'') AS avatarUrl,
+      vm.role,vm.status,vm.muted_by_host AS mutedByHost,
+      vm.requested_at AS requestedAt,vm.connected_at AS connectedAt,vm.last_seen_at AS lastSeenAt,
+      COALESCE(sp.vanished,0) AS vanished
+    FROM voice_room_members vm
+    JOIN users u ON u.id=vm.user_id
+    LEFT JOIN user_profiles p ON p.user_id=u.id
+    LEFT JOIN voice_staff_presence sp ON sp.room_id=vm.room_id AND sp.user_id=vm.user_id
+    WHERE vm.room_id=? AND vm.status IN ('pending','invited','admitted','connected')
+    ORDER BY CASE WHEN vm.role='host' THEN 0 WHEN sp.user_id IS NOT NULL THEN 1 ELSE 2 END,
+      COALESCE(vm.connected_at,vm.admitted_at,vm.requested_at)`)
+    .bind(room.id).all();
+  const allMembers = (rows.results || []).map(row => ({ ...row, mutedByHost: !!row.mutedByHost, vanished: !!row.vanished }));
+  // Peers contains only the IDs WebRTC needs. Vanished developers stay absent
+  // from the visible member list while audio can still connect normally.
+  exposed.peers = allMembers.filter(row => row.status === 'connected').map(row => ({ userId: row.userId, status: row.status }));
+  exposed.members = allMembers.filter(row => !row.vanished || staffObserver || row.userId === auth.id);
+  exposed.vanished = !!allMembers.find(row => row.userId === auth.id && row.vanished);
+  return exposed;
+}
+
+async function voiceV2Rooms(request, env) {
+  const db = getDb(env);
+  const auth = await requireSocialUser(request, db);
+  const now = Date.now();
+  await voiceV2Cleanup(env, now);
+  const rows = await db.prepare(`${voiceRoomSelect()} WHERE vr.status='active' ORDER BY vr.updated_at DESC LIMIT 30`).all();
+  const rooms = [];
+  for (const room of rows.results || []) {
+    if (isDeveloperOrOwner(auth) || await canViewVoiceRoom(db, auth.id, room)) rooms.push(await exposeVoiceV2Room(db, auth, room, false));
+  }
+  return apiJson({ rooms, canCreate: await hasVoiceSponsorAccess(db, auth), maxMembers: VOICE_MAX_MEMBERS });
+}
+
+async function voiceV2Create(request, env) {
+  requireSameOrigin(request);
+  const db = getDb(env);
+  const auth = await requireSocialUser(request, db);
+  await voiceV2Cleanup(env);
+  if (!(await hasVoiceSponsorAccess(db, auth))) return apiError("SUPERNOVA_REQUIRED", "Supernova is required to host a voice room", 403);
+  const restriction = await activeVoiceRestriction(db, auth.id);
+  if (restriction) return voiceRestrictionError(restriction);
+
+  // Cleanly close any older room owned by this host before creating a new one.
+  const old = await db.prepare("SELECT id FROM voice_rooms WHERE status='active' AND (created_by=? OR host_id=?)").bind(auth.id, auth.id).all();
+  const now = Date.now();
+  for (const row of old.results || []) {
+    await db.batch([
+      db.prepare("UPDATE voice_rooms SET status='ended',updated_at=?,ended_at=? WHERE id=?").bind(now, now, row.id),
+      db.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,left_at=?,last_seen_at=? WHERE room_id=? AND status IN ('pending','invited','admitted','connected')").bind(now, now, row.id)
+    ]);
+  }
+
+  const body = await readJson(request);
+  const name = cleanText(body.name || `${auth.display_name || auth.username}'s room`, 48) || "Nova Voice";
+  const id = `v2_${crypto.randomUUID()}`;
+  await db.batch([
+    db.prepare(`INSERT INTO voice_rooms(
+      id,name,scope_type,scope_id,created_by,host_id,status,locked,dictation_enabled,max_members,created_at,updated_at
+    ) VALUES(?,?,'friends','everyone',?,?,'active',0,0,?,?,?)`)
+      .bind(id, name, auth.id, auth.id, VOICE_MAX_MEMBERS, now, now),
+    db.prepare(`INSERT INTO voice_room_members(
+      room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,connected_at,last_seen_at,left_at
+    ) VALUES(?,?,'host','connected',?,0,?,?,?,?,?,NULL)
+    ON CONFLICT(room_id,user_id) DO UPDATE SET role='host',status='connected',admitted_by=excluded.admitted_by,
+      admitted_at=excluded.admitted_at,joined_at=excluded.joined_at,connected_at=excluded.connected_at,last_seen_at=excluded.last_seen_at,left_at=NULL`)
+      .bind(id, auth.id, auth.id, now, now, now, now, now),
+    voiceEventStatement(db, id, auth.id, auth.id, "v2_created", {}, now)
+  ]);
+  const room = await loadVoiceRoom(db, id);
+  return apiJson({ room: await exposeVoiceV2Room(db, auth, room, true) }, 201);
+}
+
+async function voiceV2Join(request, env) {
+  requireSameOrigin(request);
+  const db = getDb(env);
+  const auth = await requireSocialUser(request, db);
+  await voiceV2Cleanup(env);
+  const restriction = await activeVoiceRestriction(db, auth.id);
+  if (restriction) return voiceRestrictionError(restriction);
+  const body = await readJson(request);
+  const room = await loadVoiceRoom(db, cleanText(body.roomId, 80));
+  const devBypass = isDeveloperOrOwner(auth);
+  const vanish = devBypass && !!body.vanish;
+  if (!room || room.status !== 'active' || (!devBypass && !(await canViewVoiceRoom(db, auth.id, room)))) return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
+  if (room.hostId === auth.id) {
+    await ensureVoiceHostMembership(env, auth, room);
+    await db.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=?,left_at=NULL WHERE room_id=? AND user_id=?")
+      .bind(Date.now(), Date.now(), room.id, auth.id).run();
+    await db.prepare("DELETE FROM voice_staff_presence WHERE room_id=? AND user_id=?").bind(room.id, auth.id).run();
+    return apiJson({ status: "connected", admitted: true, bypassed: devBypass, vanished: false });
+  }
+
+  // Developer/Owner voice access is role-native: no admission, lock, scope,
+  // capacity or block gate is allowed to stop a staff moderation join.
+  if (devBypass) {
+    const now = Date.now();
+    await db.batch([
+      // Keep voice_room_members.role inside the legacy schema's supported values.
+      // Staff identity/vanish state lives in voice_staff_presence and auth roles.
+      // Using a new literal like 'staff' can violate older Turso CHECK constraints
+      // and turns an otherwise valid Developer join into a 503.
+      db.prepare(`INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,connected_at,last_seen_at,left_at)
+        VALUES(?,?,'member','connected',?,0,?,?,?,?,?,NULL)
+        ON CONFLICT(room_id,user_id) DO UPDATE SET role='member',status='connected',admitted_by=excluded.admitted_by,
+          admitted_at=COALESCE(voice_room_members.admitted_at,excluded.admitted_at),joined_at=COALESCE(voice_room_members.joined_at,excluded.joined_at),
+          connected_at=COALESCE(voice_room_members.connected_at,excluded.connected_at),last_seen_at=excluded.last_seen_at,left_at=NULL`)
+        .bind(room.id, auth.id, auth.id, now, now, now, now, now),
+      db.prepare(`INSERT INTO voice_staff_presence(room_id,user_id,vanished,joined_at,updated_at) VALUES(?,?,?,?,?)
+        ON CONFLICT(room_id,user_id) DO UPDATE SET vanished=excluded.vanished,updated_at=excluded.updated_at`)
+        .bind(room.id, auth.id, vanish ? 1 : 0, now, now),
+      voiceEventStatement(db, room.id, auth.id, auth.id, vanish ? "staff_vanish_join" : "staff_force_join", { vanished: vanish }, now)
+    ]);
+    return apiJson({ status: "connected", admitted: true, bypassed: true, vanished: vanish });
+  }
+
+  if (room.locked) return apiError("VOICE_ROOM_LOCKED", "This room is locked", 423);
+  if (await voiceBlockConflict(db, room.id, auth.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents this voice connection", 403);
+  const existing = await db.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  if (existing && ['admitted','connected'].includes(existing.status)) {
+    await db.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=?,left_at=NULL WHERE room_id=? AND user_id=?")
+      .bind(Date.now(), Date.now(), room.id, auth.id).run();
+    return apiJson({ status: "connected", admitted: true });
+  }
+  if (existing && existing.status === 'pending') {
+    await db.prepare("UPDATE voice_room_members SET last_seen_at=?,left_at=NULL WHERE room_id=? AND user_id=?")
+      .bind(Date.now(), room.id, auth.id).run();
+    return apiJson({ status: "pending", admitted: false });
+  }
+  const count = await db.prepare("SELECT COUNT(*) AS count FROM voice_room_members WHERE room_id=? AND status IN ('admitted','connected')").bind(room.id).first();
+  if (Number(count?.count || 0) >= Math.min(VOICE_MAX_MEMBERS, Number(room.maxMembers || VOICE_MAX_MEMBERS))) return apiError("VOICE_ROOM_FULL", "This room is full", 409);
+  const now = Date.now();
+  await db.prepare(`INSERT INTO voice_room_members(room_id,user_id,role,status,dictation_enabled,requested_at,last_seen_at,left_at)
+    VALUES(?,?,'member','pending',0,?,?,NULL)
+    ON CONFLICT(room_id,user_id) DO UPDATE SET
+      status=CASE WHEN voice_room_members.status IN ('admitted','connected') THEN voice_room_members.status ELSE 'pending' END,
+      requested_at=CASE WHEN voice_room_members.status IN ('admitted','connected') THEN voice_room_members.requested_at ELSE excluded.requested_at END,
+      last_seen_at=excluded.last_seen_at,left_at=NULL`)
+    .bind(room.id, auth.id, now, now).run();
+  return apiJson({ status: "pending", admitted: false });
+}
+
+async function voiceV2Admit(request, env) {
+  requireSameOrigin(request);
+  const db = getDb(env);
+  const auth = await requireSocialUser(request, db);
+  const body = await readJson(request);
+  const room = await loadVoiceRoom(db, cleanText(body.roomId, 80));
+  if (!room || room.status !== 'active') return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
+  if (room.hostId !== auth.id) return apiError("VOICE_HOST_ONLY", "Only the host can admit people", 403);
+  const target = await loadUserByUsername(db, normalizeUsername(body.username));
+  if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
+  const action = cleanText(body.action, 12);
+  const now = Date.now();
+  if (action === 'approve') {
+    const count = await db.prepare("SELECT COUNT(*) AS count FROM voice_room_members WHERE room_id=? AND status IN ('admitted','connected')").bind(room.id).first();
+    if (Number(count?.count || 0) >= Math.min(VOICE_MAX_MEMBERS, Number(room.maxMembers || VOICE_MAX_MEMBERS))) return apiError("VOICE_ROOM_FULL", "This room is full", 409);
+    await db.prepare("UPDATE voice_room_members SET status='connected',admitted_by=?,admitted_at=?,joined_at=COALESCE(joined_at,?),connected_at=COALESCE(connected_at,?),last_seen_at=?,left_at=NULL WHERE room_id=? AND user_id=?")
+      .bind(auth.id, now, now, now, now, room.id, target.id).run();
+  } else {
+    await db.prepare("UPDATE voice_room_members SET status='denied',left_at=?,last_seen_at=? WHERE room_id=? AND user_id=?")
+      .bind(now, now, room.id, target.id).run();
+  }
+  return apiJson({ ok: true });
+}
+
+async function voiceV2State(request, url, env) {
+  const db = getDb(env);
+  const auth = await requireSocialUser(request, db);
+  const roomId = cleanText(url.searchParams.get("room"), 80);
+  await voiceV2Cleanup(env);
+  const room = await loadVoiceRoom(db, roomId);
+  if (!room || room.status !== 'active') return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
+  await ensureVoiceHostMembership(env, auth, room);
+  let member = await db.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  if (!member) return apiError("VOICE_NOT_JOINED", "Join this room first", 403);
+  if (member.status === 'admitted') {
+    await db.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=?,left_at=NULL WHERE room_id=? AND user_id=?")
+      .bind(Date.now(), Date.now(), room.id, auth.id).run();
+    member = { status: 'connected' };
+  } else if (member.status === 'connected') {
+    await db.prepare("UPDATE voice_room_members SET last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), room.id, auth.id).run();
+  } else if (member.status === 'pending' || member.status === 'invited') {
+    await db.prepare("UPDATE voice_room_members SET last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), room.id, auth.id).run();
+  }
+  const fresh = await loadVoiceRoom(db, room.id);
+  return apiJson({ room: await exposeVoiceV2Room(db, auth, fresh, true) });
+}
+
+async function voiceV2Leave(request, env) {
+  requireSameOrigin(request);
+  const db = getDb(env);
+  const auth = await requireSocialUser(request, db);
+  const body = await readJson(request);
+  const room = await loadVoiceRoom(db, cleanText(body.roomId, 80));
+  if (!room) return apiJson({ ok: true });
+  const now = Date.now();
+  if (room.hostId === auth.id) {
+    await db.batch([
+      db.prepare("UPDATE voice_rooms SET status='ended',updated_at=?,ended_at=? WHERE id=?").bind(now, now, room.id),
+      db.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,left_at=?,last_seen_at=? WHERE room_id=? AND status IN ('pending','invited','admitted','connected')").bind(now, now, room.id),
+      db.prepare("DELETE FROM voice_v2_signals WHERE room_id=?").bind(room.id),
+      db.prepare("DELETE FROM voice_staff_presence WHERE room_id=?").bind(room.id)
+    ]);
+  } else {
+    await db.batch([
+      db.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,left_at=?,last_seen_at=? WHERE room_id=? AND user_id=?").bind(now, now, room.id, auth.id),
+      db.prepare("DELETE FROM voice_v2_signals WHERE room_id=? AND (from_user_id=? OR to_user_id=?)").bind(room.id, auth.id, auth.id),
+      db.prepare("DELETE FROM voice_staff_presence WHERE room_id=? AND user_id=?").bind(room.id, auth.id)
+    ]);
+  }
+  return apiJson({ ok: true });
+}
+
+async function voiceV2Action(request, env) {
+  requireSameOrigin(request);
+  const body = await readJson(request);
+  const { db, auth, room } = await voiceV2AuthRoom(request, env, body.roomId);
+  const action = cleanText(body.action, 24);
+  const now = Date.now();
+  if (action === 'lock') {
+    if (room.hostId !== auth.id) return apiError("VOICE_HOST_ONLY", "Only the host can lock the room", 403);
+    await db.prepare("UPDATE voice_rooms SET locked=?,updated_at=? WHERE id=?").bind(body.enabled ? 1 : 0, now, room.id).run();
+    return apiJson({ ok: true });
+  }
+  if (action === 'mute-user') {
+    if (room.hostId !== auth.id) return apiError("VOICE_HOST_ONLY", "Only the host can mute members", 403);
+    const target = await loadUserByUsername(db, normalizeUsername(body.username));
+    if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
+    if (roleRank(highestRole(auth.roles || ["user"])) <= roleRank(highestRole(target.roles || ["user"])) && highestRole(target.roles || ["user"]) !== "user") return apiError("PROTECTED_ACCOUNT", "This staff member cannot be muted by a lower role", 403);
+    await db.prepare("UPDATE voice_room_members SET muted_by_host=? WHERE room_id=? AND user_id=?").bind(body.muted ? 1 : 0, room.id, target.id).run();
+    return apiJson({ ok: true });
+  }
+  if (action === 'remove-user') {
+    if (room.hostId !== auth.id) return apiError("VOICE_HOST_ONLY", "Only the host can remove members", 403);
+    const target = await loadUserByUsername(db, normalizeUsername(body.username));
+    if (!target || target.id === auth.id) return apiError("INVALID_TARGET", "Choose another member", 400);
+    if (roleRank(highestRole(auth.roles || ["user"])) <= roleRank(highestRole(target.roles || ["user"])) && highestRole(target.roles || ["user"]) !== "user") return apiError("PROTECTED_ACCOUNT", "This staff member cannot be removed by a lower role", 403);
+    await db.prepare("UPDATE voice_room_members SET status='removed',connected_at=NULL,left_at=?,last_seen_at=? WHERE room_id=? AND user_id=?")
+      .bind(now, now, room.id, target.id).run();
+    await db.prepare("DELETE FROM voice_v2_signals WHERE room_id=? AND (from_user_id=? OR to_user_id=?)").bind(room.id, target.id, target.id).run();
+    return apiJson({ ok: true });
+  }
+  return apiError("INVALID_ACTION", "Unknown voice action", 400);
+}
+
+async function voiceV2ChatGet(request, url, env) {
+  const roomId = cleanText(url.searchParams.get("room"), 80);
+  const after = Math.max(0, Number(url.searchParams.get("after") || 0));
+  const { db } = await voiceV2AuthRoom(request, env, roomId, ['admitted','connected']);
+  const rows = await db.prepare(`SELECT m.id,m.user_id AS userId,u.username,
+      COALESCE(p.display_name,u.username) AS displayName,COALESCE(p.avatar_url,'') AS avatarUrl,
+      m.message,m.kind,m.created_at AS createdAt
+    FROM voice_v2_messages m
+    JOIN users u ON u.id=m.user_id
+    LEFT JOIN user_profiles p ON p.user_id=u.id
+    WHERE m.room_id=? AND m.id>? ORDER BY m.id ASC LIMIT ?`)
+    .bind(roomId, after, VOICE_V2_CHAT_LIMIT).all();
+  return apiJson({ messages: rows.results || [] });
+}
+
+async function voiceV2ChatPost(request, env) {
+  requireSameOrigin(request);
+  const body = await readJson(request);
+  const { db, auth, room } = await voiceV2AuthRoom(request, env, body.roomId, ['admitted','connected']);
+  await enforceUserRateLimit(db, auth.id, "voice-v2-chat", 50, 60 * 1000, 60 * 1000);
+  const kind = body.kind === 'emoji' ? 'emoji' : 'text';
+  const max = kind === 'emoji' ? 16 : 500;
+  const message = cleanText(body.message, max);
+  if (!message) return apiError("MESSAGE_REQUIRED", "Write a message first", 400);
+  const result = await db.prepare("INSERT INTO voice_v2_messages(room_id,user_id,message,kind,created_at) VALUES(?,?,?,?,?)")
+    .bind(room.id, auth.id, message, kind, Date.now()).run();
+  return apiJson({ ok: true, id: Number(result.meta?.last_row_id || 0) }, 201);
+}
+
+async function voiceV2SignalsGet(request, url, env) {
+  const roomId = cleanText(url.searchParams.get("room"), 80);
+  const after = Math.max(0, Number(url.searchParams.get("after") || 0));
+  const { db, auth } = await voiceV2AuthRoom(request, env, roomId, ['admitted','connected']);
+  const rows = await db.prepare(`SELECT id,from_user_id AS fromUserId,kind,payload_json AS payloadJson,created_at AS createdAt
+    FROM voice_v2_signals
+    WHERE room_id=? AND to_user_id=? AND id>? AND expires_at>?
+    ORDER BY id ASC LIMIT 100`).bind(roomId, auth.id, after, Date.now()).all();
+  return apiJson({ signals: (rows.results || []).map(row => ({
+    id: Number(row.id), fromUserId: row.fromUserId, kind: row.kind,
+    payload: (() => { try { return JSON.parse(row.payloadJson || '{}'); } catch { return {}; } })(),
+    createdAt: Number(row.createdAt || 0)
+  })) });
+}
+
+async function voiceV2SignalsPost(request, env) {
+  requireSameOrigin(request);
+  const body = await readJson(request);
+  const { db, auth, room } = await voiceV2AuthRoom(request, env, body.roomId, ['admitted','connected']);
+  const toUserId = cleanText(body.toUserId, 100);
+  const kind = cleanText(body.kind, 16);
+  if (!['offer','answer','ice'].includes(kind)) return apiError("INVALID_SIGNAL", "Invalid voice signal", 400);
+  const target = await db.prepare("SELECT 1 FROM voice_room_members WHERE room_id=? AND user_id=? AND status='connected'").bind(room.id, toUserId).first();
+  if (!target) return apiError("VOICE_PEER_GONE", "That member is no longer connected", 409);
+  const payload = JSON.stringify(body.payload || {});
+  if (payload.length > 24000) return apiError("SIGNAL_TOO_LARGE", "Voice signal is too large", 413);
+  const now = Date.now();
+  await db.prepare("INSERT INTO voice_v2_signals(room_id,from_user_id,to_user_id,kind,payload_json,created_at,expires_at) VALUES(?,?,?,?,?,?,?)")
+    .bind(room.id, auth.id, toUserId, kind, payload, now, now + VOICE_V2_SIGNAL_TTL_MS).run();
+  return apiJson({ ok: true }, 201);
+}
+
+
+
+async function voiceV2Ice(request, url, env) {
+  const roomId = cleanText(url.searchParams.get("room"), 80);
+  const { auth } = await voiceV2AuthRoom(request, env, roomId, ['admitted','connected']);
+
+  // Keep multiple STUN choices so a single provider outage does not stall a call.
+  const fallback = [
+    { urls: ["stun:stun.cloudflare.com:3478"] },
+    { urls: ["stun:stun.l.google.com:19302"] }
+  ];
+
+  try {
+    const expiresAt = Math.floor(Date.now() / 1000) + OPEN_RELAY_TTL_SECONDS;
+    const username = `${expiresAt}:${auth.id}`;
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(OPEN_RELAY_STATIC_SECRET),
+      { name: "HMAC", hash: "SHA-1" },
+      false,
+      ["sign"]
+    );
+    const signed = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(username)));
+    let binary = "";
+    signed.forEach(byte => { binary += String.fromCharCode(byte); });
+    const credential = btoa(binary);
+
+    return apiJson({
+      iceServers: [
+        ...fallback,
+        {
+          urls: [
+            `turn:${OPEN_RELAY_HOST}:80?transport=udp`,
+            `turn:${OPEN_RELAY_HOST}:80?transport=tcp`,
+            `turn:${OPEN_RELAY_HOST}:443?transport=tcp`,
+            `turns:${OPEN_RELAY_HOST}:443?transport=tcp`
+          ],
+          username,
+          credential
+        }
+      ],
+      relayAvailable: true,
+      expiresAt: expiresAt * 1000
+    });
+  } catch (error) {
+    return apiJson({ iceServers: fallback, relayAvailable: false });
+  }
+}
+
 // ── Supernova voice rooms ───────────────────────────────────────────────────
 
 async function getVoiceRooms(request, env) {
-  const auth = await requireSocialUser(request, env.DB);
+  const auth = await requireSocialUser(request, getDb(env));
   const now = Date.now();
+  await cleanupVoiceState(env, now);
   await expireStaleVoiceRooms(env, now);
-  const result = await env.DB.prepare(`${voiceRoomSelect()}
+  const result = await getDb(env).prepare(`${voiceRoomSelect()}
     WHERE vr.status='active' ORDER BY vr.updated_at DESC LIMIT 40`).all();
   const rooms = [];
   for (const row of result.results || []) {
-    if (await canViewVoiceRoom(env.DB, auth.id, row)) rooms.push(await exposeVoiceRoom(env.DB, auth, row, false));
+    if (await canViewVoiceRoom(getDb(env), auth.id, row)) rooms.push(await exposeVoiceRoom(getDb(env), auth, row, false));
   }
   return apiJson({
     rooms,
-    canCreate: await hasVoiceSponsorAccess(env.DB, auth),
+    canCreate: await hasVoiceSponsorAccess(getDb(env), auth),
     relayConfigured: true,
     relayProvider: "open-relay",
     maxMembers: VOICE_MAX_MEMBERS,
@@ -1155,19 +1985,21 @@ async function getVoiceRooms(request, env) {
 }
 
 async function getVoiceRoom(request, url, env) {
-  const auth = await requireSocialUser(request, env.DB);
-  const room = await loadVoiceRoom(env.DB, cleanText(url.searchParams.get("room"), 80));
-  if (!room || room.status !== "active" || !(await canViewVoiceRoom(env.DB, auth.id, room))) return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
-  return apiJson({ room: await exposeVoiceRoom(env.DB, auth, room, true), canCreate: await hasVoiceSponsorAccess(env.DB, auth) });
+  const auth = await requireSocialUser(request, getDb(env));
+  await cleanupVoiceState(env, Date.now());
+  const room = await loadVoiceRoom(getDb(env), cleanText(url.searchParams.get("room"), 80));
+  if (!room || room.status !== "active" || !(await canViewVoiceRoom(getDb(env), auth.id, room))) return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
+  return apiJson({ room: await exposeVoiceRoom(getDb(env), auth, room, true), canCreate: await hasVoiceSponsorAccess(getDb(env), auth) });
 }
 
 async function createVoiceRoom(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
-  if (!(await hasVoiceSponsorAccess(env.DB, auth))) return apiError("SUPERNOVA_REQUIRED", "Supernova is required to start a voice room", 403);
-  const restriction = await activeVoiceRestriction(env.DB, auth.id);
+  const auth = await requireSocialUser(request, getDb(env));
+  await cleanupVoiceState(env, Date.now());
+  if (!(await hasVoiceSponsorAccess(getDb(env), auth))) return apiError("SUPERNOVA_REQUIRED", "Supernova is required to start a voice room", 403);
+  const restriction = await activeVoiceRestriction(getDb(env), auth.id);
   if (restriction) return voiceRestrictionError(restriction);
-  const existing = await env.DB.prepare(`SELECT vr.id FROM voice_rooms vr LEFT JOIN voice_room_members vm ON vm.room_id=vr.id AND vm.user_id=?
+  const existing = await getDb(env).prepare(`SELECT vr.id FROM voice_rooms vr LEFT JOIN voice_room_members vm ON vm.room_id=vr.id AND vm.user_id=?
     WHERE vr.status='active' AND (vr.created_by=? OR vr.host_id=? OR vm.status IN ('admitted','connected')) LIMIT 1`).bind(auth.id, auth.id, auth.id).first();
   if (existing) return apiError("VOICE_ROOM_ACTIVE", "Leave or end your current voice room first", 409, { roomId: existing.id });
   const body = await readJson(request);
@@ -1183,7 +2015,7 @@ async function createVoiceRoom(request, env) {
   else if (scope === "invite") { scopeType = "invite"; scopeId = null; }
   else if (scope.startsWith("group:")) {
     scopeId = cleanText(scope.slice(6), 80);
-    const membership = await env.DB.prepare("SELECT 1 FROM social_channel_members m JOIN social_channels c ON c.id=m.channel_id WHERE m.user_id=? AND m.channel_id=? AND c.kind='group'").bind(auth.id, scopeId).first();
+    const membership = await getDb(env).prepare("SELECT 1 FROM social_channel_members m JOIN social_channels c ON c.id=m.channel_id WHERE m.user_id=? AND m.channel_id=? AND c.kind='group'").bind(auth.id, scopeId).first();
     if (!membership) return apiError("GROUP_NOT_FOUND", "Choose a Social group you belong to", 404);
     scopeType = "group";
   }
@@ -1192,59 +2024,79 @@ async function createVoiceRoom(request, env) {
   if (scopeType === "invite" && !requestedInvites.length) return apiError("VOICE_INVITES_REQUIRED", "Add at least one friend to an invite-only room", 400);
   const invitedUsers = [];
   for (const username of requestedInvites) {
-    const invited = await loadUserByUsername(env.DB, username);
+    const invited = await loadUserByUsername(getDb(env), username);
     if (!invited) return apiError("USER_NOT_FOUND", `@${username} was not found`, 404);
-    const friend = await env.DB.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1")
+    const friend = await getDb(env).prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1")
       .bind(auth.id, invited.id, invited.id, auth.id).first();
-    if (!friend || await isBlockedBetween(env.DB, auth.id, invited.id)) return apiError("VOICE_INVITE_NOT_FRIEND", `@${username} must be an accepted friend`, 403);
+    if (!friend || await isBlockedBetween(getDb(env), auth.id, invited.id)) return apiError("VOICE_INVITE_NOT_FRIEND", `@${username} must be an accepted friend`, 403);
     invitedUsers.push(invited);
   }
   // Count only valid room creations. The former 5-per-day limiter ran before
   // validation and could lock users out for an hour during connection retries.
-  await enforceUserRateLimit(env.DB, auth.id, "voice-create-v2", 20, 10 * 60 * 1000, 2 * 60 * 1000);
+  await enforceUserRateLimit(getDb(env), auth.id, "voice-create-v2", 20, 10 * 60 * 1000, 2 * 60 * 1000);
   const id = `vc_${crypto.randomUUID()}`;
   const now = Date.now();
   const statements = [
-    env.DB.prepare("INSERT INTO voice_rooms(id,name,scope_type,scope_id,created_by,host_id,status,locked,dictation_enabled,max_members,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',0,1,?,?,?)")
+    getDb(env).prepare("INSERT INTO voice_rooms(id,name,scope_type,scope_id,created_by,host_id,status,locked,dictation_enabled,max_members,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',0,1,?,?,?)")
       .bind(id, name, scopeType, scopeId, auth.id, auth.id, VOICE_MAX_MEMBERS, now, now),
-    env.DB.prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,'host','admitted',?,1,?,?,?,?)")
+    getDb(env).prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at) VALUES(?,?,'host','admitted',?,1,?,?,?,?)")
       .bind(id, auth.id, auth.id, now, now, now, now),
-    voiceEventStatement(env.DB, id, auth.id, auth.id, "created", { scopeType, scopeId }, now)
+    voiceEventStatement(getDb(env), id, auth.id, auth.id, "created", { scopeType, scopeId }, now)
   ];
   for (const invited of invitedUsers) {
-    statements.push(env.DB.prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,dictation_enabled,requested_at,last_seen_at) VALUES(?,?,'member','invited',1,?,?)")
+    statements.push(getDb(env).prepare("INSERT INTO voice_room_members(room_id,user_id,role,status,dictation_enabled,requested_at,last_seen_at) VALUES(?,?,'member','invited',1,?,?)")
       .bind(id, invited.id, now, now));
-    statements.push(voiceEventStatement(env.DB, id, auth.id, invited.id, "invited", {}, now));
+    statements.push(voiceEventStatement(getDb(env), id, auth.id, invited.id, "invited", {}, now));
   }
-  await env.DB.batch(statements);
-  const room = await loadVoiceRoom(env.DB, id);
-  return apiJson({ room: await exposeVoiceRoom(env.DB, auth, room, true) }, 201);
+  await getDb(env).batch(statements);
+  const room = await loadVoiceRoom(getDb(env), id);
+  return apiJson({ room: await exposeVoiceRoom(getDb(env), auth, room, true) }, 201);
+}
+
+
+async function ensureVoiceHostMembership(env, auth, room) {
+  if (!room || !auth || (room.hostId !== auth.id && room.createdById !== auth.id)) return;
+  const now = Date.now();
+  await getDb(env).prepare(`INSERT INTO voice_room_members(
+      room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at,left_at
+    ) VALUES(?,?,'host','admitted',?,1,?,?,?,?,NULL)
+    ON CONFLICT(room_id,user_id) DO UPDATE SET
+      role='host',
+      status=CASE WHEN voice_room_members.status='connected' THEN 'connected' ELSE 'admitted' END,
+      admitted_by=excluded.admitted_by,
+      admitted_at=COALESCE(voice_room_members.admitted_at,excluded.admitted_at),
+      joined_at=COALESCE(voice_room_members.joined_at,excluded.joined_at),
+      last_seen_at=excluded.last_seen_at,
+      left_at=NULL`)
+    .bind(room.id, auth.id, auth.id, now, now, now, now).run();
 }
 
 async function requestVoiceRoomJoin(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "voice-join", 20, 10 * 60 * 1000, 10 * 60 * 1000);
-  const restriction = await activeVoiceRestriction(env.DB, auth.id);
+  const auth = await requireSocialUser(request, getDb(env));
+  await cleanupVoiceState(env, Date.now());
+  await enforceUserRateLimit(getDb(env), auth.id, "voice-join", 20, 10 * 60 * 1000, 10 * 60 * 1000);
+  const restriction = await activeVoiceRestriction(getDb(env), auth.id);
   if (restriction) return voiceRestrictionError(restriction);
   const body = await readJson(request);
-  const room = await loadVoiceRoom(env.DB, cleanText(body.roomId, 80));
-  if (!room || room.status !== "active" || !(await canViewVoiceRoom(env.DB, auth.id, room))) return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
-  const otherRoom = await env.DB.prepare(`SELECT vr.id FROM voice_rooms vr JOIN voice_room_members vm ON vm.room_id=vr.id
+  const room = await loadVoiceRoom(getDb(env), cleanText(body.roomId, 80));
+  if (room && room.status === "active") await ensureVoiceHostMembership(env, auth, room);
+  if (!room || room.status !== "active" || !(await canViewVoiceRoom(getDb(env), auth.id, room))) return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
+  const otherRoom = await getDb(env).prepare(`SELECT vr.id FROM voice_rooms vr JOIN voice_room_members vm ON vm.room_id=vr.id
     WHERE vr.status='active' AND vr.id<>? AND vm.user_id=? AND vm.status IN ('admitted','connected') LIMIT 1`).bind(room.id, auth.id).first();
   if (otherRoom) return apiError("VOICE_ROOM_ACTIVE", "Leave your current voice room first", 409, { roomId: otherRoom.id });
   if (room.locked) return apiError("VOICE_ROOM_LOCKED", "This voice room is locked", 423);
-  if (await voiceBlockConflict(env.DB, room.id, auth.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents you from sharing this voice room", 403);
-  const member = await env.DB.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  if (await voiceBlockConflict(getDb(env), room.id, auth.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents you from sharing this voice room", 403);
+  const member = await getDb(env).prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (member && ["admitted", "connected"].includes(member.status)) return apiJson({ status: member.status, admitted: true, roomId: room.id });
-  const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM voice_room_members WHERE room_id=? AND status IN ('admitted','connected')").bind(room.id).first();
+  const count = await getDb(env).prepare("SELECT COUNT(*) AS count FROM voice_room_members WHERE room_id=? AND status IN ('admitted','connected')").bind(room.id).first();
   if (Number(count?.count || 0) >= Math.min(VOICE_MAX_MEMBERS, Number(room.maxMembers || VOICE_MAX_MEMBERS))) return apiError("VOICE_ROOM_FULL", "This voice room is full", 409);
   const now = Date.now();
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO voice_room_members(room_id,user_id,role,status,dictation_enabled,requested_at,last_seen_at)
+  await getDb(env).batch([
+    getDb(env).prepare(`INSERT INTO voice_room_members(room_id,user_id,role,status,dictation_enabled,requested_at,last_seen_at)
       VALUES(?,?,'member','pending',1,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET status='pending',role='member',requested_at=excluded.requested_at,left_at=NULL,last_seen_at=excluded.last_seen_at`)
       .bind(room.id, auth.id, now, now),
-    voiceEventStatement(env.DB, room.id, auth.id, auth.id, "join_requested", {}, now)
+    voiceEventStatement(getDb(env), room.id, auth.id, auth.id, "join_requested", {}, now)
   ]);
   await notifyVoiceRoom(env, room.id, { type: "join-request", audience: "admitters", roomId: room.id, user: voiceIdentity(auth), createdAt: now }, true, "join-request");
   return apiJson({ status: "pending", admitted: false, roomId: room.id }, 202);
@@ -1252,62 +2104,63 @@ async function requestVoiceRoomJoin(request, env) {
 
 async function admitVoiceRoomMember(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "voice-admit", 60, 10 * 60 * 1000, 10 * 60 * 1000);
+  const auth = await requireSocialUser(request, getDb(env));
+  await enforceUserRateLimit(getDb(env), auth.id, "voice-admit", 60, 10 * 60 * 1000, 10 * 60 * 1000);
   const body = await readJson(request);
-  const room = await loadVoiceRoom(env.DB, cleanText(body.roomId, 80));
+  const room = await loadVoiceRoom(getDb(env), cleanText(body.roomId, 80));
   if (!room || room.status !== "active") return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
-  if (!(await canAdmitVoiceRoom(env.DB, auth, room))) return apiError("VOICE_ADMISSION_FORBIDDEN", "Only the connected host or a connected Supernova member can admit people", 403);
-  const target = await loadUserByUsername(env.DB, normalizeUsername(body.username));
+  if (!(await canAdmitVoiceRoom(getDb(env), auth, room))) return apiError("VOICE_ADMISSION_FORBIDDEN", "Only the connected host or a connected Supernova member can admit people", 403);
+  const target = await loadUserByUsername(getDb(env), normalizeUsername(body.username));
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
-  const pending = await env.DB.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, target.id).first();
+  const pending = await getDb(env).prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, target.id).first();
   if (!pending || pending.status !== "pending") return apiError("VOICE_REQUEST_NOT_FOUND", "That join request is no longer pending", 404);
   const action = cleanText(body.action, 12);
   if (!['approve','deny'].includes(action)) return apiError("INVALID_ACTION", "Choose approve or deny", 400);
   const now = Date.now();
   if (action === "approve") {
-    const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM voice_room_members WHERE room_id=? AND status IN ('admitted','connected')").bind(room.id).first();
+    const count = await getDb(env).prepare("SELECT COUNT(*) AS count FROM voice_room_members WHERE room_id=? AND status IN ('admitted','connected')").bind(room.id).first();
     if (Number(count?.count || 0) >= Math.min(VOICE_MAX_MEMBERS, Number(room.maxMembers || VOICE_MAX_MEMBERS))) return apiError("VOICE_ROOM_FULL", "This voice room is full", 409);
-    if (await voiceBlockConflict(env.DB, room.id, target.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents that user from sharing this room", 403);
-    const sponsor = await hasVoiceSponsorAccess(env.DB, target);
-    await env.DB.prepare("UPDATE voice_room_members SET status='admitted',role=?,admitted_by=?,admitted_at=?,left_at=NULL WHERE room_id=? AND user_id=?")
+    if (await voiceBlockConflict(getDb(env), room.id, target.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents that user from sharing this room", 403);
+    const sponsor = await hasVoiceSponsorAccess(getDb(env), target);
+    await getDb(env).prepare("UPDATE voice_room_members SET status='admitted',role=?,admitted_by=?,admitted_at=?,left_at=NULL WHERE room_id=? AND user_id=?")
       .bind(sponsor ? "supernova" : "member", auth.id, now, room.id, target.id).run();
   } else {
-    await env.DB.prepare("UPDATE voice_room_members SET status='denied',admitted_by=?,left_at=? WHERE room_id=? AND user_id=?").bind(auth.id, now, room.id, target.id).run();
+    await getDb(env).prepare("UPDATE voice_room_members SET status='denied',admitted_by=?,left_at=? WHERE room_id=? AND user_id=?").bind(auth.id, now, room.id, target.id).run();
   }
-  await voiceEvent(env.DB, room.id, auth.id, target.id, action === "approve" ? "admitted" : "denied", {});
+  await voiceEvent(getDb(env), room.id, auth.id, target.id, action === "approve" ? "admitted" : "denied", {});
   await notifyVoiceRoom(env, room.id, { type: action === "approve" ? "admission-approved" : "admission-denied", targetUserId: target.id, username: target.username }, true, `admission-${action}`);
   return apiJson({ ok: true, action, username: target.username });
 }
 
 async function leaveVoiceRoom(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
+  const auth = await requireSocialUser(request, getDb(env));
   const body = await readJson(request);
-  const room = await loadVoiceRoom(env.DB, cleanText(body.roomId, 80));
+  const room = await loadVoiceRoom(getDb(env), cleanText(body.roomId, 80));
   if (!room) return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
-  const member = await env.DB.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  const member = await getDb(env).prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (!member) return apiJson({ ok: true });
   const now = Date.now();
-  await env.DB.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,last_seen_at=?,left_at=? WHERE room_id=? AND user_id=?").bind(now, now, room.id, auth.id).run();
-  await voiceEvent(env.DB, room.id, auth.id, auth.id, "left", {});
+  await getDb(env).prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,last_seen_at=?,left_at=? WHERE room_id=? AND user_id=?").bind(now, now, room.id, auth.id).run();
+  await voiceEvent(getDb(env), room.id, auth.id, auth.id, "left", {});
   await commandVoiceRoom(env, room.id, { action: "close-user", targetUserId: auth.id, reason: "You left the voice room" });
+  await endVoiceRoomIfEmpty(env, room.id, now);
   return apiJson({ ok: true });
 }
 
 async function voiceRoomAction(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "voice-action", 90, 10 * 60 * 1000, 10 * 60 * 1000);
+  const auth = await requireSocialUser(request, getDb(env));
+  await enforceUserRateLimit(getDb(env), auth.id, "voice-action", 90, 10 * 60 * 1000, 10 * 60 * 1000);
   const body = await readJson(request);
-  const room = await loadVoiceRoom(env.DB, cleanText(body.roomId, 80));
+  const room = await loadVoiceRoom(getDb(env), cleanText(body.roomId, 80));
   if (!room || room.status !== "active") return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
   const action = cleanText(body.action, 24);
-  const selfMember = await env.DB.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  const selfMember = await getDb(env).prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (!selfMember || !["admitted", "connected"].includes(selfMember.status)) return apiError("VOICE_NOT_MEMBER", "Join the room first", 403);
   if (action === "member-dictation") {
     const enabled = !!body.enabled;
-    await env.DB.prepare("UPDATE voice_room_members SET dictation_enabled=? WHERE room_id=? AND user_id=?").bind(enabled ? 1 : 0, room.id, auth.id).run();
+    await getDb(env).prepare("UPDATE voice_room_members SET dictation_enabled=? WHERE room_id=? AND user_id=?").bind(enabled ? 1 : 0, room.id, auth.id).run();
     await notifyVoiceRoom(env, room.id, null, true, "member-dictation");
     return apiJson({ ok: true, enabled });
   }
@@ -1315,9 +2168,9 @@ async function voiceRoomAction(request, env) {
   const now = Date.now();
   if (action === "lock" || action === "dictation") {
     const enabled = !!body.enabled;
-    if (action === "lock") await env.DB.prepare("UPDATE voice_rooms SET locked=?,updated_at=? WHERE id=?").bind(enabled ? 1 : 0, now, room.id).run();
-    else await env.DB.prepare("UPDATE voice_rooms SET dictation_enabled=?,updated_at=? WHERE id=?").bind(enabled ? 1 : 0, now, room.id).run();
-    await voiceEvent(env.DB, room.id, auth.id, null, action, { enabled });
+    if (action === "lock") await getDb(env).prepare("UPDATE voice_rooms SET locked=?,updated_at=? WHERE id=?").bind(enabled ? 1 : 0, now, room.id).run();
+    else await getDb(env).prepare("UPDATE voice_rooms SET dictation_enabled=?,updated_at=? WHERE id=?").bind(enabled ? 1 : 0, now, room.id).run();
+    await voiceEvent(getDb(env), room.id, auth.id, null, action, { enabled });
     await notifyVoiceRoom(env, room.id, null, true, action);
     return apiJson({ ok: true, enabled });
   }
@@ -1325,31 +2178,31 @@ async function voiceRoomAction(request, env) {
     await commandVoiceRoom(env, room.id, { action: "end", actorId: auth.id, reason: "The host ended the room" });
     return apiJson({ ok: true });
   }
-  const target = await loadUserByUsername(env.DB, normalizeUsername(body.username));
+  const target = await loadUserByUsername(getDb(env), normalizeUsername(body.username));
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
-  const targetMember = await env.DB.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, target.id).first();
+  const targetMember = await getDb(env).prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, target.id).first();
   if (!targetMember || !["admitted", "connected"].includes(targetMember.status)) return apiError("VOICE_MEMBER_NOT_FOUND", "That user is not in this room", 404);
   if (action === "kick") {
     if (target.id === auth.id) return apiError("INVALID_TARGET", "Use Leave to exit your own room", 400);
-    await env.DB.prepare("UPDATE voice_room_members SET status='removed',connected_at=NULL,left_at=? WHERE room_id=? AND user_id=?").bind(now, room.id, target.id).run();
-    await voiceEvent(env.DB, room.id, auth.id, target.id, "removed", {});
+    await getDb(env).prepare("UPDATE voice_room_members SET status='removed',connected_at=NULL,left_at=? WHERE room_id=? AND user_id=?").bind(now, room.id, target.id).run();
+    await voiceEvent(getDb(env), room.id, auth.id, target.id, "removed", {});
     await commandVoiceRoom(env, room.id, { action: "close-user", targetUserId: target.id, reason: "The host removed you" });
     return apiJson({ ok: true });
   }
   if (action === "mute") {
     const muted = !!body.muted;
-    await env.DB.prepare("UPDATE voice_room_members SET muted_by_host=? WHERE room_id=? AND user_id=?").bind(muted ? 1 : 0, room.id, target.id).run();
-    await voiceEvent(env.DB, room.id, auth.id, target.id, "host_mute", { muted });
+    await getDb(env).prepare("UPDATE voice_room_members SET muted_by_host=? WHERE room_id=? AND user_id=?").bind(muted ? 1 : 0, room.id, target.id).run();
+    await voiceEvent(getDb(env), room.id, auth.id, target.id, "host_mute", { muted });
     await commandVoiceRoom(env, room.id, { action: "force-mute", targetUserId: target.id, muted });
     return apiJson({ ok: true, muted });
   }
   if (action === "transfer") {
-    if (!(await hasVoiceSponsorAccess(env.DB, target)) || targetMember.status !== "connected") return apiError("VOICE_SPONSOR_REQUIRED", "Host can only transfer to a connected Supernova member", 409);
-    await env.DB.batch([
-      env.DB.prepare("UPDATE voice_rooms SET host_id=?,updated_at=? WHERE id=?").bind(target.id, now, room.id),
-      env.DB.prepare("UPDATE voice_room_members SET role=CASE WHEN user_id=? THEN 'host' WHEN role='host' THEN 'member' ELSE role END WHERE room_id=?").bind(target.id, room.id)
+    if (!(await hasVoiceSponsorAccess(getDb(env), target)) || targetMember.status !== "connected") return apiError("VOICE_SPONSOR_REQUIRED", "Host can only transfer to a connected Supernova member", 409);
+    await getDb(env).batch([
+      getDb(env).prepare("UPDATE voice_rooms SET host_id=?,updated_at=? WHERE id=?").bind(target.id, now, room.id),
+      getDb(env).prepare("UPDATE voice_room_members SET role=CASE WHEN user_id=? THEN 'host' WHEN role='host' THEN 'member' ELSE role END WHERE room_id=?").bind(target.id, room.id)
     ]);
-    await voiceEvent(env.DB, room.id, auth.id, target.id, "host_transferred", { automatic: false });
+    await voiceEvent(getDb(env), room.id, auth.id, target.id, "host_transferred", { automatic: false });
     await commandVoiceRoom(env, room.id, { action: "sync-host", targetUserId: target.id });
     await notifyVoiceRoom(env, room.id, { type: "host-transfer", fromUserId: auth.id, hostUserId: target.id }, true, "host-transfer");
     return apiJson({ ok: true, host: target.username });
@@ -1359,19 +2212,19 @@ async function voiceRoomAction(request, env) {
 
 async function publishVoiceTranscript(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "voice-dictation", 45, 60 * 1000, 60 * 1000);
+  const auth = await requireSocialUser(request, getDb(env));
+  await enforceUserRateLimit(getDb(env), auth.id, "voice-dictation", 45, 60 * 1000, 60 * 1000);
   const body = await readJson(request);
-  const room = await loadVoiceRoom(env.DB, cleanText(body.roomId, 80));
+  const room = await loadVoiceRoom(getDb(env), cleanText(body.roomId, 80));
   if (!room || room.status !== "active" || !room.dictationEnabled) return apiError("VOICE_DICTATION_OFF", "Dictation is disabled for this room", 409);
-  const member = await env.DB.prepare("SELECT status,dictation_enabled,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  const member = await getDb(env).prepare("SELECT status,dictation_enabled,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (!member || member.status !== "connected" || !member.dictation_enabled || member.muted_by_host) return apiError("VOICE_DICTATION_FORBIDDEN", "Dictation is not available for your microphone", 403);
   const text = cleanText(body.text, 500);
   if (!text) return apiError("EMPTY_DICTATION", "No dictated text was detected", 400);
   const moderation = moderateChatText(text, room.scopeType === "group" ? "group" : "dm");
   if (!moderation.allowed) {
-    await recordChatModerationEvent(env.DB, auth.id, `voice:${room.id}`, moderation.rule, text);
-    await voiceEvent(env.DB, room.id, auth.id, auth.id, "dictation_filtered", { rule: moderation.rule });
+    await recordChatModerationEvent(getDb(env), auth.id, `voice:${room.id}`, moderation.rule, text);
+    await voiceEvent(getDb(env), room.id, auth.id, auth.id, "dictation_filtered", { rule: moderation.rule });
     return apiError("DICTATION_FILTERED", "That dictated segment was hidden by Nova safety", 422, { rule: moderation.rule });
   }
   const createdAt = Date.now();
@@ -1382,12 +2235,12 @@ async function publishVoiceTranscript(request, env) {
 
 async function transcribeVoiceAudio(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "voice-transcribe", 15, 60 * 1000, 60 * 1000);
+  const auth = await requireSocialUser(request, getDb(env));
+  await enforceUserRateLimit(getDb(env), auth.id, "voice-transcribe", 15, 60 * 1000, 60 * 1000);
   const roomId = cleanText(request.headers.get("X-Nova-Voice-Room"), 80);
-  const room = await loadVoiceRoom(env.DB, roomId);
+  const room = await loadVoiceRoom(getDb(env), roomId);
   if (!room || room.status !== "active" || !room.dictationEnabled) return apiError("VOICE_DICTATION_OFF", "Dictation is disabled for this room", 409);
-  const member = await env.DB.prepare("SELECT status,dictation_enabled,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  const member = await getDb(env).prepare("SELECT status,dictation_enabled,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (!member || member.status !== "connected" || !member.dictation_enabled || member.muted_by_host) return apiError("VOICE_DICTATION_FORBIDDEN", "Dictation is not available for your microphone", 403);
   if (!env.AI) return apiError("VOICE_TRANSCRIPTION_UNAVAILABLE", "Nova transcription is temporarily unavailable", 503);
   const length = Number(request.headers.get("Content-Length") || 0);
@@ -1412,32 +2265,34 @@ async function transcribeVoiceAudio(request, env) {
 
 async function reportVoiceParticipant(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSocialUser(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "voice-report", 8, 24 * 60 * 60 * 1000, 60 * 60 * 1000);
+  const auth = await requireSocialUser(request, getDb(env));
+  await enforceUserRateLimit(getDb(env), auth.id, "voice-report", 8, 24 * 60 * 60 * 1000, 60 * 60 * 1000);
   const body = await readJson(request);
-  const room = await loadVoiceRoom(env.DB, cleanText(body.roomId, 80));
+  const room = await loadVoiceRoom(getDb(env), cleanText(body.roomId, 80));
   if (!room) return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
-  const reporter = await env.DB.prepare("SELECT 1 FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  const reporter = await getDb(env).prepare("SELECT 1 FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (!reporter) return apiError("VOICE_NOT_MEMBER", "Only room participants can report a call", 403);
-  const target = await loadUserByUsername(env.DB, normalizeUsername(body.username));
+  const target = await loadUserByUsername(getDb(env), normalizeUsername(body.username));
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
-  const targetMember = await env.DB.prepare("SELECT 1 FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, target.id).first();
+  const targetMember = await getDb(env).prepare("SELECT 1 FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, target.id).first();
   if (!targetMember) return apiError("VOICE_MEMBER_NOT_FOUND", "That user was not in this room", 404);
   const reason = cleanText(body.reason, 500);
   if (reason.length < 5) return apiError("REASON_REQUIRED", "Add a brief reason for the report", 400);
   const excerpt = cleanText(body.transcriptExcerpt, 500);
   const id = `vr_${crypto.randomUUID()}`;
   const now = Date.now();
-  await env.DB.prepare("INSERT INTO voice_reports(id,room_id,reporter_id,target_user_id,reason,transcript_excerpt,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'open',?,?)")
+  await getDb(env).prepare("INSERT INTO voice_reports(id,room_id,reporter_id,target_user_id,reason,transcript_excerpt,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'open',?,?)")
     .bind(id, room.id, auth.id, target.id, reason, excerpt, now, now).run();
-  await voiceEvent(env.DB, room.id, auth.id, target.id, "reported", { reportId: id });
+  await voiceEvent(getDb(env), room.id, auth.id, target.id, "reported", { reportId: id });
   return apiJson({ report: { id, status: "open" } }, 201);
 }
 
 async function voiceIceServers(request, env) {
-  const auth = await requireSocialUser(request, env.DB);
+  const auth = await requireSocialUser(request, getDb(env));
   const roomId = cleanText(new URL(request.url).searchParams.get("room"), 80);
-  const member = roomId ? await env.DB.prepare("SELECT 1 FROM voice_room_members WHERE room_id=? AND user_id=? AND status IN ('admitted','connected')").bind(roomId, auth.id).first() : null;
+  const iceRoom = roomId ? await loadVoiceRoom(getDb(env), roomId) : null;
+  if (iceRoom && iceRoom.status === "active") await ensureVoiceHostMembership(env, auth, iceRoom);
+  const member = roomId ? await getDb(env).prepare("SELECT 1 FROM voice_room_members WHERE room_id=? AND user_id=? AND status IN ('admitted','connected')").bind(roomId, auth.id).first() : null;
   if (!member) return apiError("VOICE_NOT_ADMITTED", "Voice admission required", 403);
   const fallback = [{ urls: ["stun:stun.cloudflare.com:3478"] }];
   try {
@@ -1477,12 +2332,13 @@ async function ensureVoiceSfuSchema(db) {
 }
 
 async function requireVoiceSfuMember(request, env, roomId) {
-  const auth = await requireSocialUser(request, env.DB);
-  const room = await loadVoiceRoom(env.DB, roomId);
+  const auth = await requireSocialUser(request, getDb(env));
+  const room = await loadVoiceRoom(getDb(env), roomId);
   if (!room || room.status !== "active") throw new ApiFailure("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
-  const member = await env.DB.prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(roomId, auth.id).first();
+  await ensureVoiceHostMembership(env, auth, room);
+  const member = await getDb(env).prepare("SELECT status FROM voice_room_members WHERE room_id=? AND user_id=?").bind(roomId, auth.id).first();
   if (!member || !["admitted","connected"].includes(member.status)) throw new ApiFailure("VOICE_NOT_ADMITTED", "Voice admission required", 403);
-  if (await voiceBlockConflict(env.DB, roomId, auth.id)) throw new ApiFailure("VOICE_BLOCK_CONFLICT", "A block prevents this voice connection", 403);
+  if (await voiceBlockConflict(getDb(env), roomId, auth.id)) throw new ApiFailure("VOICE_BLOCK_CONFLICT", "A block prevents this voice connection", 403);
   return { auth, room };
 }
 
@@ -1500,56 +2356,64 @@ async function realtimeFetch(env, suffix, method, body) {
 }
 
 async function voiceSfuTracks(request, url, env) {
-  await ensureVoiceSfuSchema(env.DB);
+  await ensureVoiceSfuSchema(getDb(env));
   const roomId = cleanText(url.searchParams.get("room"), 80);
   const { auth } = await requireVoiceSfuMember(request, env, roomId);
   const now = Date.now();
-  await env.DB.prepare("UPDATE voice_sfu_tracks SET updated_at=? WHERE room_id=? AND user_id=?").bind(now, roomId, auth.id).run();
-  const rows = await env.DB.prepare("SELECT u.username,t.user_id AS userId,t.session_id AS sessionId,t.track_name AS trackName FROM voice_sfu_tracks t JOIN users u ON u.id=t.user_id JOIN voice_room_members m ON m.room_id=t.room_id AND m.user_id=t.user_id AND m.status='connected' WHERE t.room_id=? AND t.user_id<>? AND t.track_name<>'' AND t.updated_at>? ORDER BY lower(u.username)").bind(roomId, auth.id, now - 45000).all();
+  await getDb(env).batch([
+    getDb(env).prepare("UPDATE voice_sfu_tracks SET updated_at=? WHERE room_id=? AND user_id=?").bind(now, roomId, auth.id),
+    getDb(env).prepare("UPDATE voice_room_members SET last_seen_at=? WHERE room_id=? AND user_id=? AND status='connected'").bind(now, roomId, auth.id)
+  ]);
+  const rows = await getDb(env).prepare("SELECT u.username,t.user_id AS userId,t.session_id AS sessionId,t.track_name AS trackName FROM voice_sfu_tracks t JOIN users u ON u.id=t.user_id JOIN voice_room_members m ON m.room_id=t.room_id AND m.user_id=t.user_id AND m.status='connected' WHERE t.room_id=? AND t.user_id<>? AND t.track_name<>'' AND t.updated_at>? ORDER BY lower(u.username)").bind(roomId, auth.id, now - 45000).all();
   return apiJson({ tracks: rows.results || [], provider: "cloudflare-realtime" });
 }
 
 async function voiceSfuAction(request, env) {
   requireSameOrigin(request);
-  await ensureVoiceSfuSchema(env.DB);
+  await ensureVoiceSfuSchema(getDb(env));
   const body = await readJson(request);
   const roomId = cleanText(body.roomId, 80);
   const action = cleanText(body.action, 24);
   const { auth } = await requireVoiceSfuMember(request, env, roomId);
   if (action === "new-session") {
     const result = await realtimeFetch(env, "/sessions/new", "POST");
-    await env.DB.prepare("INSERT INTO voice_sfu_tracks(room_id,user_id,session_id,track_name,updated_at) VALUES(?,?,?,'',?) ON CONFLICT(room_id,user_id) DO UPDATE SET session_id=excluded.session_id,track_name='',updated_at=excluded.updated_at").bind(roomId, auth.id, cleanText(result.sessionId, 120), Date.now()).run();
-    await env.DB.prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), Date.now(), roomId, auth.id).run();
-    await voiceEvent(env.DB, roomId, auth.id, auth.id, "sfu_session", { provider: "cloudflare-realtime" });
+    await getDb(env).prepare("INSERT INTO voice_sfu_tracks(room_id,user_id,session_id,track_name,updated_at) VALUES(?,?,?,'',?) ON CONFLICT(room_id,user_id) DO UPDATE SET session_id=excluded.session_id,track_name='',updated_at=excluded.updated_at").bind(roomId, auth.id, cleanText(result.sessionId, 120), Date.now()).run();
+    await getDb(env).prepare("UPDATE voice_room_members SET status='connected',connected_at=COALESCE(connected_at,?),last_seen_at=? WHERE room_id=? AND user_id=?").bind(Date.now(), Date.now(), roomId, auth.id).run();
+    await voiceEvent(getDb(env), roomId, auth.id, auth.id, "sfu_session", { provider: "cloudflare-realtime" });
     return apiJson(result);
   }
-  const own = await env.DB.prepare("SELECT session_id AS sessionId FROM voice_sfu_tracks WHERE room_id=? AND user_id=?").bind(roomId, auth.id).first();
+  const own = await getDb(env).prepare("SELECT session_id AS sessionId FROM voice_sfu_tracks WHERE room_id=? AND user_id=?").bind(roomId, auth.id).first();
   const sessionId = cleanText(body.sessionId, 120);
   if (!own || own.sessionId !== sessionId) return apiError("VOICE_SFU_SESSION", "That Realtime session is not yours", 403);
   if (action === "publish") {
     const trackName = cleanText(body.trackName, 120);
     const result = await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { sessionDescription: body.sessionDescription, tracks: [{ location: "local", mid: cleanText(body.mid, 20), trackName }] });
-    await voiceEvent(env.DB, roomId, auth.id, auth.id, "sfu_publish_accepted", {});
+    await voiceEvent(getDb(env), roomId, auth.id, auth.id, "sfu_publish_accepted", {});
     return apiJson(result);
   }
   if (action === "ready") {
     const trackName = cleanText(body.trackName, 120);
     if (!trackName) return apiError("VOICE_SFU_TRACK", "Audio track is missing", 400);
-    await env.DB.prepare("UPDATE voice_sfu_tracks SET track_name=?,updated_at=? WHERE room_id=? AND user_id=?").bind(trackName, Date.now(), roomId, auth.id).run();
-    await voiceEvent(env.DB, roomId, auth.id, auth.id, "sfu_published", {});
+    await getDb(env).prepare("UPDATE voice_sfu_tracks SET track_name=?,updated_at=? WHERE room_id=? AND user_id=?").bind(trackName, Date.now(), roomId, auth.id).run();
+    await voiceEvent(getDb(env), roomId, auth.id, auth.id, "sfu_published", {});
     return apiJson({ ok: true });
   }
   if (action === "subscribe") {
     const remoteSessionId = cleanText(body.remoteSessionId, 120), trackName = cleanText(body.trackName, 120);
-    const allowed = await env.DB.prepare("SELECT 1 FROM voice_sfu_tracks WHERE room_id=? AND session_id=? AND track_name=? AND user_id<>?").bind(roomId, remoteSessionId, trackName, auth.id).first();
+    const allowed = await getDb(env).prepare("SELECT 1 FROM voice_sfu_tracks WHERE room_id=? AND session_id=? AND track_name=? AND user_id<>?").bind(roomId, remoteSessionId, trackName, auth.id).first();
     if (!allowed) return apiError("VOICE_SFU_TRACK", "That audio track is not in this room", 403);
     const result = await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/tracks/new`, "POST", { tracks: [{ location: "remote", sessionId: remoteSessionId, trackName }] });
-    await voiceEvent(env.DB, roomId, auth.id, null, "sfu_subscribed", {});
+    await voiceEvent(getDb(env), roomId, auth.id, null, "sfu_subscribed", {});
     return apiJson(result);
   }
   if (action === "renegotiate") return apiJson(await realtimeFetch(env, `/sessions/${encodeURIComponent(sessionId)}/renegotiate`, "PUT", { sessionDescription: body.sessionDescription }));
   if (action === "leave") {
-    await env.DB.prepare("DELETE FROM voice_sfu_tracks WHERE room_id=? AND user_id=?").bind(roomId, auth.id).run();
+    const now = Date.now();
+    await getDb(env).batch([
+      getDb(env).prepare("DELETE FROM voice_sfu_tracks WHERE room_id=? AND user_id=?").bind(roomId, auth.id),
+      getDb(env).prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,last_seen_at=?,left_at=? WHERE room_id=? AND user_id=? AND status IN ('admitted','connected')").bind(now, now, roomId, auth.id)
+    ]);
+    await endVoiceRoomIfEmpty(env, roomId, now);
     return apiJson({ ok: true });
   }
   return apiError("INVALID_ACTION", "Unknown Realtime action", 400);
@@ -1557,19 +2421,32 @@ async function voiceSfuAction(request, env) {
 
 async function voiceRoomWebSocket(request, url, env) {
   requireVoiceSocketOrigin(request);
+  await cleanupVoiceState(env, Date.now());
   if (!env.VOICE_ROOMS) return apiError("VOICE_COORDINATOR_UNAVAILABLE", "Voice rooms are not bound", 503);
-  const auth = await requireSocialUser(request, env.DB);
-  const restriction = await activeVoiceRestriction(env.DB, auth.id);
+  const auth = await requireSocialUser(request, getDb(env));
+  const restriction = await activeVoiceRestriction(getDb(env), auth.id);
   if (restriction) return voiceRestrictionError(restriction);
-  const room = await loadVoiceRoom(env.DB, cleanText(url.searchParams.get("room"), 80));
+  const room = await loadVoiceRoom(getDb(env), cleanText(url.searchParams.get("room"), 80));
   if (!room || room.status !== "active") return apiError("VOICE_ROOM_NOT_FOUND", "Voice room not found", 404);
-  const member = await env.DB.prepare("SELECT status,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  await ensureVoiceHostMembership(env, auth, room);
+  let member = await getDb(env).prepare("SELECT status,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
+  const isHost = room.hostId === auth.id || room.createdById === auth.id;
+  /* The room creator/host is authoritative and can never be placed in the
+     admission lobby, even if a stale membership row survived a disconnect. */
+  if (isHost && (!member || !["admitted", "connected"].includes(member.status))) {
+    const now = Date.now();
+    await getDb(env).prepare(`INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at,left_at)
+      VALUES(?,?,'host','admitted',?,1,?,?,?,?,NULL)
+      ON CONFLICT(room_id,user_id) DO UPDATE SET role='host',status='admitted',admitted_by=excluded.admitted_by,admitted_at=COALESCE(voice_room_members.admitted_at,excluded.admitted_at),joined_at=COALESCE(voice_room_members.joined_at,excluded.joined_at),last_seen_at=excluded.last_seen_at,left_at=NULL`)
+      .bind(room.id, auth.id, auth.id, now, now, now, now).run();
+    member = { status: "admitted", muted_by_host: 0 };
+  }
   if (!member || !["pending", "invited", "admitted", "connected"].includes(member.status)) return apiError("VOICE_ADMISSION_REQUIRED", "Request permission to join this voice room", 403);
-  if (await voiceBlockConflict(env.DB, room.id, auth.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents you from sharing this voice room", 403);
+  if (await voiceBlockConflict(getDb(env), room.id, auth.id)) return apiError("VOICE_BLOCK_CONFLICT", "A block prevents you from sharing this voice room", 403);
   // UNO calls are membership-gated by their game lobby and do not require a
   // Supernova sponsor to remain connected.
-  const sponsor = room.id.startsWith("uvc_") || await hasVoiceSponsorAccess(env.DB, auth);
-  const lobby = ["pending", "invited"].includes(member.status);
+  const sponsor = room.id.startsWith("uvc_") || await hasVoiceSponsorAccess(getDb(env), auth);
+  const lobby = isHost ? false : ["pending", "invited"].includes(member.status);
   const headers = new Headers(request.headers);
   headers.set("X-Nova-Voice-Room", room.id);
   headers.set("X-Nova-Voice-User", auth.id);
@@ -1585,7 +2462,7 @@ async function voiceRoomWebSocket(request, url, env) {
 }
 
 async function adminVoice(request, env) {
-  const db = env.DB;
+  const db = getDb(env);
   await requireRole(request, db, ADMIN_ROLES);
   const now = Date.now();
   const [rooms, reports, restrictions] = await db.batch([
@@ -1601,7 +2478,7 @@ async function adminVoice(request, env) {
 
 async function adminVoiceAction(request, env) {
   requireSameOrigin(request);
-  const db = env.DB;
+  const db = getDb(env);
   const auth = await requireRole(request, db, ADMIN_ROLES);
   const body = await readJson(request);
   const action = cleanText(body.action, 24);
@@ -1609,39 +2486,40 @@ async function adminVoiceAction(request, env) {
   if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
   const now = Date.now();
   if (action === "end") {
-    const room = await loadVoiceRoom(env.DB, cleanText(body.roomId, 80));
+    const room = await loadVoiceRoom(getDb(env), cleanText(body.roomId, 80));
     if (!room || room.status !== "active") return apiError("VOICE_ROOM_NOT_FOUND", "Active voice room not found", 404);
     await commandVoiceRoom(env, room.id, { action: "end", actorId: auth.id, reason });
-    await audit(env.DB, auth.id, "voice.end", "voice_room", room.id, reason, {});
+    await audit(getDb(env), auth.id, "voice.end", "voice_room", room.id, reason, {});
     return apiJson({ ok: true });
   }
   if (action === "resolve-report" || action === "dismiss-report") {
     const reportId = cleanText(body.reportId, 80);
     const status = action === "resolve-report" ? "resolved" : "dismissed";
-    const report = await env.DB.prepare("SELECT id FROM voice_reports WHERE id=?").bind(reportId).first();
+    const report = await getDb(env).prepare("SELECT id FROM voice_reports WHERE id=?").bind(reportId).first();
     if (!report) return apiError("VOICE_REPORT_NOT_FOUND", "Voice report not found", 404);
-    await env.DB.prepare("UPDATE voice_reports SET status=?,assigned_to=?,updated_at=? WHERE id=?").bind(status, auth.id, now, reportId).run();
-    await audit(env.DB, auth.id, `voice.report.${status}`, "voice_report", reportId, reason, {});
+    await getDb(env).prepare("UPDATE voice_reports SET status=?,assigned_to=?,updated_at=? WHERE id=?").bind(status, auth.id, now, reportId).run();
+    await audit(getDb(env), auth.id, `voice.report.${status}`, "voice_report", reportId, reason, {});
     return apiJson({ ok: true, status });
   }
-  const target = await loadUserByUsername(env.DB, normalizeUsername(body.username));
+  const target = await loadUserByUsername(getDb(env), normalizeUsername(body.username));
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
+  if (roleRank(highestRole(auth.roles || ["user"])) <= roleRank(highestRole(target.roles || ["user"]))) return apiError("PROTECTED_ACCOUNT", "You can only apply voice moderation to accounts below your staff level", 403);
   if (action === "restrict") {
     const expiresAt = body.expiresAt == null ? null : Number(body.expiresAt);
     if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= now)) return apiError("INVALID_EXPIRY", "Restriction expiry must be in the future", 400);
-    await env.DB.prepare(`INSERT INTO voice_restrictions(user_id,reason,issued_by,created_at,expires_at,revoked_at,revoked_by)
+    await getDb(env).prepare(`INSERT INTO voice_restrictions(user_id,reason,issued_by,created_at,expires_at,revoked_at,revoked_by)
       VALUES(?,?,?,?,?,NULL,NULL) ON CONFLICT(user_id) DO UPDATE SET reason=excluded.reason,issued_by=excluded.issued_by,created_at=excluded.created_at,expires_at=excluded.expires_at,revoked_at=NULL,revoked_by=NULL`)
       .bind(target.id, reason, auth.id, now, expiresAt).run();
-    const rooms = await env.DB.prepare("SELECT room_id AS roomId FROM voice_room_members WHERE user_id=? AND status IN ('admitted','connected')").bind(target.id).all();
+    const rooms = await getDb(env).prepare("SELECT room_id AS roomId FROM voice_room_members WHERE user_id=? AND status IN ('admitted','connected')").bind(target.id).all();
     for (const row of rooms.results || []) await commandVoiceRoom(env, row.roomId, { action: "close-user", targetUserId: target.id, reason: "Voice access was restricted" });
-    await audit(env.DB, auth.id, "voice.restrict", "user", target.id, reason, { username: target.username, expiresAt });
+    await audit(getDb(env), auth.id, "voice.restrict", "user", target.id, reason, { username: target.username, expiresAt });
     return apiJson({ ok: true });
   }
   if (action === "unrestrict") {
-    const active = await activeVoiceRestriction(env.DB, target.id);
+    const active = await activeVoiceRestriction(getDb(env), target.id);
     if (!active) return apiError("VOICE_RESTRICTION_NOT_FOUND", "That user has no active voice restriction", 404);
-    await env.DB.prepare("UPDATE voice_restrictions SET revoked_at=?,revoked_by=? WHERE user_id=?").bind(now, auth.id, target.id).run();
-    await audit(env.DB, auth.id, "voice.unrestrict", "user", target.id, reason, { username: target.username });
+    await getDb(env).prepare("UPDATE voice_restrictions SET revoked_at=?,revoked_by=? WHERE user_id=?").bind(now, auth.id, target.id).run();
+    await audit(getDb(env), auth.id, "voice.unrestrict", "user", target.id, reason, { username: target.username });
     return apiJson({ ok: true });
   }
   return apiError("INVALID_ACTION", "Unknown voice administration action", 400);
@@ -1664,6 +2542,13 @@ async function loadVoiceRoom(db, roomId) {
 }
 
 async function exposeVoiceRoom(db, auth, room, includeMembers) {
+  if ((room.hostId === auth.id || room.createdById === auth.id)) {
+    const now = Date.now();
+    await db.prepare(`INSERT INTO voice_room_members(room_id,user_id,role,status,admitted_by,dictation_enabled,requested_at,admitted_at,joined_at,last_seen_at,left_at)
+      VALUES(?,?,'host','admitted',?,1,?,?,?,?,NULL)
+      ON CONFLICT(room_id,user_id) DO UPDATE SET role='host',status=CASE WHEN voice_room_members.status='connected' THEN 'connected' ELSE 'admitted' END,admitted_by=excluded.admitted_by,admitted_at=COALESCE(voice_room_members.admitted_at,excluded.admitted_at),joined_at=COALESCE(voice_room_members.joined_at,excluded.joined_at),last_seen_at=excluded.last_seen_at,left_at=NULL`)
+      .bind(room.id, auth.id, auth.id, now, now, now, now).run();
+  }
   const own = await db.prepare("SELECT role,status,dictation_enabled AS dictationEnabled,muted_by_host AS mutedByHost FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   const sponsor = await hasVoiceSponsorAccess(db, auth);
   const canAdmit = room.hostId === auth.id || (sponsor && own?.status === "connected");
@@ -1759,8 +2644,44 @@ async function commandVoiceRoom(env, roomId, command) {
   }
 }
 
+async function cleanupVoiceState(env, now = Date.now()) {
+  const db = getDb(env);
+  const staleBefore = now - VOICE_MEMBER_STALE_MS;
+  try {
+    await ensureVoiceSfuSchema(db);
+    await db.batch([
+      db.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,left_at=?,last_seen_at=? WHERE status='connected' AND COALESCE(last_seen_at,connected_at,joined_at,admitted_at,requested_at,0)<?").bind(now, now, staleBefore),
+      db.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,left_at=?,last_seen_at=? WHERE status='admitted' AND COALESCE(last_seen_at,admitted_at,requested_at,0)<?").bind(now, now, staleBefore),
+      db.prepare("DELETE FROM voice_sfu_tracks WHERE updated_at<?").bind(staleBefore)
+    ]);
+  } catch (error) {
+    console.warn("Voice stale-member cleanup failed", String(error?.message || error).slice(0, 120));
+  }
+
+  const empty = await db.prepare(`SELECT vr.id FROM voice_rooms vr
+    WHERE vr.status='active' AND vr.created_at<?
+    AND NOT EXISTS (SELECT 1 FROM voice_room_members vm WHERE vm.room_id=vr.id AND vm.status IN ('admitted','connected'))
+    LIMIT 25`).bind(now - VOICE_EMPTY_ROOM_GRACE_MS).all();
+  for (const row of empty.results || []) await endVoiceRoomIfEmpty(env, row.id, now);
+}
+
+async function endVoiceRoomIfEmpty(env, roomId, now = Date.now()) {
+  const db = getDb(env);
+  const live = await db.prepare("SELECT COUNT(*) AS count FROM voice_room_members WHERE room_id=? AND status IN ('admitted','connected')").bind(roomId).first();
+  if (Number(live?.count || 0) > 0) return false;
+  const room = await db.prepare("SELECT status FROM voice_rooms WHERE id=? LIMIT 1").bind(roomId).first();
+  if (!room || room.status !== 'active') return false;
+  await db.batch([
+    db.prepare("UPDATE voice_rooms SET status='ended',updated_at=?,ended_at=? WHERE id=? AND status='active'").bind(now, now, roomId),
+    db.prepare("UPDATE voice_room_members SET status='left',connected_at=NULL,left_at=COALESCE(left_at,?),last_seen_at=? WHERE room_id=? AND status IN ('pending','invited','admitted','connected')").bind(now, now, roomId),
+    db.prepare("DELETE FROM voice_sfu_tracks WHERE room_id=?").bind(roomId)
+  ]);
+  await commandVoiceRoom(env, roomId, { action: "end", reason: "Voice room closed because nobody is connected" });
+  return true;
+}
+
 async function expireStaleVoiceRooms(env, now = Date.now()) {
-  const expired = await env.DB.prepare("SELECT id FROM voice_rooms WHERE status='active' AND (created_at<? OR (sponsor_deadline_at IS NOT NULL AND sponsor_deadline_at<?)) LIMIT 25").bind(now - VOICE_ROOM_MAX_MS, now).all();
+  const expired = await getDb(env).prepare("SELECT id FROM voice_rooms WHERE status='active' AND (created_at<? OR (sponsor_deadline_at IS NOT NULL AND sponsor_deadline_at<?)) LIMIT 25").bind(now - VOICE_ROOM_MAX_MS, now).all();
   for (const room of expired.results || []) await commandVoiceRoom(env, room.id, { action: "end", reason: "Voice room expired" });
 }
 
@@ -2221,6 +3142,113 @@ function exposeSupportTicket(row) {
   };
 }
 
+async function getSupernovaAccess(request, db) {
+  const auth = await requireUser(request, db);
+  const now = Date.now();
+  const deviceId = deviceIdFrom(request);
+  const deviceHash = deviceId ? await sha256(deviceId) : "";
+  const [membership, userTrial, deviceTrial, outgoing, incoming] = await Promise.all([
+    db.prepare("SELECT status,granted_at AS grantedAt,expires_at AS expiresAt,note FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first(),
+    db.prepare("SELECT claimed_at AS claimedAt,expires_at AS expiresAt FROM supernova_device_trials WHERE user_id=? LIMIT 1").bind(auth.id).first(),
+    deviceHash ? db.prepare("SELECT claimed_at AS claimedAt,expires_at AS expiresAt FROM supernova_device_trials WHERE device_id_hash=? LIMIT 1").bind(deviceHash).first() : Promise.resolve(null),
+    db.prepare(`SELECT r.id,r.status,r.created_at AS createdAt,r.responded_at AS respondedAt,r.expires_at AS expiresAt,
+      u.username,COALESCE(p.display_name,u.username) AS displayName
+      FROM supernova_referrals r JOIN users u ON u.id=r.invited_user_id LEFT JOIN user_profiles p ON p.user_id=u.id
+      WHERE r.inviter_id=? ORDER BY r.created_at DESC LIMIT 5`).bind(auth.id).all(),
+    db.prepare(`SELECT r.id,r.status,r.created_at AS createdAt,u.username AS fromUsername,
+      COALESCE(p.display_name,u.username) AS fromDisplayName
+      FROM supernova_referrals r JOIN users u ON u.id=r.inviter_id LEFT JOIN user_profiles p ON p.user_id=u.id
+      WHERE r.invited_user_id=? AND r.status='pending' ORDER BY r.created_at DESC LIMIT 5`).bind(auth.id).all()
+  ]);
+  const sent = (outgoing.results || []).map(row => ({ ...row, createdAt: Number(row.createdAt), respondedAt: row.respondedAt == null ? null : Number(row.respondedAt), expiresAt: row.expiresAt == null ? null : Number(row.expiresAt) }));
+  const received = (incoming.results || []).map(row => ({ ...row, createdAt: Number(row.createdAt) }));
+  return apiJson({
+    active: !!membership,
+    membership: membership ? { grantedAt: Number(membership.grantedAt || 0), expiresAt: membership.expiresAt == null ? null : Number(membership.expiresAt), note: membership.note || "" } : null,
+    trial: { eligible: !!deviceId && !userTrial && !deviceTrial && !membership, claimed: !!(userTrial || deviceTrial) },
+    referrals: { limit: SUPERNOVA_REFERRAL_LIMIT, used: sent.length, remaining: Math.max(0, SUPERNOVA_REFERRAL_LIMIT - sent.length), sent, received }
+  });
+}
+
+async function claimSupernovaTrial(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "supernova-trial", 3, 60 * 60 * 1000, 60 * 60 * 1000);
+  const deviceId = deviceIdFrom(request);
+  if (!deviceId) return apiError("DEVICE_REQUIRED", "This device could not be verified. Refresh and try again.", 400);
+  const now = Date.now();
+  const active = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
+  if (active) return apiError("ALREADY_SUPERNOVA", "This account already has Supernova", 409);
+  const deviceHash = await sha256(deviceId);
+  const alreadyClaimed = await db.prepare("SELECT 1 FROM supernova_device_trials WHERE user_id=? OR device_id_hash=? LIMIT 1").bind(auth.id, deviceHash).first();
+  if (alreadyClaimed) return apiError("TRIAL_ALREADY_USED", "The free trial has already been used by this account or device", 409);
+  const expiresAt = now + SUPERNOVA_DEVICE_TRIAL_MS;
+  try {
+    await db.batch([
+      db.prepare("INSERT INTO supernova_device_trials(device_id_hash,user_id,claimed_at,expires_at) VALUES(?,?,?,?)").bind(deviceHash, auth.id, now, expiresAt),
+      supernovaGrantStatement(db, auth.id, null, "3-day device trial", expiresAt, now)
+    ]);
+  } catch (error) {
+    return apiError("TRIAL_ALREADY_USED", "The free trial has already been used by this account or device", 409);
+  }
+  return apiJson({ ok: true, plan: "supernova", source: "device_trial", expiresAt }, 201);
+}
+
+async function createSupernovaReferral(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "supernova-referral", 10, 60 * 60 * 1000, 60 * 60 * 1000);
+  const now = Date.now();
+  const sponsor = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
+  if (!sponsor) return apiError("SUPERNOVA_REQUIRED", "An active Supernova membership is required to send referrals", 403);
+  const body = await readJson(request);
+  const target = await loadUserByUsername(db, normalizeUsername(body.username));
+  if (!target) return apiError("USER_NOT_FOUND", "That Nova user was not found", 404);
+  if (target.id === auth.id) return apiError("SELF_REFERRAL", "You cannot invite yourself", 400);
+  const targetPlan = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(target.id, now).first();
+  if (targetPlan) return apiError("ALREADY_SUPERNOVA", "That person already has Supernova", 409);
+  const priorClaim = await db.prepare("SELECT 1 FROM supernova_referrals WHERE invited_user_id=? AND status='accepted' LIMIT 1").bind(target.id).first();
+  if (priorClaim) return apiError("REFERRAL_ALREADY_USED", "That person has already used a Supernova referral", 409);
+  const existingPending = await db.prepare("SELECT 1 FROM supernova_referrals WHERE invited_user_id=? AND status='pending' LIMIT 1").bind(target.id).first();
+  if (existingPending) return apiError("REFERRAL_PENDING", "That person already has a pending Supernova invite", 409);
+  const used = Number(await db.prepare("SELECT COUNT(*) AS total FROM supernova_referrals WHERE inviter_id=?").bind(auth.id).first("total") || 0);
+  if (used >= SUPERNOVA_REFERRAL_LIMIT) return apiError("REFERRAL_LIMIT", "All five referral invites have been used", 409);
+  const id = randomId();
+  try {
+    await db.prepare("INSERT INTO supernova_referrals(id,inviter_id,invited_user_id,status,created_at) VALUES(?,?,?,'pending',?)").bind(id, auth.id, target.id, now).run();
+  } catch (error) {
+    return apiError("REFERRAL_EXISTS", "You have already invited that person", 409);
+  }
+  return apiJson({ ok: true, referral: { id, username: target.username, displayName: target.display_name || target.username, status: "pending", createdAt: now } }, 201);
+}
+
+async function respondSupernovaReferral(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "supernova-referral-response", 10, 60 * 60 * 1000, 30 * 60 * 1000);
+  const body = await readJson(request);
+  const id = cleanText(body.referralId, 80);
+  const action = enumValue(body.action, ["accept", "decline"], "");
+  if (!id || !action) return apiError("INVALID_REFERRAL_ACTION", "Choose accept or decline", 400);
+  const referral = await db.prepare("SELECT * FROM supernova_referrals WHERE id=? AND invited_user_id=? AND status='pending' LIMIT 1").bind(id, auth.id).first();
+  if (!referral) return apiError("REFERRAL_NOT_FOUND", "That referral is no longer available", 404);
+  const now = Date.now();
+  if (action === "decline") {
+    await db.prepare("UPDATE supernova_referrals SET status='declined',responded_at=? WHERE id=? AND status='pending'").bind(now, id).run();
+    return apiJson({ ok: true, status: "declined" });
+  }
+  const active = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
+  if (active) return apiError("ALREADY_SUPERNOVA", "Your account already has Supernova", 409);
+  const prior = await db.prepare("SELECT 1 FROM supernova_referrals WHERE invited_user_id=? AND status='accepted' LIMIT 1").bind(auth.id).first();
+  if (prior) return apiError("REFERRAL_ALREADY_USED", "This account has already used a referral", 409);
+  const expiresAt = now + SUPERNOVA_REFERRAL_MS;
+  await db.batch([
+    db.prepare("UPDATE supernova_referrals SET status='accepted',responded_at=?,expires_at=? WHERE id=? AND status='pending'").bind(now, expiresAt, id),
+    supernovaGrantStatement(db, auth.id, referral.inviter_id, "7-day Supernova referral", expiresAt, now)
+  ]);
+  return apiJson({ ok: true, plan: "supernova", source: "referral", expiresAt });
+}
+
 const SUPERNOVA_DEFAULT_PREFERENCES = Object.freeze({
   identity: { frame: "orbit", badge: "prism", bannerEffect: "aurora", nameGlow: true },
   island: { style: "glass", opacity: 88, density: "comfortable", animation: "fluid" },
@@ -2281,7 +3309,7 @@ function sanitizeSupernovaPreferences(value) {
     },
     holiday: {
       mode: enumValue(holiday.mode, ["automatic", "manual", "off"], SUPERNOVA_DEFAULT_PREFERENCES.holiday.mode),
-      selected: enumValue(holiday.selected, ["new-year", "valentines", "st-patricks", "easter", "fourth-july", "halloween", "christmas"], SUPERNOVA_DEFAULT_PREFERENCES.holiday.selected),
+      selected: enumValue(holiday.selected, ["new-year", "valentines", "st-patricks", "easter", "halloween", "thanksgiving", "christmas"], SUPERNOVA_DEFAULT_PREFERENCES.holiday.selected),
       style: enumValue(holiday.style, ["full", "decorations"], SUPERNOVA_DEFAULT_PREFERENCES.holiday.style),
       effects: enumValue(holiday.effects, ["full", "balanced", "minimal"], SUPERNOVA_DEFAULT_PREFERENCES.holiday.effects)
     },
@@ -2394,8 +3422,8 @@ async function updateSupernovaState(request, db) {
 
 async function supernovaAI(request, env) {
   requireSameOrigin(request);
-  const auth = await requireSupernovaAccess(request, env.DB);
-  await enforceUserRateLimit(env.DB, auth.id, "supernova-ai", 12, 60 * 1000, 60 * 1000);
+  const auth = await requireSupernovaAccess(request, getDb(env));
+  await enforceUserRateLimit(getDb(env), auth.id, "supernova-ai", 12, 60 * 1000, 60 * 1000);
   const keys = geminiKeys(env);
   if (!keys.length) return apiError("AI_UNAVAILABLE", "Supernova AI does not have a Google API key configured", 503);
 
@@ -2791,7 +3819,7 @@ async function siteState(db) {
 }
 
 async function adminSite(request, db) {
-  await requireRole(request, db, ADMIN_ROLES);
+  await requireRole(request, db, DEVELOPER_ROLES);
   const [maintenance, banners] = await Promise.all([
     db.prepare("SELECT m.enabled,m.message,m.updated_at AS updatedAt,u.username AS updatedBy FROM site_maintenance m LEFT JOIN users u ON u.id=m.updated_by WHERE m.id=1").first(),
     db.prepare("SELECT b.id,b.message AS text,b.tone AS type,b.dismissible,b.is_active AS active,b.starts_at AS startsAt,b.expires_at AS expiresAt,b.created_at AS createdAt,b.updated_at AS updatedAt,u.username AS createdBy FROM site_banners b LEFT JOIN users u ON u.id=b.created_by ORDER BY b.created_at DESC LIMIT 100").all()
@@ -2804,7 +3832,7 @@ async function adminSite(request, db) {
 
 async function adminSetMaintenance(request, db) {
   requireSameOrigin(request);
-  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const auth = await requireRole(request, db, DEVELOPER_ROLES);
   const body = await readJson(request);
   const enabled = !!body.enabled;
   const message = cleanText(body.message, 280) || (enabled ? "Nova is currently under maintenance. Check back soon." : "");
@@ -2818,7 +3846,7 @@ async function adminSetMaintenance(request, db) {
 
 async function adminCreateBanner(request, db) {
   requireSameOrigin(request);
-  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const auth = await requireRole(request, db, DEVELOPER_ROLES);
   const body = await readJson(request);
   const message = cleanText(body.message, 300);
   const tone = enumValue(cleanText(body.tone, 20).toLowerCase(), ["info", "warn", "danger", "success"], "info");
@@ -2835,7 +3863,7 @@ async function adminCreateBanner(request, db) {
 
 async function adminUpdateBanner(request, db) {
   requireSameOrigin(request);
-  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const auth = await requireRole(request, db, DEVELOPER_ROLES);
   const body = await readJson(request);
   const id = cleanText(body.id, 80);
   const existing = id ? await db.prepare("SELECT * FROM site_banners WHERE id=?").bind(id).first() : null;
@@ -2855,7 +3883,7 @@ async function adminUpdateBanner(request, db) {
 
 async function adminDeleteBanner(request, db) {
   requireSameOrigin(request);
-  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const auth = await requireRole(request, db, DEVELOPER_ROLES);
   const body = await readJson(request);
   const id = cleanText(body.id, 80);
   const existing = id ? await db.prepare("SELECT message FROM site_banners WHERE id=?").bind(id).first() : null;
@@ -2880,7 +3908,7 @@ function exposeBanner(row) {
 async function adminOverview(request, db) {
   const auth = await requireRole(request, db, STAFF_ROLES);
   const now = Date.now();
-  const [totalUsers, activeUsers, suspendedUsers, onlineUsers, reports, tickets, logs, messages, chatRestrictions, recentReports] = await Promise.all([
+  const [totalUsers, activeUsers, suspendedUsers, onlineUsers, reports, tickets, logs, messages, chatRestrictions, openTasks, recentReports] = await Promise.all([
     db.prepare("SELECT COUNT(*) AS count FROM users WHERE account_status<>'deleted'").first(),
     db.prepare("SELECT COUNT(*) AS count FROM users WHERE account_status='active'").first(),
     db.prepare("SELECT COUNT(*) AS count FROM users WHERE account_status IN ('suspended','banned')").first(),
@@ -2890,6 +3918,7 @@ async function adminOverview(request, db) {
     db.prepare("SELECT COUNT(*) AS count FROM proxy_navigation_logs WHERE created_at>?").bind(now - 86400000).first(),
     db.prepare("SELECT COUNT(*) AS count FROM social_messages WHERE created_at>? AND deleted_at IS NULL").bind(now - 86400000).first(),
     db.prepare("SELECT COUNT(DISTINCT user_id) AS count FROM chat_restrictions WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at>?)").bind(now).first(),
+    db.prepare("SELECT COUNT(*) AS count FROM admin_tasks WHERE status IN ('open','in_progress','waiting')").first(),
     db.prepare(`SELECT r.id,r.report_type AS reportType,r.reason,r.status,r.created_at AS createdAt,
       reporter.username AS reporter,target.username AS targetUser
       FROM reports r LEFT JOIN users reporter ON reporter.id=r.reporter_id
@@ -2908,10 +3937,135 @@ async function adminOverview(request, db) {
       openTickets: Number(tickets?.count || 0),
       proxyNavigations24h: Number(logs?.count || 0),
       messages24h: Number(messages?.count || 0),
-      activeChatRestrictions: Number(chatRestrictions?.count || 0)
+      activeChatRestrictions: Number(chatRestrictions?.count || 0),
+      openTasks: Number(openTasks?.count || 0)
     },
     recentReports: recentReports.results || []
   });
+}
+
+function exposeAdminTask(row) {
+  return {
+    id: row.id, kind: row.kind, taskType: row.taskType, title: row.title, description: row.description || "",
+    priority: row.priority, status: row.status, creator: row.creator || "System", assignedTo: row.assignedTo || null,
+    assignedRole: row.assignedRole || null, targetType: row.targetType || null, targetId: row.targetId || null,
+    targetUsername: row.targetUsername || null, action: parseJson(row.actionJson, {}), resolution: row.resolution || "",
+    dueAt: row.dueAt == null ? null : Number(row.dueAt), createdAt: Number(row.createdAt || 0), updatedAt: Number(row.updatedAt || 0),
+    completedAt: row.completedAt == null ? null : Number(row.completedAt), completedBy: row.completedBy || null
+  };
+}
+
+function adminTaskSelect() {
+  return `SELECT t.id,t.kind,t.task_type AS taskType,t.title,t.description,t.priority,t.status,
+    creator.username AS creator,assignee.username AS assignedTo,t.assigned_role AS assignedRole,
+    t.target_type AS targetType,t.target_id AS targetId,t.target_username AS targetUsername,t.action_json AS actionJson,
+    t.resolution,t.due_at AS dueAt,t.created_at AS createdAt,t.updated_at AS updatedAt,t.completed_at AS completedAt,
+    completer.username AS completedBy,t.created_by AS createdById,t.assigned_to AS assignedToId
+    FROM admin_tasks t LEFT JOIN users creator ON creator.id=t.created_by LEFT JOIN users assignee ON assignee.id=t.assigned_to
+    LEFT JOIN users completer ON completer.id=t.completed_by`;
+}
+
+async function adminTasks(request, url, db) {
+  const auth = await requireRole(request, db, STAFF_ROLES);
+  const role = highestRole(auth.roles || ["user"]);
+  const requestedStatus = cleanText(url.searchParams.get("status"), 24).toLowerCase();
+  const scope = cleanText(url.searchParams.get("scope"), 24).toLowerCase();
+  const clauses = [], args = [];
+  if (["open","in_progress","waiting","completed","rejected","cancelled"].includes(requestedStatus)) { clauses.push("t.status=?"); args.push(requestedStatus); }
+  if (role === "admin") {
+    clauses.push("(t.created_by=? OR t.assigned_to=? OR t.assigned_role='admin')"); args.push(auth.id, auth.id);
+  } else if (role === "developer" && scope !== "all") {
+    clauses.push("(t.created_by=? OR t.assigned_to=? OR t.assigned_role IN ('developer','admin') OR t.kind='request')"); args.push(auth.id, auth.id);
+  }
+  if (scope === "mine") { clauses.push("(t.assigned_to=? OR t.assigned_role=?)"); args.push(auth.id, role); }
+  else if (scope === "created") { clauses.push("t.created_by=?"); args.push(auth.id); }
+  else if (scope === "requests") clauses.push("t.kind='request'");
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const result = await db.prepare(`${adminTaskSelect()} ${where} ORDER BY CASE t.status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'waiting' THEN 2 ELSE 3 END,
+    CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,t.updated_at DESC LIMIT 150`).bind(...args).all();
+  return apiJson({ tasks: (result.results || []).map(exposeAdminTask), role });
+}
+
+async function adminCreateTask(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, STAFF_ROLES);
+  const body = await readJson(request);
+  const actorRole = highestRole(auth.roles || ["user"]);
+  let kind = enumValue(cleanText(body.kind, 16).toLowerCase(), ["task","request"], actorRole === "admin" ? "request" : "task");
+  if (actorRole === "admin") kind = "request";
+  const taskType = enumValue(cleanText(body.taskType, 40).toLowerCase(), ["general","password_reset","account_action","role_change","moderation_review","report_review","support_followup","voice_issue","game_issue","proxy_issue","theme_ui","site_change"], "general");
+  const title = cleanText(body.title, 100);
+  const description = cleanText(body.description, 1200);
+  const priority = enumValue(cleanText(body.priority, 16).toLowerCase(), ["low","normal","high","urgent"], "normal");
+  let assignedRole = enumValue(cleanText(body.assignedRole, 20).toLowerCase(), ["admin","developer","owner"], "");
+  const assignedUsername = normalizeUsername(body.assignedUsername);
+  let assigned = assignedUsername ? await loadUserByUsername(db, assignedUsername) : null;
+  if (assignedUsername && (!assigned || !assigned.roles.some(role => STAFF_ROLES.has(role)))) return apiError("STAFF_NOT_FOUND", "Choose a staff account", 404);
+  if (assigned) assignedRole = highestRole(assigned.roles || ["user"]);
+  if (actorRole === "admin") {
+    if (!assignedRole) assignedRole = "developer";
+    if (!["developer","owner"].includes(assignedRole)) return apiError("FORBIDDEN", "Admins can send requests to Developers or Owner", 403);
+  } else if (actorRole === "developer" && kind === "task") {
+    if (!assignedRole) assignedRole = "admin";
+    if (assignedRole === "owner") return apiError("FORBIDDEN", "Create a request when asking Owner; tasks can be assigned at or below Developer", 403);
+  }
+  if (!title) return apiError("TITLE_REQUIRED", "Add a task title", 400);
+  let target = null;
+  const targetUsername = normalizeUsername(body.targetUsername);
+  if (targetUsername) {
+    target = await loadUserByUsername(db, targetUsername);
+    if (!target) return apiError("USER_NOT_FOUND", "Target user not found", 404);
+  }
+  const dueAt = body.dueAt == null ? null : Number(body.dueAt);
+  if (dueAt !== null && (!Number.isFinite(dueAt) || dueAt <= Date.now())) return apiError("INVALID_DUE_DATE", "Due date must be in the future", 400);
+  const id = `task_${crypto.randomUUID()}`;
+  const now = Date.now();
+  const action = { source: cleanText(body.source, 40), requestedAction: cleanText(body.requestedAction, 80) };
+  await db.prepare(`INSERT INTO admin_tasks(id,kind,task_type,title,description,priority,status,created_by,assigned_to,assigned_role,target_type,target_id,target_username,action_json,resolution,due_at,created_at,updated_at)
+    VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,?,?,'',?,?,?)`)
+    .bind(id, kind, taskType, title, description, priority, auth.id, assigned?.id || null, assignedRole || null,
+      target ? "user" : cleanText(body.targetType, 40) || null, target?.id || cleanText(body.targetId, 100) || null,
+      target?.username || targetUsername || null, JSON.stringify(action), dueAt, now, now).run();
+  await audit(db, auth.id, `task.${kind}.create`, "task", id, description || title, { taskType, priority, assignedRole, assignedTo: assigned?.username || null, targetUsername: target?.username || null });
+  return apiJson({ id, ok: true }, 201);
+}
+
+async function adminUpdateTask(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, STAFF_ROLES);
+  const body = await readJson(request);
+  const id = cleanText(body.id, 100);
+  const current = id ? await db.prepare(`${adminTaskSelect()} WHERE t.id=? LIMIT 1`).bind(id).first() : null;
+  if (!current) return apiError("TASK_NOT_FOUND", "Task not found", 404);
+  const actorRole = highestRole(auth.roles || ["user"]);
+  const privileged = actorRole === "owner" || actorRole === "developer";
+  const isAssigned = current.assignedToId === auth.id || current.assignedRole === actorRole;
+  const isCreator = current.createdById === auth.id;
+  if (!privileged && !isAssigned && !isCreator) return apiError("FORBIDDEN", "This task is not assigned to you", 403);
+  let status = enumValue(cleanText(body.status, 24).toLowerCase(), ["open","in_progress","waiting","completed","rejected","cancelled"], current.status);
+  if (actorRole === "admin" && isCreator && !isAssigned && !["open","cancelled"].includes(status)) return apiError("FORBIDDEN", "You can cancel your request, but the assigned staff member completes it", 403);
+  let assigned = null, assignedRole = current.assignedRole;
+  if (body.claim === true) {
+    if (current.assignedRole && current.assignedRole !== actorRole && actorRole !== "owner" && !(actorRole === "developer" && current.kind === "request")) return apiError("FORBIDDEN", "This task is assigned to another staff role", 403);
+    assigned = auth;
+    status = "in_progress";
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "assignedUsername") || Object.prototype.hasOwnProperty.call(body, "assignedRole")) {
+    if (!privileged) return apiError("FORBIDDEN", "Only Developers or Owner can reassign tasks", 403);
+    const username = normalizeUsername(body.assignedUsername);
+    assigned = username ? await loadUserByUsername(db, username) : null;
+    if (username && (!assigned || !assigned.roles.some(role => STAFF_ROLES.has(role)))) return apiError("STAFF_NOT_FOUND", "Choose a staff account", 404);
+    assignedRole = assigned ? highestRole(assigned.roles || ["user"]) : enumValue(cleanText(body.assignedRole, 20).toLowerCase(), ["admin","developer","owner"], current.assignedRole || "");
+    if (actorRole === "developer" && assignedRole === "owner" && current.kind !== "request") return apiError("FORBIDDEN", "Developers cannot assign tasks to Owner", 403);
+  }
+  const resolution = cleanText(body.resolution, 1200) || current.resolution || "";
+  const now = Date.now();
+  const done = ["completed","rejected","cancelled"].includes(status);
+  await db.prepare(`UPDATE admin_tasks SET status=?,resolution=?,assigned_to=COALESCE(?,assigned_to),assigned_role=?,updated_at=?,
+    completed_at=?,completed_by=? WHERE id=?`)
+    .bind(status, resolution, assigned?.id || null, assignedRole || null, now, done ? now : null, done ? auth.id : null, id).run();
+  await audit(db, auth.id, `task.${status}`, "task", id, resolution, { assignedRole, assignedTo: assigned?.username || current.assignedTo || null });
+  return apiJson({ ok: true, status });
 }
 
 async function adminUsers(request, url, db) {
@@ -2938,12 +4092,12 @@ async function adminUsers(request, url, db) {
 }
 
 async function adminStaff(request, db) {
-  await requireRole(request, db, new Set(["owner"]));
+  await requireRole(request, db, DEVELOPER_ROLES);
   const now = Date.now();
   const result = await db.prepare(`${profileQuery()}
     WHERE EXISTS(SELECT 1 FROM user_roles sr WHERE sr.user_id=u.id
       AND sr.role IN ('developer','admin','owner') AND (sr.expires_at IS NULL OR sr.expires_at>?))
-    ORDER BY CASE public_role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,u.username COLLATE NOCASE`).bind(now).all();
+    ORDER BY CASE public_role WHEN 'owner' THEN 0 WHEN 'developer' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END,u.username COLLATE NOCASE`).bind(now).all();
   return apiJson({ staff: (result.results || []).map(exposeAdminUser) });
 }
 
@@ -2959,8 +4113,8 @@ async function adminSetUserStatus(request, db) {
   if (target.id === auth.id) return apiError("SELF_ACTION_FORBIDDEN", "You cannot change your own account status", 400);
   const targetRole = highestRole(target.roles || ["user"]);
   const actorRole = highestRole(auth.roles || ["user"]);
-  if (targetRole === "owner" || (actorRole !== "owner" && ["admin", "developer"].includes(targetRole))) {
-    return apiError("PROTECTED_ACCOUNT", "Only the owner can manage staff accounts", 403);
+  if (roleRank(actorRole) <= roleRank(targetRole)) {
+    return apiError("PROTECTED_ACCOUNT", "You can only manage accounts below your staff level", 403);
   }
   if (status !== "active" && !reason) return apiError("REASON_REQUIRED", "A reason is required", 400);
   const now = Date.now();
@@ -2974,13 +4128,14 @@ async function adminSetUserStatus(request, db) {
 
 async function adminResetUserPassword(request, db) {
   requireSameOrigin(request);
-  const auth = await requireRole(request, db, new Set(["owner"]));
+  const auth = await requireRole(request, db, DEVELOPER_ROLES);
   const body = await readJson(request);
   const target = await loadUserByUsername(db, normalizeUsername(body.username));
   const password = String(body.newPassword || "");
   const reason = cleanText(body.reason, 240);
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
   if (target.id === auth.id) return apiError("SELF_ACTION_FORBIDDEN", "Change your own password from your account settings", 400);
+  if (roleRank(highestRole(auth.roles || ["user"])) <= roleRank(highestRole(target.roles || ["user"]))) return apiError("PROTECTED_ACCOUNT", "You can only reset passwords for accounts below your staff level", 403);
   if (weakPassword(password, target.username)) return apiError("WEAK_PASSWORD", "Use at least 8 characters and avoid common passwords", 400);
   if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
   const salt = randomToken(16);
@@ -2990,6 +4145,9 @@ async function adminResetUserPassword(request, db) {
     db.prepare("UPDATE users SET password_hash=?,password_salt=?,legacy_hash='',updated_at=? WHERE id=?").bind(hash, salt, now, target.id),
     db.prepare("UPDATE auth_sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL").bind(now, target.id)
   ]);
+  await db.prepare(`UPDATE admin_tasks SET status='completed',resolution=?,completed_at=?,completed_by=?,updated_at=?
+    WHERE task_type='password_reset' AND target_id=? AND status IN ('open','in_progress','waiting')`)
+    .bind("Password reset completed", now, auth.id, now, target.id).run();
   await audit(db, auth.id, "user.password_reset", "user", target.id, reason, { username: target.username });
   return apiJson({ ok: true });
 }
@@ -2998,8 +4156,7 @@ function canRestrictChatTarget(actor, target) {
   if (!target || target.id === actor.id) return false;
   const targetRole = highestRole(target.roles || ["user"]);
   const actorRole = highestRole(actor.roles || ["user"]);
-  if (targetRole === "owner") return false;
-  return actorRole === "owner" || !["admin", "developer"].includes(targetRole);
+  return roleRank(actorRole) > roleRank(targetRole);
 }
 
 async function adminChatMessages(request, url, db) {
@@ -3029,6 +4186,26 @@ async function adminChatMessages(request, url, db) {
     WHERE ${eventClauses.join(" AND ")} ORDER BY e.created_at DESC LIMIT 100`).bind(...eventArgs).all();
   await audit(db, auth.id, "chat.search", "social_messages", username || "", reason, { query: query ? "provided" : "", username, channelKind, messages: result.results?.length || 0, filteredEvents: events.results?.length || 0 });
   return apiJson({ messages: (result.results || []).map(row => ({ ...row, body: row.messageType === "image" ? "[Image]" : cleanText(row.body, 1000), createdAt: Number(row.createdAt || 0) })), filteredEvents: events.results || [] });
+}
+
+
+async function adminClearEveryoneChat(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const body = await readJson(request);
+  const reason = cleanText(body.reason, 240);
+  if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
+
+  const now = Date.now();
+  const countRow = await db.prepare("SELECT COUNT(*) AS count FROM social_messages WHERE channel_id='everyone' AND deleted_at IS NULL").first();
+  const count = Number(countRow?.count || 0);
+
+  if (count > 0) {
+    await db.prepare("UPDATE social_messages SET deleted_at=? WHERE channel_id='everyone' AND deleted_at IS NULL").bind(now).run();
+  }
+
+  await audit(db, auth.id, "chat.everyone_clear", "social_channel", "everyone", reason, { deletedMessages: count });
+  return apiJson({ ok: true, deletedMessages: count });
 }
 
 async function adminChatRestrictions(request, url, db) {
@@ -3188,7 +4365,7 @@ function supernovaGrantStatement(db, userId, grantedBy, note, expiresAt, now) {
 }
 
 async function adminProxyLogs(request, url, db) {
-  const auth = await requireRole(request, db, new Set(["owner"]));
+  const auth = await requireRole(request, db, DEVELOPER_ROLES);
   const reason = cleanText(request.headers.get("X-Nova-Audit-Reason"), 240);
   if (!reason) return apiError("AUDIT_REASON_REQUIRED", "An investigation reason is required", 400);
   const domain = cleanText(url.searchParams.get("domain"), 120).toLowerCase();
@@ -3228,15 +4405,14 @@ async function adminBanDevice(request, db) {
   if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= Date.now())) return apiError("INVALID_EXPIRY", "Ban expiry must be in the future", 400);
   const ownDevice = deviceIdFrom(request);
   if (ownDevice && await sha256(ownDevice) === deviceId) return apiError("SELF_DEVICE_FORBIDDEN", "You cannot ban the device you are using", 400);
-  if (highestRole(auth.roles || ["user"]) !== "owner") {
-    const protectedDevice = await db.prepare(`SELECT 1 FROM user_roles ur
-      WHERE ur.role IN ('developer','admin','owner') AND (ur.expires_at IS NULL OR ur.expires_at>?)
-      AND ur.user_id IN (
-        SELECT user_id FROM auth_sessions WHERE device_id_hash=?
-        UNION SELECT user_id FROM proxy_navigation_logs WHERE device_id_hash=?
-      ) LIMIT 1`).bind(Date.now(), deviceId, deviceId).first();
-    if (protectedDevice) return apiError("PROTECTED_DEVICE", "Only the owner can ban a staff device", 403);
-  }
+  const actorRole = highestRole(auth.roles || ["user"]);
+  const protectedDevice = await db.prepare(`SELECT ur.role FROM user_roles ur
+    WHERE ur.role IN ('developer','admin','owner') AND (ur.expires_at IS NULL OR ur.expires_at>?)
+    AND ur.user_id IN (
+      SELECT user_id FROM auth_sessions WHERE device_id_hash=?
+      UNION SELECT user_id FROM proxy_navigation_logs WHERE device_id_hash=?
+    ) ORDER BY CASE ur.role WHEN 'owner' THEN 3 WHEN 'developer' THEN 2 WHEN 'admin' THEN 1 ELSE 0 END DESC LIMIT 1`).bind(Date.now(), deviceId, deviceId).first();
+  if (protectedDevice && roleRank(actorRole) <= roleRank(protectedDevice.role)) return apiError("PROTECTED_DEVICE", "You can only ban devices belonging to lower staff levels", 403);
   const now = Date.now();
   await db.batch([
     db.prepare("INSERT INTO device_bans(device_id_hash,reason,banned_by,created_at,expires_at) VALUES(?,?,?,?,?) ON CONFLICT(device_id_hash) DO UPDATE SET reason=excluded.reason,banned_by=excluded.banned_by,created_at=excluded.created_at,expires_at=excluded.expires_at").bind(deviceId, reason, auth.id, now, expiresAt),
@@ -3263,17 +4439,21 @@ async function adminUnbanDevice(request, db) {
 
 async function adminSetRole(request, db) {
   requireSameOrigin(request);
-  const auth = await requireRole(request, db, new Set(["owner"]));
+  const auth = await requireRole(request, db, DEVELOPER_ROLES);
   const body = await readJson(request);
   const target = await loadUserByUsername(db, normalizeUsername(body.username));
   const role = cleanText(body.role, 20).toLowerCase();
   const action = cleanText(body.action, 20).toLowerCase();
   const reason = cleanText(body.reason, 240);
+  const actorRole = highestRole(auth.roles || ["user"]);
   if (!["developer", "admin"].includes(role)) return apiError("INVALID_ROLE", "Invalid staff role", 400);
+  if (actorRole === "developer" && role !== "admin") return apiError("FORBIDDEN", "Developers can manage Admin roles; only Owner can manage Developers", 403);
   if (!["grant", "revoke"].includes(action)) return apiError("INVALID_ACTION", "Invalid role action", 400);
   if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
   if (!target) return apiError("USER_NOT_FOUND", "User not found", 404);
-  if ((target.roles || []).includes("owner")) return apiError("PROTECTED_ACCOUNT", "The owner role cannot be changed here", 403);
+  if (target.id === auth.id) return apiError("SELF_ACTION_FORBIDDEN", "You cannot change your own staff role", 400);
+  const targetRole = highestRole(target.roles || ["user"]);
+  if (targetRole === "owner" || roleRank(actorRole) <= roleRank(targetRole)) return apiError("PROTECTED_ACCOUNT", "You can only manage staff below your level", 403);
   const expiresAt = body.expiresAt == null ? null : Number(body.expiresAt);
   if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= Date.now())) return apiError("INVALID_EXPIRY", "Role expiry must be in the future", 400);
   if (action === "grant") await db.batch([
@@ -3286,7 +4466,7 @@ async function adminSetRole(request, db) {
 }
 
 async function adminAudit(request, url, db) {
-  await requireRole(request, db, new Set(["owner"]));
+  await requireRole(request, db, DEVELOPER_ROLES);
   const result = await db.prepare("SELECT a.id,u.username AS actor,a.action,a.target_type AS targetType,a.target_id AS targetId,a.reason,a.metadata_json AS metadata,a.created_at AS createdAt FROM admin_audit_logs a LEFT JOIN users u ON u.id=a.actor_id ORDER BY a.created_at DESC LIMIT 250").all();
   return apiJson({ logs: (result.results || []).map(row => ({ ...row, metadata: parseJson(row.metadata, {}) })) });
 }
@@ -3349,8 +4529,14 @@ async function optionalUser(request, db) {
   }
   const tokenHash = await sha256(token);
   const now = Date.now();
+  const cached = sessionUserCache.get(tokenHash);
+  if (cached && now - cached.checkedAt < 5000) {
+    requestUserCache.set(request, cached.user);
+    return cached.user;
+  }
   const row = await db.prepare("SELECT u.*,s.token_hash,s.last_seen_at AS session_last_seen_at FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND s.last_seen_at>? AND u.account_status='active' LIMIT 1").bind(tokenHash, now, now - SESSION_IDLE_MS).first();
   if (!row) {
+    sessionUserCache.set(tokenHash, { checkedAt: now, user: null });
     requestUserCache.set(request, null);
     return null;
   }
@@ -3359,6 +4545,10 @@ async function optionalUser(request, db) {
     await db.prepare("UPDATE auth_sessions SET last_seen_at=? WHERE token_hash=?").bind(now, tokenHash).run();
   }
   const user = { ...row, roles, tokenHash };
+  sessionUserCache.set(tokenHash, { checkedAt: now, user });
+  if (sessionUserCache.size > 2000) {
+    for (const [key, entry] of sessionUserCache) if (now - entry.checkedAt > 30000) sessionUserCache.delete(key);
+  }
   requestUserCache.set(request, user);
   return user;
 }
@@ -3396,7 +4586,7 @@ function profileSelect() {
       AND sr.status IN ('open','assigned')) AS supernova_request_pending,
     COALESCE((SELECT ur.role FROM user_roles ur WHERE ur.user_id=u.id AND ur.role IN ('developer','admin','owner')
       AND (ur.expires_at IS NULL OR ur.expires_at>unixepoch()*1000)
-      ORDER BY CASE ur.role WHEN 'owner' THEN 3 WHEN 'admin' THEN 2 WHEN 'developer' THEN 1 ELSE 0 END DESC LIMIT 1),'user') AS public_role`;
+      ORDER BY CASE ur.role WHEN 'owner' THEN 3 WHEN 'developer' THEN 2 WHEN 'admin' THEN 1 ELSE 0 END DESC LIMIT 1),'user') AS public_role`;
 }
 
 function profileQuery() {
@@ -3420,7 +4610,7 @@ function exposeMessage(row) {
 
 function exposeMe(user) {
   if (!user) return null;
-  return { ...exposeProfile(user, true), roles: user.roles || ["user"], role: highestRole(user.roles || ["user"]), accountStatus: user.account_status, supernovaRequestPending: !!user.supernova_request_pending };
+  return { ...exposeProfile(user, true), roles: user.roles || ["user"], role: highestRole(user.roles || ["user"]), accountStatus: user.account_status, supernovaRequestPending: !!user.supernova_request_pending, adsDisabled: user.plan === "supernova" };
 }
 
 function exposeProfile(user, own) {
@@ -3496,8 +4686,17 @@ async function maybeCleanup(db) {
 async function activeDeviceBan(request, db) {
   const deviceId = deviceIdFrom(request);
   if (!deviceId) return null;
-  return db.prepare("SELECT reason,expires_at FROM device_bans WHERE device_id_hash=? AND (expires_at IS NULL OR expires_at>?) LIMIT 1")
-    .bind(await sha256(deviceId), Date.now()).first();
+  const hash = await sha256(deviceId);
+  const now = Date.now();
+  const cached = deviceBanCache.get(hash);
+  if (cached && now - cached.checkedAt < 15000) return cached.value;
+  const value = await db.prepare("SELECT reason,expires_at FROM device_bans WHERE device_id_hash=? AND (expires_at IS NULL OR expires_at>?) LIMIT 1")
+    .bind(hash, now).first();
+  deviceBanCache.set(hash, { checkedAt: now, value });
+  if (deviceBanCache.size > 1000) {
+    for (const [key, entry] of deviceBanCache) if (now - entry.checkedAt > 60000) deviceBanCache.delete(key);
+  }
+  return value;
 }
 
 function requireSameOrigin(request) {
@@ -3734,9 +4933,11 @@ function fromBase64url(value) { const normalized = value.replace(/-/g, "+").repl
 function constantTimeEqual(a, b) { if (a.length !== b.length) return false; let mismatch = 0; for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i); return mismatch === 0; }
 
 function highestRole(roles) {
-  for (const role of ["owner", "admin", "developer", "user"]) if (roles.includes(role)) return role;
+  for (const role of ["owner", "developer", "admin", "user"]) if (roles.includes(role)) return role;
   return "user";
 }
+function roleRank(role) { return ({ user: 0, admin: 1, developer: 2, owner: 3 })[role] || 0; }
+function isDeveloperOrOwner(user) { return !!user?.roles?.some(role => DEVELOPER_ROLES.has(role)); }
 
 function cookieValue(request, name) {
   const match = (request.headers.get("Cookie") || "").match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
@@ -3767,7 +4968,7 @@ function internalApiError(error) {
   if (message.includes("no such table") || message.includes("no such column") || message.includes("has no column named")) {
     return apiError("DATABASE_SCHEMA_MISMATCH", "Nova's database needs the clean Nova 7 schema", 503);
   }
-  if (message.includes("d1") || message.includes("database")) {
+  if (message.includes("turso") || message.includes("database") || message.includes("sql error")) {
     return apiError("DATABASE_ERROR", "Nova could not reach its database", 503);
   }
   return apiError("INTERNAL_ERROR", "Nova could not complete that request", 500);
