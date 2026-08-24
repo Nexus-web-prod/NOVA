@@ -841,7 +841,7 @@ async function copyMessage(msg,button){
 function messageActionsHtml(){
   return '<div class="social-msg-actions" role="toolbar" aria-label="Message actions"><button type="button" class="social-msg-action" data-message-action="reply" title="Reply" aria-label="Reply"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button><button type="button" class="social-msg-action" data-message-action="react" title="React" aria-label="React"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></button><button type="button" class="social-msg-action" data-message-action="copy" title="Copy message" aria-label="Copy message"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg></button></div>';
 }
-function openSocialUno(lobbyId){
+function openSocialUno(lobbyId,shellOnly){
   window.NovaSocialCheckersNative?.stop();
   window.NovaSocialChessNative?.stop();
   const shell=document.getElementById("social-game-shell");
@@ -861,14 +861,16 @@ function openSocialUno(lobbyId){
   document.getElementById("checkers-surface")?.setAttribute("hidden","");
   document.getElementById("chess-surface")?.setAttribute("hidden","");
   const title=document.getElementById("social-game-title");if(title)title.textContent="UNO TABLE";
+  if(shellOnly){window.NovaSocialUnoNative?.stop();return;}
   const id=String(lobbyId||"").trim();
   if(id)window.NovaSocialUnoNative?.openLobby(id);
   else window.NovaSocialUnoNative?.reset();
 }
-function openSocialGamePicker(){openSocialUno("");document.getElementById("social-game-picker")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="GAME ROOM";}
-function openSocialCheckers(matchId){openSocialUno("");document.getElementById("social-game-picker")?.setAttribute("hidden","");document.getElementById("checkers-surface")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="CHECKERS";const id=String(matchId||"").trim();if(id)window.NovaSocialCheckersNative?.openMatch(id);else window.NovaSocialCheckersNative?.showHome();}
-function openSocialChess(matchId){openSocialUno("");document.getElementById("social-game-picker")?.setAttribute("hidden","");document.getElementById("chess-surface")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="CHESS";const id=String(matchId||"").trim();if(id)window.NovaSocialChessNative?.openMatch(id);else window.NovaSocialChessNative?.showHome();}
+function openSocialGamePicker(){openSocialUno("",true);document.getElementById("social-game-picker")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="GAME ROOM";}
+function openSocialCheckers(matchId){openSocialUno("",true);document.getElementById("social-game-picker")?.setAttribute("hidden","");document.getElementById("checkers-surface")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="CHECKERS";const id=String(matchId||"").trim();if(id)window.NovaSocialCheckersNative?.openMatch(id);else window.NovaSocialCheckersNative?.showHome();}
+function openSocialChess(matchId){openSocialUno("",true);document.getElementById("social-game-picker")?.setAttribute("hidden","");document.getElementById("chess-surface")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="CHESS";const id=String(matchId||"").trim();if(id)window.NovaSocialChessNative?.openMatch(id);else window.NovaSocialChessNative?.showHome();}
 function closeSocialUno(){
+  window.NovaSocialUnoNative?.stop();
   window.NovaSocialCheckersNative?.stop();
   window.NovaSocialChessNative?.stop();
   const shell=document.getElementById("social-game-shell");

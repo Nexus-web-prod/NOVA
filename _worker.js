@@ -1201,9 +1201,9 @@ async function unoMembers(db, lobbyId) {
   return result.results || [];
 }
 
-async function exposeUnoLobby(db, row, userId) {
+async function exposeUnoLobby(db, row, userId, knownMembers) {
   const state = parseJson(row.state_json, {});
-  const members = await unoMembers(db, row.id);
+  const members = knownMembers || await unoMembers(db, row.id);
   const hand = state.hands?.[userId] || [];
   return {
     id: row.id, code: row.code, ownerId: row.owner_id, status: row.status, version: row.version,
@@ -1227,12 +1227,13 @@ async function getUnoLobby(request, url, db) {
   const auth = await requireSocialUser(request, db);
   const id = cleanText(url.searchParams.get("id"), 80);
   const code = cleanText(url.searchParams.get("code"), 6).toUpperCase();
+  const knownVersion = Number(url.searchParams.get("version"));
   const row = id
-    ? await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(id).first()
-    : await db.prepare("SELECT * FROM uno_lobbies WHERE code=?").bind(code).first();
+    ? await db.prepare("SELECT l.*,EXISTS(SELECT 1 FROM uno_lobby_members mine WHERE mine.lobby_id=l.id AND mine.user_id=?) AS is_member FROM uno_lobbies l WHERE l.id=?").bind(auth.id,id).first()
+    : await db.prepare("SELECT l.*,EXISTS(SELECT 1 FROM uno_lobby_members mine WHERE mine.lobby_id=l.id AND mine.user_id=?) AS is_member FROM uno_lobbies l WHERE l.code=?").bind(auth.id,code).first();
   if (!row) return apiError("LOBBY_NOT_FOUND", "That lobby could not be found", 404);
-  const member = await db.prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(row.id, auth.id).first();
-  if (!member) return apiError("LOBBY_ACCESS", "Join this lobby before viewing it", 403);
+  if (!row.is_member) return apiError("LOBBY_ACCESS", "Join this lobby before viewing it", 403);
+  if (Number.isFinite(knownVersion) && knownVersion === Number(row.version)) return apiJson({ unchanged: true, version: Number(row.version) });
   return apiJson({ lobby: await exposeUnoLobby(db, row, auth.id) });
 }
 
@@ -1486,10 +1487,11 @@ async function unoAction(request, db) {
       }
     }
   }
-  const result = await db.prepare("UPDATE uno_lobbies SET status=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,JSON.stringify(state),Date.now(),lobbyId,row.version).run();
+  const updatedAt = Date.now(),stateJson = JSON.stringify(state);
+  const result = await db.prepare("UPDATE uno_lobbies SET status=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,stateJson,updatedAt,lobbyId,row.version).run();
   if (!result.meta?.changes) return apiError("GAME_CHANGED", "The table changed—try again", 409);
-  const updated = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
-  return apiJson({ lobby: await exposeUnoLobby(db, updated, auth.id) });
+  const updated = { ...row, status, state_json: stateJson, version: Number(row.version) + 1, updated_at: updatedAt };
+  return apiJson({ lobby: await exposeUnoLobby(db, updated, auth.id, members) });
 }
 
 async function setPresence(request, db) {
