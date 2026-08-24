@@ -3145,6 +3145,7 @@ function exposeSupportTicket(row) {
 async function getSupernovaAccess(request, db) {
   const auth = await requireUser(request, db);
   const now = Date.now();
+  const staffAccess = (auth.roles || []).some(role => STAFF_ROLES.has(role));
   const deviceId = deviceIdFrom(request);
   const deviceHash = deviceId ? await sha256(deviceId) : "";
   const [membership, userTrial, deviceTrial, outgoing, incoming] = await Promise.all([
@@ -3163,9 +3164,9 @@ async function getSupernovaAccess(request, db) {
   const sent = (outgoing.results || []).map(row => ({ ...row, createdAt: Number(row.createdAt), respondedAt: row.respondedAt == null ? null : Number(row.respondedAt), expiresAt: row.expiresAt == null ? null : Number(row.expiresAt) }));
   const received = (incoming.results || []).map(row => ({ ...row, createdAt: Number(row.createdAt) }));
   return apiJson({
-    active: !!membership,
-    membership: membership ? { grantedAt: Number(membership.grantedAt || 0), expiresAt: membership.expiresAt == null ? null : Number(membership.expiresAt), note: membership.note || "" } : null,
-    trial: { eligible: !!deviceId && !userTrial && !deviceTrial && !membership, claimed: !!(userTrial || deviceTrial) },
+    active: !!membership || staffAccess,
+    membership: membership ? { grantedAt: Number(membership.grantedAt || 0), expiresAt: membership.expiresAt == null ? null : Number(membership.expiresAt), note: membership.note || "" } : (staffAccess ? { grantedAt: 0, expiresAt: null, note: "Staff Supernova access" } : null),
+    trial: { eligible: !!deviceId && !userTrial && !deviceTrial && !membership && !staffAccess, claimed: !!(userTrial || deviceTrial) },
     referrals: { limit: SUPERNOVA_REFERRAL_LIMIT, used: sent.length, remaining: Math.max(0, SUPERNOVA_REFERRAL_LIMIT - sent.length), sent, received }
   });
 }
@@ -3178,7 +3179,8 @@ async function claimSupernovaTrial(request, db) {
   if (!deviceId) return apiError("DEVICE_REQUIRED", "This device could not be verified. Refresh and try again.", 400);
   const now = Date.now();
   const active = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
-  if (active) return apiError("ALREADY_SUPERNOVA", "This account already has Supernova", 409);
+  const staffAccess = (auth.roles || []).some(role => STAFF_ROLES.has(role));
+  if (active || staffAccess) return apiError("ALREADY_SUPERNOVA", "This account already has Supernova", 409);
   const deviceHash = await sha256(deviceId);
   const alreadyClaimed = await db.prepare("SELECT 1 FROM supernova_device_trials WHERE user_id=? OR device_id_hash=? LIMIT 1").bind(auth.id, deviceHash).first();
   if (alreadyClaimed) return apiError("TRIAL_ALREADY_USED", "The free trial has already been used by this account or device", 409);
@@ -3200,13 +3202,15 @@ async function createSupernovaReferral(request, db) {
   await enforceUserRateLimit(db, auth.id, "supernova-referral", 10, 60 * 60 * 1000, 60 * 60 * 1000);
   const now = Date.now();
   const sponsor = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
-  if (!sponsor) return apiError("SUPERNOVA_REQUIRED", "An active Supernova membership is required to send referrals", 403);
+  const staffAccess = (auth.roles || []).some(role => STAFF_ROLES.has(role));
+  if (!sponsor && !staffAccess) return apiError("SUPERNOVA_REQUIRED", "An active Supernova membership is required to send referrals", 403);
   const body = await readJson(request);
   const target = await loadUserByUsername(db, normalizeUsername(body.username));
   if (!target) return apiError("USER_NOT_FOUND", "That Nova user was not found", 404);
   if (target.id === auth.id) return apiError("SELF_REFERRAL", "You cannot invite yourself", 400);
   const targetPlan = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(target.id, now).first();
-  if (targetPlan) return apiError("ALREADY_SUPERNOVA", "That person already has Supernova", 409);
+  const targetStaffAccess = (target.roles || []).some(role => STAFF_ROLES.has(role));
+  if (targetPlan || targetStaffAccess) return apiError("ALREADY_SUPERNOVA", "That person already has Supernova", 409);
   const priorClaim = await db.prepare("SELECT 1 FROM supernova_referrals WHERE invited_user_id=? AND status='accepted' LIMIT 1").bind(target.id).first();
   if (priorClaim) return apiError("REFERRAL_ALREADY_USED", "That person has already used a Supernova referral", 409);
   const existingPending = await db.prepare("SELECT 1 FROM supernova_referrals WHERE invited_user_id=? AND status='pending' LIMIT 1").bind(target.id).first();
@@ -3238,7 +3242,8 @@ async function respondSupernovaReferral(request, db) {
     return apiJson({ ok: true, status: "declined" });
   }
   const active = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
-  if (active) return apiError("ALREADY_SUPERNOVA", "Your account already has Supernova", 409);
+  const staffAccess = (auth.roles || []).some(role => STAFF_ROLES.has(role));
+  if (active || staffAccess) return apiError("ALREADY_SUPERNOVA", "Your account already has Supernova", 409);
   const prior = await db.prepare("SELECT 1 FROM supernova_referrals WHERE invited_user_id=? AND status='accepted' LIMIT 1").bind(auth.id).first();
   if (prior) return apiError("REFERRAL_ALREADY_USED", "This account has already used a referral", 409);
   const expiresAt = now + SUPERNOVA_REFERRAL_MS;
