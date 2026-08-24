@@ -2,7 +2,7 @@
   "use strict";
 
   var dock, currentPanel = "elements", selected = null, selectedFrame = null, picker = false;
-  var undoStack = [], consoleRows = [], pageObservers = new WeakMap(), originals = new WeakMap();
+  var undoStack = [], consoleRows = [], pageObservers = new WeakMap(), originals = new WeakMap(), instrumentedDocs = new WeakSet();
   var SENSITIVE = /(authorization|cookie|set-cookie|password|passwd|token|secret|api[-_]?key|session)/i;
 
   function settings() { return window.NovaDeveloperOptions?.get?.() || { enabled: false }; }
@@ -16,6 +16,36 @@
   function frameDocument(frame) { try { return frame?.contentDocument || null; } catch (_) { return null; } }
   function notify(message) { window.toast?.(message); }
   function create(tag, className, text) { var el = document.createElement(tag); if (className) el.className = className; if (text != null) el.textContent = text; return el; }
+  function fileNameFrom(link, response) {
+    var disposition = response?.headers?.get("content-disposition") || "";
+    var encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i); var plain = disposition.match(/filename=["']?([^"';]+)["']?/i);
+    var name = encoded ? decodeURIComponent(encoded[1]) : (plain ? plain[1] : (link.getAttribute("download") || ""));
+    if (!name) { try { name = decodeURIComponent(new URL(link.href).pathname.split("/").filter(Boolean).pop() || "download"); } catch (_) { name = "download"; } }
+    return name.replace(/[\\/:*?"<>|\x00-\x1f]/g, "_").slice(0, 180) || "download";
+  }
+  function formatBytes(value) { var bytes = Number(value || 0); if (!bytes) return "Size determined during download"; var units = ["B","KB","MB","GB"], index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 3); return (bytes / Math.pow(1024, index)).toFixed(index ? 1 : 0) + " " + units[index]; }
+  function downloadDialog(link) {
+    var overlay = create("div", "nova-download-backdrop"); var dialog = create("div", "nova-download-dialog"); dialog.setAttribute("role", "dialog"); dialog.setAttribute("aria-modal", "true"); dialog.setAttribute("aria-labelledby", "nova-download-title");
+    var head = create("div", "nova-download-head"); head.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg><div><span>Nova Browser download</span><strong id="nova-download-title"></strong></div>';
+    var title = head.querySelector("strong"); title.textContent = fileNameFrom(link); var meta = create("div", "nova-download-meta"); var type = create("span", "", "Type: checking…"); var size = create("span", "", "Size: checking…"); meta.append(type, size);
+    var warning = create("p", "nova-download-warning", "Files from third-party websites may be unsafe. Nova does not scan downloaded files."); var status = create("div", "nova-download-status"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+    var actions = create("div", "nova-download-actions"); var cancel = create("button", "settings-secondary-btn", "Cancel"); cancel.type = "button"; var submit = create("button", "settings-primary-btn", "Download"); submit.type = "button"; actions.append(cancel, submit); dialog.append(head, meta, warning, status, actions); overlay.appendChild(dialog); document.body.appendChild(overlay);
+    function close() { overlay.remove(); }
+    cancel.addEventListener("click", close); overlay.addEventListener("click", function (event) { if (event.target === overlay) close(); });
+    submit.addEventListener("click", async function () {
+      submit.disabled = true; cancel.disabled = true; submit.textContent = "Downloading…"; status.textContent = "Fetching the file through Nova’s secure proxy session.";
+      try {
+        var pageFetch = link.ownerDocument?.defaultView?.fetch?.bind(link.ownerDocument.defaultView) || fetch;
+        var response = await pageFetch(link.href, { credentials: "include", redirect: "follow", cache: "no-store" });
+        if (!response.ok) throw new Error("The website returned " + response.status + " " + response.statusText);
+        var contentType = response.headers.get("content-type") || "application/octet-stream"; var contentLength = response.headers.get("content-length");
+        title.textContent = fileNameFrom(link, response); type.textContent = "Type: " + contentType.split(";")[0]; size.textContent = "Size: " + formatBytes(contentLength);
+        var blob = await response.blob(); if (!blob.size) throw new Error("The website returned an empty file"); size.textContent = "Size: " + formatBytes(blob.size);
+        var blobUrl = URL.createObjectURL(blob); var anchor = document.createElement("a"); anchor.href = blobUrl; anchor.download = fileNameFrom(link, response); anchor.rel = "noopener"; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 30000); close(); notify("Download started: " + anchor.download);
+      } catch (error) { cancel.disabled = false; submit.disabled = false; submit.textContent = "Retry"; status.classList.add("error"); status.textContent = "Download failed: " + (error.message || "the website could not provide the file"); }
+    });
+    submit.focus();
+  }
 
   function buildDock() {
     if (dock) return dock;
@@ -125,8 +155,8 @@
     if (options.muteSites) doc.querySelectorAll("audio,video").forEach(function (media) { media.muted = true; });
     try { win.open = options.allowPopups ? win.open : function () { consoleRows.push({ level: "warn", message: "Popup blocked by Nova Developer Options" }); return null; }; } catch (_) {}
     if (options.userAgent !== "default") { var agents = { "chrome-desktop": "Mozilla/5.0 Chrome/127 Safari/537.36", "chrome-mobile": "Mozilla/5.0 (Linux; Android 14) Chrome/127 Mobile Safari/537.36", firefox: "Mozilla/5.0 Firefox/128", safari: "Mozilla/5.0 Version/17 Safari/605.1.15" }; var ua = options.userAgent === "custom" ? options.customUserAgent : agents[options.userAgent]; try { if (ua) Object.defineProperty(win.navigator, "userAgent", { configurable: true, get: function () { return ua; } }); } catch (_) {} }
-    doc.addEventListener("click", function (event) { var link = event.target.closest?.("a[download],a[href]"); if (!link) return; var href = link.getAttribute("href") || ""; var looksDownload = link.hasAttribute("download") || /\.(zip|pdf|docx?|xlsx?|png|jpe?g|webp|mp[34]|wav|exe|dmg|apk)(?:[?#]|$)/i.test(href); if (looksDownload && !window.NovaDeveloperOptions?.mayDownload?.(event.isTrusted)) { event.preventDefault(); event.stopImmediatePropagation(); window.NovaDeveloperOptions?.showDownloadBlocked?.(); } }, true);
-    if (options.disablePageJs) { doc.querySelectorAll("script").forEach(function (script) { script.remove(); }); var observer = new MutationObserver(function (mutations) { mutations.forEach(function (mutation) { mutation.addedNodes.forEach(function (node) { if (node.nodeType === 1 && (node.tagName === "SCRIPT" || node.querySelector?.("script"))) node.remove(); }); }); }); observer.observe(doc.documentElement, { childList: true, subtree: true }); pageObservers.set(frame, observer); }
+    if (!instrumentedDocs.has(doc)) { instrumentedDocs.add(doc); var lastGesture = 0; doc.addEventListener("pointerdown", function () { lastGesture = Date.now(); }, true); doc.addEventListener("keydown", function (event) { if (event.key === "Enter" || event.key === " ") lastGesture = Date.now(); }, true); doc.addEventListener("click", function (event) { var link = event.target.closest?.("a[download],a[href]"); if (!link) return; var href = link.getAttribute("href") || ""; var looksDownload = link.hasAttribute("download") || /(?:\/archive(?:\/|\?|$)|\/raw\/|\.(zip|txt|pdf|docx?|xlsx?|png|jpe?g|webp|mp[34]|wav|exe|dmg|apk))(?:[?#]|$)/i.test(href); if (!looksDownload) return; event.preventDefault(); event.stopImmediatePropagation(); var userGesture = event.isTrusted || Date.now() - lastGesture < 1500; if (!window.NovaDeveloperOptions?.mayDownload?.(userGesture)) window.NovaDeveloperOptions?.showDownloadBlocked?.(); else downloadDialog(link); }, true); }
+    if (options.disablePageJs && doc.documentElement?.nodeType === 1) { doc.querySelectorAll("script").forEach(function (script) { script.remove(); }); var observer = new MutationObserver(function (mutations) { mutations.forEach(function (mutation) { mutation.addedNodes.forEach(function (node) { if (node.nodeType === 1 && (node.tagName === "SCRIPT" || node.querySelector?.("script"))) node.remove(); }); }); }); observer.observe(doc.documentElement, { childList: true, subtree: true }); pageObservers.set(frame, observer); }
     if (options.browserConsole) captureConsole(frame);
     frame.dataset.novaExperimentalWebsocket = options.experimentalWebSocket ? "on" : "off";
     frame.dataset.novaExperimentalMedia = options.experimentalMedia ? "on" : "off";
