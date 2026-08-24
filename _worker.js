@@ -78,6 +78,7 @@ const deviceBanCache = new Map();
 const sessionUserCache = new Map();
 let tursoSchemaReady = null;
 let unoSchemaReady = null;
+let checkersSchemaReady = null;
 const requestUserCache = new WeakMap();
 const geminiModelCache = new Map();
 
@@ -428,6 +429,7 @@ async function routeApi(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (pathname.startsWith("/api/boardgames/uno/")) await ensureUnoSchema(getDb(env));
+  if (pathname.startsWith("/api/boardgames/checkers/")) await ensureCheckersSchema(getDb(env));
 
   if (pathname === "/api/health" && method === "GET") return health(env);
   if (pathname === "/api/device-status" && method === "GET") return deviceStatus(request, getDb(env));
@@ -459,6 +461,9 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/boardgames/uno/invites" && method === "GET") return getUnoInvites(request, getDb(env));
   if (pathname === "/api/boardgames/uno/social-invite" && method === "POST") return createUnoSocialInvite(request, getDb(env));
   if (pathname === "/api/boardgames/uno/call" && method === "POST") return joinUnoCall(request, env);
+  if (pathname === "/api/boardgames/checkers/matches" && method === "GET") return getCheckersMatch(request, url, getDb(env));
+  if (pathname === "/api/boardgames/checkers/social-invite" && method === "POST") return createCheckersSocialInvite(request, getDb(env));
+  if (pathname === "/api/boardgames/checkers/action" && method === "POST") return checkersAction(request, getDb(env));
   if (pathname === "/api/presence" && method === "POST") return setPresence(request, getDb(env));
   if (pathname === "/api/social" && method === "GET") return socialOverview(request, getDb(env));
   if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, getDb(env));
@@ -952,6 +957,120 @@ async function ensureUnoSchema(db) {
     db.prepare("CREATE INDEX IF NOT EXISTS uno_invites_user_idx ON uno_lobby_invites(invited_user_id,created_at DESC)")
   ]).catch(error => { unoSchemaReady = null; throw error; });
   return unoSchemaReady;
+}
+
+async function ensureCheckersSchema(db) {
+  if (!checkersSchemaReady) checkersSchemaReady = db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS checkers_matches (id TEXT PRIMARY KEY,red_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,black_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS checkers_red_updated_idx ON checkers_matches(red_user_id,updated_at DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS checkers_black_updated_idx ON checkers_matches(black_user_id,updated_at DESC)")
+  ]).catch(error => { checkersSchemaReady = null; throw error; });
+  return checkersSchemaReady;
+}
+
+function checkersBoard() {
+  const board = Array(64).fill("");
+  for (let row = 0; row < 3; row++) for (let col = 0; col < 8; col++) if ((row + col) % 2) board[row * 8 + col] = "b";
+  for (let row = 5; row < 8; row++) for (let col = 0; col < 8; col++) if ((row + col) % 2) board[row * 8 + col] = "r";
+  return board;
+}
+
+function checkersColor(piece) { const value = String(piece || "").toLowerCase(); return value === "r" ? "red" : value === "b" ? "black" : ""; }
+function checkersDirections(piece) { return piece === piece.toUpperCase() ? [-1, 1] : (checkersColor(piece) === "red" ? [-1] : [1]); }
+function checkersMoves(board, from, capturesOnly) {
+  const piece = board[from]; if (!piece) return [];
+  const row = Math.floor(from / 8), col = from % 8, moves = [];
+  for (const dr of checkersDirections(piece)) for (const dc of [-1, 1]) {
+    const nearRow = row + dr, nearCol = col + dc;
+    if (nearRow < 0 || nearRow > 7 || nearCol < 0 || nearCol > 7) continue;
+    const near = nearRow * 8 + nearCol;
+    if (!board[near] && !capturesOnly) moves.push({ from, to: near, capture: -1 });
+    else if (board[near] && checkersColor(board[near]) !== checkersColor(piece)) {
+      const farRow = row + dr * 2, farCol = col + dc * 2;
+      if (farRow >= 0 && farRow < 8 && farCol >= 0 && farCol < 8 && !board[farRow * 8 + farCol]) moves.push({ from, to: farRow * 8 + farCol, capture: near });
+    }
+  }
+  return capturesOnly ? moves.filter(move => move.capture >= 0) : moves;
+}
+
+function checkersAllMoves(board, color) {
+  const captures = [], normal = [];
+  board.forEach((piece, from) => { if (checkersColor(piece) !== color) return; const moves = checkersMoves(board, from, false); moves.forEach(move => (move.capture >= 0 ? captures : normal).push(move)); });
+  return captures.length ? captures : normal;
+}
+
+function checkersRow(db, id) {
+  return db.prepare("SELECT c.*,ru.username AS red_username,COALESCE(rp.display_name,ru.username) AS red_display_name,COALESCE(rp.avatar_url,'') AS red_avatar_url,bu.username AS black_username,COALESCE(bp.display_name,bu.username) AS black_display_name,COALESCE(bp.avatar_url,'') AS black_avatar_url FROM checkers_matches c JOIN users ru ON ru.id=c.red_user_id JOIN users bu ON bu.id=c.black_user_id LEFT JOIN user_profiles rp ON rp.user_id=ru.id LEFT JOIN user_profiles bp ON bp.user_id=bu.id WHERE c.id=? LIMIT 1").bind(id).first();
+}
+
+function exposeCheckersMatch(row, userId) {
+  const players = [{ userId: row.red_user_id, username: row.red_username, displayName: row.red_display_name, avatarUrl: row.red_avatar_url, color: "red" },{ userId: row.black_user_id, username: row.black_username, displayName: row.black_display_name, avatarUrl: row.black_avatar_url, color: "black" }];
+  const state = parseJson(row.state_json, {});
+  return { id: row.id, status: row.status, version: Number(row.version), winnerId: row.winner_id || "", redUserId: row.red_user_id, blackUserId: row.black_user_id, currentUserId: state.turn === "red" ? row.red_user_id : row.black_user_id, turn: state.turn || "red", forcedFrom: Number.isInteger(state.forcedFrom) ? state.forcedFrom : -1, board: Array.isArray(state.board) ? state.board : checkersBoard(), players, viewerId: userId, updatedAt: Number(row.updated_at) };
+}
+
+async function createCheckersSocialInvite(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "checkers-create", 20, 10 * 60 * 1000, 10 * 60 * 1000);
+  const body = await readJson(request), username = normalizeUsername(body.username);
+  const target = await loadUserByUsername(db, username);
+  if (!target || target.id === auth.id) return apiError("USER_NOT_FOUND", "Choose a Nova friend to play", 404);
+  const friend = await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();
+  if (!friend || await isBlockedBetween(db, auth.id, target.id)) return apiError("FRIENDS_ONLY", "Checkers can only be started with an accepted friend", 403);
+  const id = "chk_" + randomId(), now = Date.now(), state = { board: checkersBoard(), turn: "red", forcedFrom: -1 };
+  await db.prepare("INSERT INTO checkers_matches(id,red_user_id,black_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();
+  const row = await checkersRow(db, id);
+  return apiJson({ match: exposeCheckersMatch(row, auth.id) }, 201);
+}
+
+async function getCheckersMatch(request, url, db) {
+  const auth = await requireSocialUser(request, db), id = cleanText(url.searchParams.get("id"), 80);
+  const row = await checkersRow(db, id);
+  if (!row) return apiError("MATCH_NOT_FOUND", "That Checkers match is no longer available", 404);
+  if (![row.red_user_id,row.black_user_id].includes(auth.id)) return apiError("MATCH_ACCESS", "This is a private Checkers match", 403);
+  return apiJson({ match: exposeCheckersMatch(row, auth.id) });
+}
+
+async function checkersAction(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db), body = await readJson(request), matchId = cleanText(body.matchId, 80);
+  const action = enumValue(body.action, ["move","resign","replay"], "move");
+  const row = await checkersRow(db, matchId);
+  if (!row) return apiError("MATCH_NOT_FOUND", "That Checkers match no longer exists", 404);
+  if (![row.red_user_id,row.black_user_id].includes(auth.id)) return apiError("MATCH_ACCESS", "This is a private Checkers match", 403);
+  let state = parseJson(row.state_json, {}), status = row.status, winnerId = row.winner_id || null;
+  if (action === "replay") {
+    if (row.status !== "finished") return apiError("MATCH_ACTIVE", "Finish this match first", 409);
+    state = { board: checkersBoard(), turn: row.winner_id === row.red_user_id ? "black" : "red", forcedFrom: -1 }; status = "playing"; winnerId = null;
+  } else if (action === "resign") {
+    if (row.status !== "playing") return apiError("MATCH_FINISHED", "This match is already finished", 409);
+    winnerId = auth.id === row.red_user_id ? row.black_user_id : row.red_user_id; status = "finished"; state.forcedFrom = -1;
+  } else {
+    if (row.status !== "playing") return apiError("MATCH_FINISHED", "This match is already finished", 409);
+    const color = auth.id === row.red_user_id ? "red" : "black";
+    if (state.turn !== color) return apiError("NOT_YOUR_TURN", "Wait for your friend to move", 409);
+    const board = Array.isArray(state.board) ? state.board.slice(0,64) : checkersBoard(), from = Number(body.from), to = Number(body.to);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || from > 63 || to < 0 || to > 63 || checkersColor(board[from]) !== color) return apiError("INVALID_MOVE", "Choose one of your pieces", 409);
+    const legal = Number.isInteger(state.forcedFrom) && state.forcedFrom >= 0 ? checkersMoves(board, state.forcedFrom, true) : checkersAllMoves(board, color);
+    const move = legal.find(candidate => candidate.from === from && candidate.to === to);
+    if (!move) return apiError("INVALID_MOVE", legal.some(candidate => candidate.capture >= 0) ? "A capture is available and must be taken" : "That piece cannot move there", 409);
+    let piece = board[from]; board[from] = ""; if (move.capture >= 0) board[move.capture] = "";
+    const destinationRow = Math.floor(to / 8), promoted = piece === piece.toLowerCase() && ((color === "red" && destinationRow === 0) || (color === "black" && destinationRow === 7));
+    if (promoted) piece = piece.toUpperCase(); board[to] = piece;
+    const moreCaptures = move.capture >= 0 && !promoted ? checkersMoves(board, to, true) : [];
+    state.board = board; state.forcedFrom = moreCaptures.length ? to : -1;
+    if (!moreCaptures.length) state.turn = color === "red" ? "black" : "red";
+    const opponent = color === "red" ? "black" : "red", opponentId = color === "red" ? row.black_user_id : row.red_user_id;
+    if (!board.some(item => checkersColor(item) === opponent) || !checkersAllMoves(board, opponent).length) { status = "finished"; winnerId = auth.id; state.forcedFrom = -1; }
+    else if (moreCaptures.length) winnerId = null;
+    else winnerId = null;
+    if (status === "finished" && !winnerId) winnerId = opponentId;
+  }
+  const result = await db.prepare("UPDATE checkers_matches SET status=?,winner_id=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,winnerId,JSON.stringify(state),Date.now(),matchId,row.version).run();
+  if (!result.meta?.changes) return apiError("GAME_CHANGED", "The board changed—try again", 409);
+  const updated = await checkersRow(db, matchId);
+  return apiJson({ match: exposeCheckersMatch(updated, auth.id) });
 }
 
 function unoDeck() {

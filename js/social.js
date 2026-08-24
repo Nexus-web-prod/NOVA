@@ -841,6 +841,46 @@ async function copyMessage(msg,button){
 function messageActionsHtml(){
   return '<div class="social-msg-actions" role="toolbar" aria-label="Message actions"><button type="button" class="social-msg-action" data-message-action="reply" title="Reply" aria-label="Reply"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button><button type="button" class="social-msg-action" data-message-action="react" title="React" aria-label="React"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></button><button type="button" class="social-msg-action" data-message-action="copy" title="Copy message" aria-label="Copy message"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg></button></div>';
 }
+function openSocialUno(lobbyId){
+  window.NovaSocialCheckersNative?.stop();
+  const shell=document.getElementById("social-game-shell");
+  const chatArea=document.getElementById("social-chat-area");
+  if(!shell)return;
+  // Games is a first-class Social view. Do not depend on a delayed animation
+  // frame to make the surface visible; that could leave the whole chat pane blank.
+  shell.hidden=false;
+  shell.style.display="flex";
+  shell.style.opacity="1";
+  shell.style.transform="none";
+  shell.classList.add("open");
+  chatArea?.classList.add("social-game-active");
+  document.getElementById("page-social")?.classList.add("social-game-open");
+  document.getElementById("social-games-tab")?.classList.add("active");
+  document.getElementById("social-game-picker")?.setAttribute("hidden","");
+  document.getElementById("checkers-surface")?.setAttribute("hidden","");
+  const title=document.getElementById("social-game-title");if(title)title.textContent="UNO TABLE";
+  const id=String(lobbyId||"").trim();
+  if(id)window.NovaSocialUnoNative?.openLobby(id);
+  else window.NovaSocialUnoNative?.reset();
+}
+function openSocialGamePicker(){openSocialUno("");document.getElementById("social-game-picker")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="GAME ROOM";}
+function openSocialCheckers(matchId){openSocialUno("");document.getElementById("social-game-picker")?.setAttribute("hidden","");document.getElementById("checkers-surface")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="CHECKERS";const id=String(matchId||"").trim();if(id)window.NovaSocialCheckersNative?.openMatch(id);else window.NovaSocialCheckersNative?.showHome();}
+function closeSocialUno(){
+  window.NovaSocialCheckersNative?.stop();
+  const shell=document.getElementById("social-game-shell");
+  const chatArea=document.getElementById("social-chat-area");
+  if(!shell)return;
+  shell.classList.remove("open");
+  shell.hidden=true;
+  shell.style.removeProperty("display");
+  shell.style.removeProperty("opacity");
+  shell.style.removeProperty("transform");
+  chatArea?.classList.remove("social-game-active");
+  document.getElementById("page-social")?.classList.remove("social-game-open");
+  document.getElementById("social-games-tab")?.classList.remove("active");
+}
+window.NovaSocialGames={open:openSocialGamePicker,openUno:openSocialUno,openCheckers:openSocialCheckers,close:closeSocialUno};
+
 function makeMsg(msg,mine,showSender){
   const el=document.createElement("div");
   el.className="social-msg "+(mine?"mine":"theirs");
@@ -864,15 +904,19 @@ function makeMsg(msg,mine,showSender){
   const time='<div class="social-msg-time">'+fmtTime(msg.ts)+"</div>";
   let bubble="";
   const unoMatch=msg.type==="text"&&String(msg.text||"").match(/^\[\[NOVA_UNO:([A-Za-z0-9_-]+)\]\]$/);
+  const checkersMatch=msg.type==="text"&&String(msg.text||"").match(/^\[\[NOVA_CHECKERS:([A-Za-z0-9_-]+)\]\]$/);
   if(unoMatch){
-    const joinUrl="https://games.nova-7.pages.dev/?lobby="+encodeURIComponent(unoMatch[1]);
-    bubble='<div class="social-msg-bubble social-uno-invite"><div class="social-uno-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div class="social-uno-copy"><small>NOVA TABLE</small><strong>UNO</strong><span>'+(mine?'Invites sent — your table is ready.':'You were invited to play.')+'</span></div><a class="social-uno-join" href="'+joinUrl+'" target="_blank" rel="noopener">'+(mine?'Open':'Join')+' table<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>';
+    bubble='<div class="social-msg-bubble social-uno-invite"><div class="social-uno-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div class="social-uno-copy"><small>NOVA TABLE</small><strong>UNO</strong><span>'+(mine?'Invites sent — your table is ready.':'You were invited to play.')+'</span></div><button class="social-uno-join" type="button" data-social-uno-lobby="'+esc(unoMatch[1])+'">'+(mine?'Open':'Join')+' table<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>';
+  }else if(checkersMatch){
+    bubble='<div class="social-msg-bubble social-uno-invite social-checkers-invite"><div class="social-checkers-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="social-uno-copy"><small>NOVA MATCH</small><strong>CHECKERS</strong><span>'+(mine?'Challenge sent — the board is ready.':'You were challenged to a match.')+'</span></div><button class="social-uno-join" type="button" data-social-checkers-match="'+esc(checkersMatch[1])+'">'+(mine?'Open':'Play')+' match<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>';
   }else if(msg.type==="image"){
     bubble='<div class="social-msg-bubble social-msg-bubble--img"><img src="'+esc(msg.text)+'" alt="photo" class="social-chat-photo" loading="lazy"></div>';
   }else{
     bubble='<div class="social-msg-bubble">'+esc(msg.text)+"</div>";
   }
   el.innerHTML=sender+replyCtx+'<div class="social-msg-main">'+bubble+messageActionsHtml()+'</div><div class="social-msg-reactions"></div>'+time;
+  el.querySelector("[data-social-uno-lobby]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialUno(e.currentTarget.dataset.socialUnoLobby);});
+  el.querySelector("[data-social-checkers-match]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialCheckers(e.currentTarget.dataset.socialCheckersMatch);});
   el.querySelector('[data-message-action="reply"]')?.addEventListener("click",e=>{
     e.stopPropagation();setReply({_id:el.dataset.streamId||null,from:msg.from,text:msg.text,type:msg.type||"text"});
     const inp=document.getElementById(activePane.startsWith("group:")?"social-group-msg-input":"social-msg-input")||document.getElementById("social-everyone-input");
@@ -903,7 +947,6 @@ async function startUnoFromSocial(button){
   const acct=getAccount();if(!acct)return toast("Sign in to start UNO");
   const group=activePane.startsWith("group:");
   if(!group&&(activePane==="everyone"||activePane==="none"))return;
-  const gameTab=window.open("about:blank","_blank");
   button.disabled=true;button.classList.add("is-loading");
   try{
     const payload=group?{kind:"group",groupId:activeGroupId}:{kind:"dm",username:activePane};
@@ -914,8 +957,22 @@ async function startUnoFromSocial(button){
     if(!sid)throw new Error("The table was created, but its chat invite could not be sent");
     const container=document.getElementById(group?"social-group-messages":"social-messages");
     if(container){container.appendChild(makeMsg({_id:sid,from:acct.username.toLowerCase(),text:marker,ts:Date.now(),type:"text"},true,group));container.scrollTop=container.scrollHeight;}
-    toast("UNO table created — invites sent");if(gameTab){gameTab.opener=null;gameTab.location.replace(data.launchUrl)}else window.location.href=data.launchUrl;
-  }catch(error){if(gameTab)gameTab.close();toast(error.message||"Could not start UNO");}
+    toast("UNO table created — invites sent");openSocialUno(data.lobby.id);
+  }catch(error){toast(error.message||"Could not start UNO");}
+  finally{button.disabled=false;button.classList.remove("is-loading");}
+}
+async function startCheckersFromSocial(button){
+  const acct=getAccount();if(!acct)return toast("Sign in to start Checkers");
+  if(activePane==="everyone"||activePane==="none"||activePane.startsWith("group:"))return toast("Open a friend chat to play Checkers");
+  button.disabled=true;button.classList.add("is-loading");
+  try{
+    const data=await NovaAPI.request("/api/boardgames/checkers/social-invite",{method:"POST",body:{username:activePane}});
+    const marker="[[NOVA_CHECKERS:"+data.match.id+"]]",channel=dmKey(acct.username.toLowerCase(),activePane.toLowerCase());
+    const sid=await streamAdd(channel,{from:acct.username.toLowerCase(),text:marker,ts:String(Date.now()),type:"text",cid:uid()});
+    if(!sid)throw new Error("The match was created, but its chat invite could not be sent");
+    const container=document.getElementById("social-messages");if(container){container.appendChild(makeMsg({_id:sid,from:acct.username.toLowerCase(),text:marker,ts:Date.now(),type:"text"},true,false));container.scrollTop=container.scrollHeight;}
+    toast("Checkers challenge sent");openSocialCheckers(data.match.id);
+  }catch(error){toast(error.message||"Could not start Checkers");}
   finally{button.disabled=false;button.classList.remove("is-loading");}
 }
 function emptyState(txt){return'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.6rem;opacity:.35;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-family:\'Space Mono\',monospace;font-size:.5rem;color:var(--muted);">'+txt+"</div></div>"}
@@ -1510,7 +1567,12 @@ function wireDom(){
   document.getElementById("social-chat-report-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openReportUserModal(activePane);});
   document.getElementById("social-chat-block-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openBlockUserModal(activePane);});
   document.getElementById("social-dm-uno-btn")?.addEventListener("click",e=>startUnoFromSocial(e.currentTarget));
+  document.getElementById("social-dm-checkers-btn")?.addEventListener("click",e=>startCheckersFromSocial(e.currentTarget));
   document.getElementById("social-group-uno-btn")?.addEventListener("click",e=>startUnoFromSocial(e.currentTarget));
+  document.getElementById("social-games-tab")?.addEventListener("click",openSocialGamePicker);
+  document.getElementById("social-pick-uno")?.addEventListener("click",()=>openSocialUno(""));
+  document.getElementById("social-pick-checkers")?.addEventListener("click",()=>openSocialCheckers(""));
+  document.getElementById("social-game-close")?.addEventListener("click",closeSocialUno);
 
   const groupModal=document.getElementById("social-group-modal");
   document.getElementById("social-new-group-btn")?.addEventListener("click",()=>{

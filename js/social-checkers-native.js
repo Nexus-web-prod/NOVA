@@ -1,0 +1,36 @@
+(function(){
+  "use strict";
+  var user=null,match=null,selected=-1,pollTimer=null,pollBusy=false;
+  var $=function(id){return document.getElementById(id)};
+  function call(path,options){return NovaAPI.request(path,options)}
+  function toast(message){var el=$("checkers-toast");if(!el)return;clearTimeout(el._timer);el.textContent=message;el.hidden=false;el._timer=setTimeout(function(){el.hidden=true},2600)}
+  function color(piece){piece=String(piece||"").toLowerCase();return piece==="r"?"red":piece==="b"?"black":""}
+  function directions(piece){return piece===piece.toUpperCase()?[-1,1]:(color(piece)==="red"?[-1]:[1])}
+  function movesFor(board,from,capturesOnly){var piece=board[from];if(!piece)return[];var row=Math.floor(from/8),col=from%8,moves=[];directions(piece).forEach(function(dr){[-1,1].forEach(function(dc){var nr=row+dr,nc=col+dc;if(nr<0||nr>7||nc<0||nc>7)return;var near=nr*8+nc;if(!board[near]&&!capturesOnly)moves.push({from:from,to:near,capture:-1});else if(board[near]&&color(board[near])!==color(piece)){var fr=row+dr*2,fc=col+dc*2;if(fr>=0&&fr<8&&fc>=0&&fc<8&&!board[fr*8+fc])moves.push({from:from,to:fr*8+fc,capture:near})}})});return capturesOnly?moves.filter(function(move){return move.capture>=0}):moves}
+  function allMoves(board,pieceColor){var captures=[],normal=[];board.forEach(function(piece,from){if(color(piece)!==pieceColor)return;movesFor(board,from,false).forEach(function(move){(move.capture>=0?captures:normal).push(move)})});return captures.length?captures:normal}
+  function player(id){return match&&match.players.find(function(item){return item.userId===id})}
+  function avatar(person,label){if(!person)return"";var image=person.avatarUrl&&!String(person.avatarUrl).startsWith("__builtin__")?'<img src="'+escapeHtml(person.avatarUrl)+'" alt="">':escapeHtml((person.displayName||person.username||"?").charAt(0).toUpperCase());return'<span class="checkers-player-avatar">'+image+'</span><span><b>'+escapeHtml(person.displayName||person.username)+'</b><small>'+label+'</small></span>'}
+  function escapeHtml(value){var div=document.createElement("div");div.textContent=value||"";return div.innerHTML}
+  function squareName(index){return String.fromCharCode(65+index%8)+(8-Math.floor(index/8))}
+  function myColor(){return match&&match.redUserId===user.id?"red":"black"}
+  function legalMoves(){if(!match||match.status!=="playing"||match.currentUserId!==user.id)return[];if(match.forcedFrom>=0)return movesFor(match.board,match.forcedFrom,true);return allMoves(match.board,myColor())}
+  function render(){
+    if(!match||!user)return;var mine=myColor(),legal=legalMoves();if(match.forcedFrom>=0)selected=match.forcedFrom;
+    var winner=player(match.winnerId),turnPerson=player(match.currentUserId),turn=$("checkers-turn"),hint=$("checkers-rule-hint");
+    if(match.status==="finished"){turn.textContent=match.winnerId===user.id?"You won!":(winner?(winner.displayName||winner.username)+" won":"Match finished");hint.textContent="Start a rematch whenever you’re ready"}
+    else if(match.currentUserId===user.id){turn.textContent=match.forcedFrom>=0?"Keep jumping":"Your move";hint.textContent=legal.some(function(move){return move.capture>=0})?"A capture is required":"Select a piece to see its moves"}
+    else{turn.textContent="Waiting for "+(turnPerson?(turnPerson.displayName||turnPerson.username):"your friend");hint.textContent="The board refreshes automatically"}
+    var opponent=match.players.find(function(item){return item.userId!==user.id});$("checkers-opponent").innerHTML=avatar(opponent,opponent.color+" pieces");$("checkers-you").innerHTML=avatar(player(user.id),"you · "+mine+" pieces");
+    $("checkers-resign").hidden=match.status!=="playing";$("checkers-replay").hidden=match.status!=="finished";
+    var destinations=selected>=0?legal.filter(function(move){return move.from===selected}):[],board=$("checkers-board");board.innerHTML="";
+    var displayOrder=match.board.map(function(_,index){return index});if(mine==="black")displayOrder.reverse();displayOrder.forEach(function(index){var piece=match.board[index],button=document.createElement("button"),row=Math.floor(index/8),pieceColor=color(piece),selectable=legal.some(function(move){return move.from===index}),destination=destinations.find(function(move){return move.to===index});button.type="button";button.className="checkers-square "+((row+index%8)%2?"dark ":"")+(selectable?"can-select ":"")+(destination?"can-move ":"")+(selected===index?"selected":"");button.setAttribute("role","gridcell");button.setAttribute("aria-label",piece?(pieceColor+(/^[A-Z]$/.test(piece)?" king":" piece")+" on "+squareName(index)+(selectable?", selectable":"")):("Empty "+squareName(index)+(destination?", valid move":"")));button.disabled=!selectable&&!destination;if(piece){var checker=document.createElement("span");checker.className="checker-piece "+pieceColor+(/^[A-Z]$/.test(piece)?" king":"");checker.setAttribute("aria-hidden","true");button.appendChild(checker)}button.onclick=function(){if(destination)return makeMove(destination.from,destination.to);if(selectable){selected=selected===index?-1:index;render()}};board.appendChild(button)});
+  }
+  async function makeMove(from,to){try{var data=await call("/api/boardgames/checkers/action",{method:"POST",body:{matchId:match.id,action:"move",from:from,to:to,version:match.version}});match=data.match;selected=match.forcedFrom;render();schedule()}catch(error){toast(error.message||"That move did not work");await poll(true)}}
+  function schedule(){clearTimeout(pollTimer);if(match&&match.status==="playing"){var delay=document.hidden?20000:(match.currentUserId===user.id?12000:4000);pollTimer=setTimeout(function(){poll(false)},delay)}}
+  async function poll(force){if(!match||pollBusy)return;pollBusy=true;try{var data=await call("/api/boardgames/checkers/matches?id="+encodeURIComponent(match.id));if(force||!match||data.match.version!==match.version){match=data.match;selected=match.forcedFrom;render()}}catch(error){toast(error.message||"Could not refresh the match")}finally{pollBusy=false;schedule()}}
+  async function openMatch(id){clearTimeout(pollTimer);try{if(!user){var me=await NovaAPI.me();user=me.user}var data=await call("/api/boardgames/checkers/matches?id="+encodeURIComponent(id));match=data.match;selected=match.forcedFrom;$("checkers-home").hidden=true;$("checkers-match").hidden=false;render();schedule()}catch(error){showHome();toast(error.message||"Could not open Checkers")}}
+  function showHome(){clearTimeout(pollTimer);match=null;selected=-1;$("checkers-match").hidden=true;$("checkers-home").hidden=false}
+  async function action(name){if(!match)return;try{var data=await call("/api/boardgames/checkers/action",{method:"POST",body:{matchId:match.id,action:name,version:match.version}});match=data.match;selected=-1;render();schedule()}catch(error){toast(error.message||"Could not update the match")}}
+  $("checkers-resign")?.addEventListener("click",function(){if(confirm("Resign this Checkers match?"))action("resign")});$("checkers-replay")?.addEventListener("click",function(){action("replay")});document.addEventListener("visibilitychange",function(){if(!document.hidden&&match)poll(true)});
+  window.NovaSocialCheckersNative={openMatch:openMatch,showHome:showHome,setUser:function(next){user=next||user},stop:function(){clearTimeout(pollTimer)}};
+})();
