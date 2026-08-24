@@ -35,8 +35,7 @@
     submit.addEventListener("click", async function () {
       submit.disabled = true; cancel.disabled = true; submit.textContent = "Downloading…"; status.textContent = "Fetching the file through Nova’s secure proxy session.";
       try {
-        var pageFetch = link.ownerDocument?.defaultView?.fetch?.bind(link.ownerDocument.defaultView) || fetch;
-        var response = await pageFetch(link.href, { credentials: "include", redirect: "follow", cache: "no-store" });
+        var response = await fetch("/api/browser-download", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json", "X-Nova-Request": "1" }, body: JSON.stringify({ url: link.href }) });
         if (!response.ok) throw new Error("The website returned " + response.status + " " + response.statusText);
         var contentType = response.headers.get("content-type") || "application/octet-stream"; var contentLength = response.headers.get("content-length");
         title.textContent = fileNameFrom(link, response); type.textContent = "Type: " + contentType.split(";")[0]; size.textContent = "Size: " + formatBytes(contentLength);

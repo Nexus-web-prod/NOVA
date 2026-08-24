@@ -52,12 +52,12 @@ const MAINTENANCE_API_PATHS = new Set([
 const PRIVATE_DEPLOYMENT_FILES = new Set([
   "/_worker.js",
   "/turso_schema.sql",
-
+  
   "/wrangler.toml",
   "/deploy-pages-turso.sh",
   "/fix-cloud-placeholders.sh",
   "/make-deploy-clean.sh",
-
+  
   "/grant-owner.sh",
   "/configure-google-ai.sh",
   "/turso_migration_readme.md",
@@ -521,6 +521,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/supernova/referrals/respond" && method === "POST") return respondSupernovaReferral(request, getDb(env));
   if (pathname === "/api/ai/chat" && method === "POST") return supernovaAI(request, env);
   if (pathname === "/api/proxy/navigation" && method === "POST") return logProxyNavigation(request, getDb(env));
+  if (pathname === "/api/browser-download" && method === "POST") return browserDownload(request, getDb(env));
   if (pathname === "/api/announcements" && method === "GET") return activeAnnouncements(getDb(env));
   if (pathname === "/api/admin/overview" && method === "GET") return adminOverview(request, getDb(env));
   if (pathname === "/api/admin/tasks" && method === "GET") return adminTasks(request, url, getDb(env));
@@ -556,6 +557,38 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/admin/audit" && method === "GET") return adminAudit(request, url, getDb(env));
 
   return apiError("NOT_FOUND", "API route not found", 404);
+}
+
+async function browserDownload(request, db) {
+  requireSameOrigin(request);
+  await requireUser(request, db);
+  const body = await readJson(request);
+  let target;
+  try { target = new URL(String(body.url || "")); }
+  catch { throw new ApiFailure("INVALID_URL", "The download address is invalid", 400); }
+  const validateTarget = value => {
+    if (!["http:", "https:"].includes(value.protocol) || value.username || value.password) throw new ApiFailure("INVALID_URL", "Only public web downloads are allowed", 400);
+    const host = value.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    const blocked = host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host === "0.0.0.0" || host === "::" || host === "::1" || /^(?:127|10)\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || /^169\.254\./.test(host) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) || /^(?:fc|fd|fe8|fe9|fea|feb)/i.test(host);
+    if (blocked) throw new ApiFailure("PRIVATE_ADDRESS", "Private network downloads are blocked", 403);
+  };
+  validateTarget(target);
+  let upstream;
+  for (let redirects = 0; redirects <= 5; redirects += 1) {
+    upstream = await fetch(target.href, { method: "GET", redirect: "manual", headers: { "Accept": "*/*", "User-Agent": "Nova Browser/7.0" } });
+    if (![301, 302, 303, 307, 308].includes(upstream.status)) break;
+    const location = upstream.headers.get("location");
+    if (!location || redirects === 5) throw new ApiFailure("TOO_MANY_REDIRECTS", "The download redirected too many times", 502);
+    target = new URL(location, target); validateTarget(target);
+  }
+  if (!upstream.ok) throw new ApiFailure("DOWNLOAD_FAILED", `The website returned ${upstream.status} ${upstream.statusText}`, upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502);
+  const headers = new Headers();
+  for (const name of ["content-type", "content-length", "content-disposition", "etag", "last-modified"]) {
+    const value = upstream.headers.get(name); if (value) headers.set(name, value);
+  }
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("X-Content-Type-Options", "nosniff");
+  return new Response(upstream.body, { status: 200, headers });
 }
 
 async function health(env) {
