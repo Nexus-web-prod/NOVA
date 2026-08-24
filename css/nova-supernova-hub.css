@@ -12,6 +12,7 @@
 .sn-hub-v2 .sn-section-tabs{display:grid;grid-template-columns:repeat(8,minmax(82px,1fr));gap:.25rem;margin:0 0 .7rem;padding:.24rem;border-radius:16px;background:rgba(8,6,18,.5);overflow-x:auto;scrollbar-width:none}
 .sn-hub-v2 .sn-section-tabs::-webkit-scrollbar{display:none}
 .sn-hub-v2 .sn-section-tab{min-width:82px;min-height:38px;padding:.38rem .45rem;gap:.3rem;border:1px solid transparent;white-space:nowrap}
+.sn-hub-v2 .sn-section-tab[hidden]{display:none!important}
 .sn-hub-v2 .sn-section-tab svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .sn-hub-v2 .sn-section-tab.active{border-color:rgba(246,207,90,.26);background:linear-gradient(135deg,rgba(246,207,90,.11),rgba(155,140,255,.1));box-shadow:inset 0 1px rgba(255,255,255,.04),0 8px 26px rgba(0,0,0,.16)}
 .sn-tab-new{position:absolute;right:3px;top:2px;padding:.05rem .16rem;border-radius:4px;background:rgba(103,220,255,.16);color:var(--sn-cyan);font-size:.22rem;letter-spacing:.08em}
