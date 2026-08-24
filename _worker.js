@@ -3163,11 +3163,12 @@ async function getSupernovaAccess(request, db) {
   ]);
   const sent = (outgoing.results || []).map(row => ({ ...row, createdAt: Number(row.createdAt), respondedAt: row.respondedAt == null ? null : Number(row.respondedAt), expiresAt: row.expiresAt == null ? null : Number(row.expiresAt) }));
   const received = (incoming.results || []).map(row => ({ ...row, createdAt: Number(row.createdAt) }));
+  const canRefer = staffAccess || !!membership && !["3-day device trial", "7-day Supernova referral"].includes(membership.note || "");
   return apiJson({
     active: !!membership || staffAccess,
     membership: membership ? { grantedAt: Number(membership.grantedAt || 0), expiresAt: membership.expiresAt == null ? null : Number(membership.expiresAt), note: membership.note || "" } : (staffAccess ? { grantedAt: 0, expiresAt: null, note: "Staff Supernova access" } : null),
     trial: { eligible: !!deviceId && !userTrial && !deviceTrial && !membership && !staffAccess, claimed: !!(userTrial || deviceTrial) },
-    referrals: { limit: SUPERNOVA_REFERRAL_LIMIT, used: sent.length, remaining: Math.max(0, SUPERNOVA_REFERRAL_LIMIT - sent.length), sent, received }
+    referrals: { canRefer, limit: SUPERNOVA_REFERRAL_LIMIT, used: sent.length, remaining: Math.max(0, SUPERNOVA_REFERRAL_LIMIT - sent.length), sent, received }
   });
 }
 
@@ -3201,9 +3202,10 @@ async function createSupernovaReferral(request, db) {
   const auth = await requireUser(request, db);
   await enforceUserRateLimit(db, auth.id, "supernova-referral", 10, 60 * 60 * 1000, 60 * 60 * 1000);
   const now = Date.now();
-  const sponsor = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
+  const sponsor = await db.prepare("SELECT note FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
   const staffAccess = (auth.roles || []).some(role => STAFF_ROLES.has(role));
   if (!sponsor && !staffAccess) return apiError("SUPERNOVA_REQUIRED", "An active Supernova membership is required to send referrals", 403);
+  if (!staffAccess && ["3-day device trial", "7-day Supernova referral"].includes(sponsor.note || "")) return apiError("FULL_SUPERNOVA_REQUIRED", "Temporary Supernova access cannot send referrals", 403);
   const body = await readJson(request);
   const target = await loadUserByUsername(db, normalizeUsername(body.username));
   if (!target) return apiError("USER_NOT_FOUND", "That Nova user was not found", 404);

@@ -71,8 +71,8 @@
       if (trialButton) trialButton.hidden = true;
       return;
     }
-    var referrals = data.referrals || { remaining: 0, limit: 5, sent: [], received: [] };
-    if (panel) panel.hidden = !data.active;
+    var referrals = data.referrals || { canRefer: false, remaining: 0, limit: 5, sent: [], received: [] };
+    if (panel) panel.hidden = !referrals.canRefer;
     if (trialButton) {
       trialButton.hidden = data.active || !data.trial.eligible;
       trialButton.disabled = data.active;
@@ -84,7 +84,7 @@
       else note.textContent = "Try Supernova free on this device";
     }
     if (count) count.textContent = referrals.remaining + " of " + referrals.limit + " invites left";
-    if (form) form.hidden = !data.active;
+    if (form) form.hidden = !referrals.canRefer;
     if (sendButton) sendButton.disabled = referrals.remaining < 1;
     renderIncoming(referrals.received || []);
     renderSent(referrals.sent || []);
