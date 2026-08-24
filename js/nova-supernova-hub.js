@@ -67,7 +67,8 @@
       identity: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
       island: '<path d="M5 8h14a4 4 0 0 1 0 8H5a4 4 0 0 1 0-8z"/><path d="M9 12h6"/>',
       labs: '<path d="M9 3h6M10 3v5l-5 9a3 3 0 0 0 3 4h8a3 3 0 0 0 3-4l-5-9V3"/><path d="M8 15h8"/>',
-      workspaces: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/>'
+      workspaces: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/>',
+      referrals: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>'
     };
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths[name] + '</svg>';
   }
@@ -183,7 +184,11 @@
     if (head) head.innerHTML = '<div class="sn-brand-lockup"><div class="sn-brand-star">✦</div><div><span>SUPERNOVA</span><small>THE POWER LAYER OF NOVA 7</small></div></div>' +
       '<div class="sn-head-meta"><span id="sn-head-sync">PRIVATE CLOUD</span><div class="sn-pro-badge">✦ PRO</div></div>';
     var tabs = page.querySelector(".sn-section-tabs");
-    if (tabs) tabs.innerHTML = tab("overview", "Overview") + tab("ai", "AI") + tab("themes", "Themes") + tab("identity", "Identity") + tab("island", "Island") + tab("labs", "Labs", '<span class="sn-tab-new">NEW</span>') + tab("workspaces", "Spaces");
+    if (tabs) {
+      tabs.innerHTML = tab("overview", "Overview") + tab("ai", "AI") + tab("themes", "Themes") + tab("identity", "Identity") + tab("island", "Island") + tab("labs", "Labs", '<span class="sn-tab-new">NEW</span>') + tab("workspaces", "Spaces") + tab("referrals", "Referrals");
+      var referralTab = tabs.querySelector('[data-sn-section="referrals"]');
+      if (referralTab) referralTab.hidden = true;
+    }
     var panels = page.querySelector(".sn-panels");
     if (!panels) return;
     panels.querySelectorAll(".sn-panel").forEach(function (panel) { panel.classList.remove("active"); });
@@ -206,7 +211,9 @@
     if (themes) {
       themes.classList.add("sn-hub-scroll");
       themes.insertAdjacentHTML("afterbegin", '<div class="sn-theme-cloudbar"><div><span class="sn-kicker">THEME STUDIO</span><strong>Design a complete Nova color system.</strong></div>' +
-        '<div><button type="button" class="sn-secondary" id="sn-theme-export">Export</button><button type="button" class="sn-secondary" id="sn-theme-import">Import</button><input id="sn-theme-import-file" type="file" accept="application/json" hidden></div></div>' + holidayCollectionMarkup());
+        '<div><button type="button" class="sn-secondary" id="sn-theme-export">Export</button><button type="button" class="sn-secondary" id="sn-theme-import">Import</button><input id="sn-theme-import-file" type="file" accept="application/json" hidden></div></div>');
+      var studio = el("sn-theme-studio");
+      if (studio) studio.insertAdjacentHTML("beforeend", '<div class="sn-theme-seasonal-footer"><div class="sn-holiday-bridge"><span></span><strong>SEASONAL EXTENSIONS</strong><span></span></div>' + holidayCollectionMarkup() + '</div>');
       var note = themes.querySelector(".sn-theme-note");
       if (note) note.textContent = "Saved themes and your active custom design sync privately to your Supernova account.";
     }
@@ -458,6 +465,46 @@
     }
   }
 
+  async function resetThemePersonalization() {
+    // Reset only theme-related Supernova state. Keep identity, Island, labs,
+    // workspaces and AI history intact.
+    clearTimeout(saveTimer);
+    saveTimer = 0;
+    delete pendingSave.themes;
+    delete pendingSave.preferences;
+
+    state.themes = [];
+    state.preferences.appliedTheme = null;
+    state.preferences.holiday = Object.assign({}, DEFAULTS.holiday, { mode: "off" });
+
+    try {
+      localStorage.removeItem("nova_holiday_settings");
+      localStorage.setItem("nova_holiday_settings", JSON.stringify(state.preferences.holiday));
+    } catch (error) {}
+
+    applyPreferences();
+    syncControls();
+    updateOverview();
+
+    if (isPro() && window.NovaAPI && window.NovaAPI.saveSupernovaState) {
+      setCloudStatus("saving");
+      try {
+        var data = await window.NovaAPI.saveSupernovaState({
+          themes: [],
+          preferences: clone(state.preferences)
+        });
+        if (data && data.state) state.updatedAt = data.state.updatedAt || Date.now();
+        setCloudStatus("synced");
+      } catch (error) {
+        // Keep the local reset even if sync is temporarily unavailable.
+        pendingSave.themes = [];
+        pendingSave.preferences = clone(state.preferences);
+        setCloudStatus("error", error && error.message);
+      }
+    }
+    return clone(state);
+  }
+
   function updateOverview() {
     var cards = document.querySelectorAll(".sn-overview-card");
     cards.forEach(function (card) {
@@ -662,5 +709,5 @@
   document.addEventListener("DOMContentLoaded", init);
   document.addEventListener("nova:page-change", function (event) { if (event.detail && event.detail.page === "supernova") { updateOverview(); if (!state.updatedAt) loadCloudState(); } });
 
-  window.NovaSupernovaHub = { init: init, reload: loadCloudState, openUrl: openUrlInNova, getState: function () { return clone(state); } };
+  window.NovaSupernovaHub = { init: init, reload: loadCloudState, openUrl: openUrlInNova, resetThemes: resetThemePersonalization, getState: function () { return clone(state); } };
 })();

@@ -9,7 +9,7 @@
 .sn-brand-lockup small,.sn-head-meta>span{font:700 .31rem/1.3 "Space Mono",monospace;letter-spacing:.14em;color:var(--muted)}
 .sn-head-meta>span{color:#76d9b4}
 .sn-hub-v2 .sn-pro-badge{font-size:.36rem;padding:.28rem .58rem}
-.sn-hub-v2 .sn-section-tabs{display:grid;grid-template-columns:repeat(7,minmax(82px,1fr));gap:.25rem;margin:0 0 .7rem;padding:.24rem;border-radius:16px;background:rgba(8,6,18,.5);overflow-x:auto;scrollbar-width:none}
+.sn-hub-v2 .sn-section-tabs{display:grid;grid-template-columns:repeat(8,minmax(82px,1fr));gap:.25rem;margin:0 0 .7rem;padding:.24rem;border-radius:16px;background:rgba(8,6,18,.5);overflow-x:auto;scrollbar-width:none}
 .sn-hub-v2 .sn-section-tabs::-webkit-scrollbar{display:none}
 .sn-hub-v2 .sn-section-tab{min-width:82px;min-height:38px;padding:.38rem .45rem;gap:.3rem;border:1px solid transparent;white-space:nowrap}
 .sn-hub-v2 .sn-section-tab svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}

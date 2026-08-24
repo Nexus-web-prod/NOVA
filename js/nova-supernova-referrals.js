@@ -2,6 +2,7 @@
   "use strict";
 
   var panel = document.getElementById("sn-referral-panel");
+  var referralPage = document.getElementById("sn-panel-referrals");
   var claimPanel = document.getElementById("sn-referral-claim-panel");
   var trialButton = document.getElementById("plans-sn-trial-btn");
   var trialFeedback = document.getElementById("sn-trial-feedback");
@@ -67,12 +68,16 @@
     var acct = account();
     if (!acct) {
       if (panel) panel.hidden = true;
+      if (referralPage) referralPage.hidden = true;
       if (claimPanel) claimPanel.hidden = true;
       if (trialButton) trialButton.hidden = true;
       return;
     }
     var referrals = data.referrals || { canRefer: false, remaining: 0, limit: 5, sent: [], received: [] };
+    var referralTab = document.querySelector('.sn-section-tab[data-sn-section="referrals"]');
     if (panel) panel.hidden = !referrals.canRefer;
+    if (referralPage) referralPage.hidden = !referrals.canRefer;
+    if (referralTab) referralTab.hidden = !referrals.canRefer;
     if (trialButton) {
       trialButton.hidden = data.active || !data.trial.eligible;
       trialButton.disabled = data.active;
@@ -160,6 +165,6 @@
 
   document.addEventListener("nova:page-change", function (event) { if (event.detail && (event.detail.page === "plans" || event.detail.page === "supernova")) load(); });
   document.addEventListener("nova:account-changed", load);
-  document.addEventListener("nova:logout", function () { if (panel) panel.hidden = true; if (claimPanel) claimPanel.hidden = true; });
+  document.addEventListener("nova:logout", function () { if (panel) panel.hidden = true; if (referralPage) referralPage.hidden = true; if (claimPanel) claimPanel.hidden = true; });
   setTimeout(load, 900);
 })();
