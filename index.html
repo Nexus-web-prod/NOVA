@@ -780,7 +780,8 @@ html[data-island-close-button="off"] #nova-island-content > .ni-tabs .ni-tab-ind
   </style>
 <link rel="stylesheet" href="/css/nova-games-social-native.css?v=1">
 <link rel="stylesheet" href="/css/nova-checkers.css?v=1">
-<style>.checkers-surface,.social-game-picker{background-color:var(--bg)!important;background-image:radial-gradient(circle at 72% 18%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 42%)!important}@media(max-width:700px){#page-social.social-game-open .social-sidebar{display:none!important}#page-social.social-game-open .social-layout,#page-social.social-game-open .social-chat-area{width:100%!important;max-width:none!important;flex:1 1 100%!important}.social-game-open .social-game-shell{inset:0!important}}</style>
+<link rel="stylesheet" href="/css/nova-chess.css?v=1">
+<style>.checkers-surface,.chess-surface,.social-game-picker{background-color:var(--bg)!important;background-image:radial-gradient(circle at 72% 18%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 42%)!important}@media(max-width:700px){#page-social.social-game-open .social-sidebar{display:none!important}#page-social.social-game-open .social-layout,#page-social.social-game-open .social-chat-area{width:100%!important;max-width:none!important;flex:1 1 100%!important}.social-game-open .social-game-shell{inset:0!important}}</style>
 <link rel="stylesheet" href="/css/nova-motion-v2.css?v=800">
 <style id="nova-v44-ui-polish">
 /* v4.4 UI polish */
@@ -2873,7 +2874,7 @@ General
           </div>
 <button class="social-games-tab" id="social-games-tab" type="button" aria-label="Open Nova Games">
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12h4M10 10v4M16 10h.01M18 12h.01"/></svg>
-<span>Games</span><small>2 GAMES</small>
+<span>Games</span><small>3 GAMES</small>
 </button>
 <div class="social-search-wrap">
 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -2962,9 +2963,22 @@ General
   </div>
   <div class="checkers-toast" id="checkers-toast" role="status" aria-live="polite" hidden></div>
 </section>
+<section class="chess-surface" id="chess-surface" hidden aria-label="Nova Chess">
+  <div class="chess-home" id="chess-home">
+    <div><span class="chess-kicker">NOVA SOCIAL · TWO PLAYER</span><h2>Chess,<br><em>without the noise.</em></h2><p>Open a friend chat and press Chess to start a private match. Full rules are included, with no clock and no move-history writes.</p></div>
+    <div class="chess-preview" aria-hidden="true"><span>♜</span><span>♞</span><span>♝</span><span>♛</span><span>♚</span><span>♝</span><span>♞</span><span>♜</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+  <div class="chess-match" id="chess-match" hidden>
+    <header class="chess-match-head"><div id="chess-opponent" class="chess-player"></div><div><span id="chess-turn" role="status" aria-live="polite">Loading match…</span><small id="chess-rule-hint">Select a piece to see its legal moves</small></div><button id="chess-resign" type="button">Resign</button></header>
+    <div class="chess-board-wrap"><div class="chess-board" id="chess-board" role="grid" aria-label="Chess board"></div></div>
+    <footer class="chess-match-foot"><div id="chess-you" class="chess-player"></div><button id="chess-replay" type="button" hidden>Play again</button></footer>
+  </div>
+  <div class="chess-promotion" id="chess-promotion" hidden role="dialog" aria-modal="true" aria-labelledby="chess-promotion-title"><div><strong id="chess-promotion-title">Promote your pawn</strong><span>Choose a piece</span><div><button type="button" data-chess-promotion="q">Q<small>Queen</small></button><button type="button" data-chess-promotion="r">R<small>Rook</small></button><button type="button" data-chess-promotion="b">B<small>Bishop</small></button><button type="button" data-chess-promotion="n">N<small>Knight</small></button></div></div></div>
+  <div class="chess-toast" id="chess-toast" role="status" aria-live="polite" hidden></div>
+</section>
 <section class="social-game-picker" id="social-game-picker" hidden aria-label="Choose a Nova Social game">
   <header><span>NOVA SOCIAL</span><h2>Pick a table.</h2><p>Play live with your Nova friends.</p></header>
-  <div class="social-game-picker-grid"><button id="social-pick-uno" type="button"><span class="game-pick-art uno"><i></i><i></i><i></i></span><b>UNO</b><small>2–4 players · cards</small></button><button id="social-pick-checkers" type="button"><span class="game-pick-art checkers"><i></i><i></i><i></i><i></i></span><b>CHECKERS</b><small>2 players · strategy</small></button></div>
+  <div class="social-game-picker-grid"><button id="social-pick-uno" type="button"><span class="game-pick-art uno"><i></i><i></i><i></i></span><b>UNO</b><small>2–4 players · cards</small></button><button id="social-pick-checkers" type="button"><span class="game-pick-art checkers"><i></i><i></i><i></i><i></i></span><b>CHECKERS</b><small>2 players · strategy</small></button><button id="social-pick-chess" type="button"><span class="game-pick-art chess" aria-hidden="true"><i>♞</i><i>♟</i><i>♙</i><i>♘</i></span><b>CHESS</b><small>2 players · full rules</small></button></div>
 </section>
 </div>
 </div>
@@ -3012,6 +3026,7 @@ General
 </div>
 <button class="social-uno-start" id="social-dm-uno-btn" type="button" title="Play UNO" aria-label="Start UNO with this friend"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>UNO</span></button>
 <button class="social-uno-start social-checkers-start" id="social-dm-checkers-btn" type="button" title="Play Checkers" aria-label="Start Checkers with this friend"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="4"/><circle cx="16" cy="16" r="4"/><path d="M5 8h6M13 16h6"/></svg><span>CHECKERS</span></button>
+<button class="social-uno-start social-chess-start" id="social-dm-chess-btn" type="button" title="Play Chess" aria-label="Start Chess with this friend"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20h9M9 17h7l1-3-5-2 3-3-2-3-5 2-1 6z"/></svg><span>CHESS</span></button>
 <button id="social-chat-report-btn" title="Report user" style="background:none;border:none;cursor:pointer;color:rgba(238,238,246,.2);padding:.3rem;display:flex;align-items:center;transition:color .2s;margin-right:.25rem;" onmouseover="this.style.color='rgba(255,107,107,.8)'" onmouseout="this.style.color='rgba(238,238,246,.2)'">
 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
 </button>
@@ -3180,7 +3195,8 @@ General
 <script src="/js/nova-ai.js?v=722" defer></script>
 <script src="/js/social-uno-native.js?v=1"></script>
 <script src="/js/social-checkers-native.js?v=1"></script>
-<script src="/js/social.js?v=720" defer></script>
+<script src="/js/social-chess-native.js?v=1"></script>
+<script src="/js/social.js?v=721" defer></script>
 <script src="/js/nova-realtime-voice.js?v=818" defer></script>
 <script src="/js/nova-social-vc.js?v=20260823-staff-r8.22" defer></script>
 <script src="/js/nova-tickets.js?v=716" defer></script>

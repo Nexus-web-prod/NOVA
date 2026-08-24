@@ -79,6 +79,7 @@ const sessionUserCache = new Map();
 let tursoSchemaReady = null;
 let unoSchemaReady = null;
 let checkersSchemaReady = null;
+let chessSchemaReady = null;
 const requestUserCache = new WeakMap();
 const geminiModelCache = new Map();
 
@@ -430,6 +431,7 @@ async function routeApi(request, env, url) {
 
   if (pathname.startsWith("/api/boardgames/uno/")) await ensureUnoSchema(getDb(env));
   if (pathname.startsWith("/api/boardgames/checkers/")) await ensureCheckersSchema(getDb(env));
+  if (pathname.startsWith("/api/boardgames/chess/")) await ensureChessSchema(getDb(env));
 
   if (pathname === "/api/health" && method === "GET") return health(env);
   if (pathname === "/api/device-status" && method === "GET") return deviceStatus(request, getDb(env));
@@ -464,6 +466,9 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/boardgames/checkers/matches" && method === "GET") return getCheckersMatch(request, url, getDb(env));
   if (pathname === "/api/boardgames/checkers/social-invite" && method === "POST") return createCheckersSocialInvite(request, getDb(env));
   if (pathname === "/api/boardgames/checkers/action" && method === "POST") return checkersAction(request, getDb(env));
+  if (pathname === "/api/boardgames/chess/matches" && method === "GET") return getChessMatch(request, url, getDb(env));
+  if (pathname === "/api/boardgames/chess/social-invite" && method === "POST") return createChessSocialInvite(request, getDb(env));
+  if (pathname === "/api/boardgames/chess/action" && method === "POST") return chessAction(request, getDb(env));
   if (pathname === "/api/presence" && method === "POST") return setPresence(request, getDb(env));
   if (pathname === "/api/social" && method === "GET") return socialOverview(request, getDb(env));
   if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, getDb(env));
@@ -1072,6 +1077,93 @@ async function checkersAction(request, db) {
   const updated = await checkersRow(db, matchId);
   return apiJson({ match: exposeCheckersMatch(updated, auth.id) });
 }
+
+async function ensureChessSchema(db) {
+  if (!chessSchemaReady) chessSchemaReady = db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS chess_matches (id TEXT PRIMARY KEY,white_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,black_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS chess_white_updated_idx ON chess_matches(white_user_id,updated_at DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS chess_black_updated_idx ON chess_matches(black_user_id,updated_at DESC)")
+  ]).catch(error => { chessSchemaReady = null; throw error; });
+  return chessSchemaReady;
+}
+
+function chessInitialState() {
+  const board = "rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR".split("");
+  return { board, turn: "white", castling: "KQkq", enPassant: -1, halfmove: 0, lastMove: null, result: "", positions: {} };
+}
+function chessColor(piece) { if (!piece || piece === ".") return ""; return piece === piece.toUpperCase() ? "white" : "black"; }
+function chessEnemy(color) { return color === "white" ? "black" : "white"; }
+function chessInside(row,col) { return row >= 0 && row < 8 && col >= 0 && col < 8; }
+function chessAttacked(board, square, byColor) {
+  const row = Math.floor(square / 8), col = square % 8, pawnRow = row + (byColor === "white" ? 1 : -1), pawn = byColor === "white" ? "P" : "p";
+  for (const dc of [-1,1]) if (chessInside(pawnRow,col+dc) && board[pawnRow*8+col+dc] === pawn) return true;
+  const knight = byColor === "white" ? "N" : "n";
+  for (const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) if (chessInside(row+dr,col+dc) && board[(row+dr)*8+col+dc] === knight) return true;
+  const king = byColor === "white" ? "K" : "k";
+  for (const dr of [-1,0,1]) for (const dc of [-1,0,1]) if ((dr || dc) && chessInside(row+dr,col+dc) && board[(row+dr)*8+col+dc] === king) return true;
+  for (const [dr,dc,types] of [[-1,0,"rq"],[1,0,"rq"],[0,-1,"rq"],[0,1,"rq"],[-1,-1,"bq"],[-1,1,"bq"],[1,-1,"bq"],[1,1,"bq"]]) {
+    let r = row + dr, c = col + dc;
+    while (chessInside(r,c)) {
+      const piece = board[r*8+c];
+      if (piece !== ".") {
+        if (chessColor(piece) === byColor && types.includes(piece.toLowerCase())) return true;
+        break;
+      }
+      r += dr;
+      c += dc;
+    }
+  }
+  return false;
+}
+function chessInCheck(board,color) { const king = color === "white" ? "K" : "k", square = board.indexOf(king); return square < 0 || chessAttacked(board,square,chessEnemy(color)); }
+function chessPseudo(state,from) {
+  const board=state.board,piece=board[from],color=chessColor(piece); if (!color) return [];
+  const row=Math.floor(from/8),col=from%8,type=piece.toLowerCase(),moves=[];
+  const add=(to,special="")=>{ if (to<0||to>63) return; const target=board[to]; if (target === "." || chessColor(target) !== color) moves.push({from,to,special}); };
+  if (type === "p") {
+    const dr=color === "white"?-1:1,one=(row+dr)*8+col,start=color === "white"?6:1;
+    if (chessInside(row+dr,col) && board[one] === ".") { add(one); const two=(row+dr*2)*8+col; if (row===start && board[two] === ".") add(two,"double"); }
+    for (const dc of [-1,1]) if (chessInside(row+dr,col+dc)) { const to=(row+dr)*8+col+dc;if ((board[to]!=="."&&chessColor(board[to])!==color)||to===state.enPassant)add(to,to===state.enPassant?"en-passant":""); }
+  } else if (type === "n") {
+    for (const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) if (chessInside(row+dr,col+dc)) add((row+dr)*8+col+dc);
+  }
+  else if (["b","r","q"].includes(type)) {
+    const directions = type === "b" ? [[-1,-1],[-1,1],[1,-1],[1,1]] : type === "r" ? [[-1,0],[1,0],[0,-1],[0,1]] : [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr,dc] of directions) { let r=row+dr,c=col+dc;while(chessInside(r,c)){const to=r*8+c;if(board[to]===".")moves.push({from,to,special:""});else{if(chessColor(board[to])!==color)moves.push({from,to,special:""});break}r+=dr;c+=dc;} }
+  } else if (type === "k") {
+    for (const dr of [-1,0,1]) for (const dc of [-1,0,1]) if ((dr||dc)&&chessInside(row+dr,col+dc)) add((row+dr)*8+col+dc);
+    const home=color==="white"?60:4,enemy=chessEnemy(color),rights=state.castling||"";
+    if (from===home&&!chessInCheck(board,color)) {
+      const kingRight=color==="white"?"K":"k",queenRight=color==="white"?"Q":"q";
+      if(rights.includes(kingRight)&&board[home+1]==="."&&board[home+2]==="."&&!chessAttacked(board,home+1,enemy)&&!chessAttacked(board,home+2,enemy))moves.push({from,to:home+2,special:"castle-k"});
+      if(rights.includes(queenRight)&&board[home-1]==="."&&board[home-2]==="."&&board[home-3]==="."&&!chessAttacked(board,home-1,enemy)&&!chessAttacked(board,home-2,enemy))moves.push({from,to:home-2,special:"castle-q"});
+    }
+  }
+  return moves;
+}
+function chessApply(state,move,promotion) {
+  const next={...state,board:state.board.slice(),positions:{...(state.positions||{})}},piece=next.board[move.from],color=chessColor(piece),captured=next.board[move.to];
+  next.board[move.from]=".";next.board[move.to]=piece;
+  if(move.special==="en-passant")next.board[move.to+(color==="white"?8:-8)]=".";
+  if(move.special==="castle-k"){next.board[move.to-1]=next.board[move.to+1];next.board[move.to+1]="."}
+  if(move.special==="castle-q"){next.board[move.to+1]=next.board[move.to-2];next.board[move.to-2]="."}
+  const endRow=Math.floor(move.to/8);if(piece.toLowerCase()==="p"&&(endRow===0||endRow===7)){const chosen=["q","r","b","n"].includes(promotion)?promotion:"q";next.board[move.to]=color==="white"?chosen.toUpperCase():chosen;}
+  let rights=String(next.castling||"");if(piece==="K")rights=rights.replace(/[KQ]/g,"");if(piece==="k")rights=rights.replace(/[kq]/g,"");
+  [[63,"K"],[56,"Q"],[7,"k"],[0,"q"]].forEach(([square,right])=>{if(move.from===square||move.to===square)rights=rights.replace(right,"")});next.castling=rights;
+  next.enPassant=move.special==="double"?(move.from+move.to)/2:-1;next.halfmove=piece.toLowerCase()==="p"||captured!=="."||move.special==="en-passant"?0:Number(next.halfmove||0)+1;next.lastMove={from:move.from,to:move.to};next.turn=chessEnemy(color);return next;
+}
+function chessLegalMoves(state,color) { const moves=[];state.board.forEach((piece,from)=>{if(chessColor(piece)!==color)return;chessPseudo(state,from).forEach(move=>{const next=chessApply(state,move,"q");if(!chessInCheck(next.board,color))moves.push(move)})});return moves; }
+function chessPositionKey(state){return state.board.join("")+"|"+state.turn+"|"+(state.castling||"")+"|"+state.enPassant;}
+function chessInsufficient(board){const material=[];board.forEach((piece,square)=>{if(piece!=="."&&piece.toLowerCase()!=="k")material.push({type:piece.toLowerCase(),square})});if(material.some(item=>["p","q","r"].includes(item.type)))return false;if(material.length<=1)return true;return material.every(item=>item.type==="b")&&new Set(material.map(item=>(Math.floor(item.square/8)+item.square%8)%2)).size===1;}
+function chessRow(db,id){return db.prepare("SELECT c.*,wu.username AS white_username,COALESCE(wp.display_name,wu.username) AS white_display_name,COALESCE(wp.avatar_url,'') AS white_avatar_url,bu.username AS black_username,COALESCE(bp.display_name,bu.username) AS black_display_name,COALESCE(bp.avatar_url,'') AS black_avatar_url FROM chess_matches c JOIN users wu ON wu.id=c.white_user_id JOIN users bu ON bu.id=c.black_user_id LEFT JOIN user_profiles wp ON wp.user_id=wu.id LEFT JOIN user_profiles bp ON bp.user_id=bu.id WHERE c.id=? LIMIT 1").bind(id).first();}
+function exposeChessMatch(row,userId){const state=parseJson(row.state_json,{}),players=[{userId:row.white_user_id,username:row.white_username,displayName:row.white_display_name,avatarUrl:row.white_avatar_url,color:"white"},{userId:row.black_user_id,username:row.black_username,displayName:row.black_display_name,avatarUrl:row.black_avatar_url,color:"black"}];return{id:row.id,status:row.status,version:Number(row.version),winnerId:row.winner_id||"",whiteUserId:row.white_user_id,blackUserId:row.black_user_id,currentUserId:state.turn==="white"?row.white_user_id:row.black_user_id,turn:state.turn||"white",board:Array.isArray(state.board)?state.board:chessInitialState().board,castling:state.castling||"",enPassant:Number.isInteger(state.enPassant)?state.enPassant:-1,lastMove:state.lastMove||null,result:state.result||"",inCheck:chessInCheck(Array.isArray(state.board)?state.board:chessInitialState().board,state.turn||"white"),players,viewerId:userId,updatedAt:Number(row.updated_at)}}
+async function createChessSocialInvite(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db);await enforceUserRateLimit(db,auth.id,"chess-create",20,10*60*1000,10*60*1000);const body=await readJson(request),target=await loadUserByUsername(db,normalizeUsername(body.username));if(!target||target.id===auth.id)return apiError("USER_NOT_FOUND","Choose a Nova friend to play",404);const friend=await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();if(!friend||await isBlockedBetween(db,auth.id,target.id))return apiError("FRIENDS_ONLY","Chess can only be started with an accepted friend",403);const id="chs_"+randomId(),now=Date.now(),state=chessInitialState(),key=chessPositionKey(state);state.positions[key]=1;await db.prepare("INSERT INTO chess_matches(id,white_user_id,black_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();const row=await chessRow(db,id);return apiJson({match:exposeChessMatch(row,auth.id)},201)}
+async function getChessMatch(request,url,db){const auth=await requireSocialUser(request,db),id=cleanText(url.searchParams.get("id"),80),row=await chessRow(db,id);if(!row)return apiError("MATCH_NOT_FOUND","That Chess match is no longer available",404);if(![row.white_user_id,row.black_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Chess match",403);return apiJson({match:exposeChessMatch(row,auth.id)})}
+async function chessAction(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db),body=await readJson(request),matchId=cleanText(body.matchId,80),action=enumValue(body.action,["move","resign","replay"],"move"),row=await chessRow(db,matchId);if(!row)return apiError("MATCH_NOT_FOUND","That Chess match no longer exists",404);if(![row.white_user_id,row.black_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Chess match",403);let state=parseJson(row.state_json,{}),status=row.status,winnerId=row.winner_id||null;
+  if(action==="replay"){if(status!=="finished")return apiError("MATCH_ACTIVE","Finish this match first",409);state=chessInitialState();state.positions[chessPositionKey(state)]=1;status="playing";winnerId=null;}
+  else if(action==="resign"){if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);winnerId=auth.id===row.white_user_id?row.black_user_id:row.white_user_id;status="finished";state.result="resignation";}
+  else{if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);const color=auth.id===row.white_user_id?"white":"black";if(state.turn!==color)return apiError("NOT_YOUR_TURN","Wait for your friend to move",409);const from=Number(body.from),to=Number(body.to),legal=chessLegalMoves(state,color),move=legal.find(item=>item.from===from&&item.to===to);if(!move)return apiError("INVALID_MOVE","That piece cannot move there",409);state=chessApply(state,move,enumValue(body.promotion,["q","r","b","n"],"q"));const key=chessPositionKey(state);state.positions[key]=Number(state.positions[key]||0)+1;const replies=chessLegalMoves(state,state.turn);if(!replies.length){status="finished";if(chessInCheck(state.board,state.turn)){winnerId=auth.id;state.result="checkmate"}else{winnerId=null;state.result="stalemate"}}else if(state.halfmove>=100){status="finished";winnerId=null;state.result="fifty-move"}else if(state.positions[key]>=3){status="finished";winnerId=null;state.result="repetition"}else if(chessInsufficient(state.board)){status="finished";winnerId=null;state.result="insufficient-material"}}
+  const result=await db.prepare("UPDATE chess_matches SET status=?,winner_id=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,winnerId,JSON.stringify(state),Date.now(),matchId,row.version).run();if(!result.meta?.changes)return apiError("GAME_CHANGED","The board changed—try again",409);const updated=await chessRow(db,matchId);return apiJson({match:exposeChessMatch(updated,auth.id)})}
 
 function unoDeck() {
   const deck = [];

@@ -843,6 +843,7 @@ function messageActionsHtml(){
 }
 function openSocialUno(lobbyId){
   window.NovaSocialCheckersNative?.stop();
+  window.NovaSocialChessNative?.stop();
   const shell=document.getElementById("social-game-shell");
   const chatArea=document.getElementById("social-chat-area");
   if(!shell)return;
@@ -858,6 +859,7 @@ function openSocialUno(lobbyId){
   document.getElementById("social-games-tab")?.classList.add("active");
   document.getElementById("social-game-picker")?.setAttribute("hidden","");
   document.getElementById("checkers-surface")?.setAttribute("hidden","");
+  document.getElementById("chess-surface")?.setAttribute("hidden","");
   const title=document.getElementById("social-game-title");if(title)title.textContent="UNO TABLE";
   const id=String(lobbyId||"").trim();
   if(id)window.NovaSocialUnoNative?.openLobby(id);
@@ -865,8 +867,10 @@ function openSocialUno(lobbyId){
 }
 function openSocialGamePicker(){openSocialUno("");document.getElementById("social-game-picker")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="GAME ROOM";}
 function openSocialCheckers(matchId){openSocialUno("");document.getElementById("social-game-picker")?.setAttribute("hidden","");document.getElementById("checkers-surface")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="CHECKERS";const id=String(matchId||"").trim();if(id)window.NovaSocialCheckersNative?.openMatch(id);else window.NovaSocialCheckersNative?.showHome();}
+function openSocialChess(matchId){openSocialUno("");document.getElementById("social-game-picker")?.setAttribute("hidden","");document.getElementById("chess-surface")?.removeAttribute("hidden");const title=document.getElementById("social-game-title");if(title)title.textContent="CHESS";const id=String(matchId||"").trim();if(id)window.NovaSocialChessNative?.openMatch(id);else window.NovaSocialChessNative?.showHome();}
 function closeSocialUno(){
   window.NovaSocialCheckersNative?.stop();
+  window.NovaSocialChessNative?.stop();
   const shell=document.getElementById("social-game-shell");
   const chatArea=document.getElementById("social-chat-area");
   if(!shell)return;
@@ -879,7 +883,7 @@ function closeSocialUno(){
   document.getElementById("page-social")?.classList.remove("social-game-open");
   document.getElementById("social-games-tab")?.classList.remove("active");
 }
-window.NovaSocialGames={open:openSocialGamePicker,openUno:openSocialUno,openCheckers:openSocialCheckers,close:closeSocialUno};
+window.NovaSocialGames={open:openSocialGamePicker,openUno:openSocialUno,openCheckers:openSocialCheckers,openChess:openSocialChess,close:closeSocialUno};
 
 function makeMsg(msg,mine,showSender){
   const el=document.createElement("div");
@@ -905,10 +909,13 @@ function makeMsg(msg,mine,showSender){
   let bubble="";
   const unoMatch=msg.type==="text"&&String(msg.text||"").match(/^\[\[NOVA_UNO:([A-Za-z0-9_-]+)\]\]$/);
   const checkersMatch=msg.type==="text"&&String(msg.text||"").match(/^\[\[NOVA_CHECKERS:([A-Za-z0-9_-]+)\]\]$/);
+  const chessMatch=msg.type==="text"&&String(msg.text||"").match(/^\[\[NOVA_CHESS:([A-Za-z0-9_-]+)\]\]$/);
   if(unoMatch){
     bubble='<div class="social-msg-bubble social-uno-invite"><div class="social-uno-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div class="social-uno-copy"><small>NOVA TABLE</small><strong>UNO</strong><span>'+(mine?'Invites sent — your table is ready.':'You were invited to play.')+'</span></div><button class="social-uno-join" type="button" data-social-uno-lobby="'+esc(unoMatch[1])+'">'+(mine?'Open':'Join')+' table<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>';
   }else if(checkersMatch){
     bubble='<div class="social-msg-bubble social-uno-invite social-checkers-invite"><div class="social-checkers-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="social-uno-copy"><small>NOVA MATCH</small><strong>CHECKERS</strong><span>'+(mine?'Challenge sent — the board is ready.':'You were challenged to a match.')+'</span></div><button class="social-uno-join" type="button" data-social-checkers-match="'+esc(checkersMatch[1])+'">'+(mine?'Open':'Play')+' match<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>';
+  }else if(chessMatch){
+    bubble='<div class="social-msg-bubble social-uno-invite social-chess-invite"><div class="social-chess-mark" aria-hidden="true">♞</div><div class="social-uno-copy"><small>NOVA MATCH</small><strong>CHESS</strong><span>'+(mine?'Challenge sent — the board is ready.':'You were challenged to a match.')+'</span></div><button class="social-uno-join" type="button" data-social-chess-match="'+esc(chessMatch[1])+'">'+(mine?'Open':'Play')+' match<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>';
   }else if(msg.type==="image"){
     bubble='<div class="social-msg-bubble social-msg-bubble--img"><img src="'+esc(msg.text)+'" alt="photo" class="social-chat-photo" loading="lazy"></div>';
   }else{
@@ -917,6 +924,7 @@ function makeMsg(msg,mine,showSender){
   el.innerHTML=sender+replyCtx+'<div class="social-msg-main">'+bubble+messageActionsHtml()+'</div><div class="social-msg-reactions"></div>'+time;
   el.querySelector("[data-social-uno-lobby]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialUno(e.currentTarget.dataset.socialUnoLobby);});
   el.querySelector("[data-social-checkers-match]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialCheckers(e.currentTarget.dataset.socialCheckersMatch);});
+  el.querySelector("[data-social-chess-match]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialChess(e.currentTarget.dataset.socialChessMatch);});
   el.querySelector('[data-message-action="reply"]')?.addEventListener("click",e=>{
     e.stopPropagation();setReply({_id:el.dataset.streamId||null,from:msg.from,text:msg.text,type:msg.type||"text"});
     const inp=document.getElementById(activePane.startsWith("group:")?"social-group-msg-input":"social-msg-input")||document.getElementById("social-everyone-input");
@@ -973,6 +981,20 @@ async function startCheckersFromSocial(button){
     const container=document.getElementById("social-messages");if(container){container.appendChild(makeMsg({_id:sid,from:acct.username.toLowerCase(),text:marker,ts:Date.now(),type:"text"},true,false));container.scrollTop=container.scrollHeight;}
     toast("Checkers challenge sent");openSocialCheckers(data.match.id);
   }catch(error){toast(error.message||"Could not start Checkers");}
+  finally{button.disabled=false;button.classList.remove("is-loading");}
+}
+async function startChessFromSocial(button){
+  const acct=getAccount();if(!acct)return toast("Sign in to start Chess");
+  if(activePane==="everyone"||activePane==="none"||activePane.startsWith("group:"))return toast("Open a friend chat to play Chess");
+  button.disabled=true;button.classList.add("is-loading");
+  try{
+    const data=await NovaAPI.request("/api/boardgames/chess/social-invite",{method:"POST",body:{username:activePane}});
+    const marker="[[NOVA_CHESS:"+data.match.id+"]]",channel=dmKey(acct.username.toLowerCase(),activePane.toLowerCase());
+    const sid=await streamAdd(channel,{from:acct.username.toLowerCase(),text:marker,ts:String(Date.now()),type:"text",cid:uid()});
+    if(!sid)throw new Error("The match was created, but its chat invite could not be sent");
+    const container=document.getElementById("social-messages");if(container){container.appendChild(makeMsg({_id:sid,from:acct.username.toLowerCase(),text:marker,ts:Date.now(),type:"text"},true,false));container.scrollTop=container.scrollHeight;}
+    toast("Chess challenge sent");openSocialChess(data.match.id);
+  }catch(error){toast(error.message||"Could not start Chess");}
   finally{button.disabled=false;button.classList.remove("is-loading");}
 }
 function emptyState(txt){return'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.6rem;opacity:.35;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-family:\'Space Mono\',monospace;font-size:.5rem;color:var(--muted);">'+txt+"</div></div>"}
@@ -1568,10 +1590,12 @@ function wireDom(){
   document.getElementById("social-chat-block-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openBlockUserModal(activePane);});
   document.getElementById("social-dm-uno-btn")?.addEventListener("click",e=>startUnoFromSocial(e.currentTarget));
   document.getElementById("social-dm-checkers-btn")?.addEventListener("click",e=>startCheckersFromSocial(e.currentTarget));
+  document.getElementById("social-dm-chess-btn")?.addEventListener("click",e=>startChessFromSocial(e.currentTarget));
   document.getElementById("social-group-uno-btn")?.addEventListener("click",e=>startUnoFromSocial(e.currentTarget));
   document.getElementById("social-games-tab")?.addEventListener("click",openSocialGamePicker);
   document.getElementById("social-pick-uno")?.addEventListener("click",()=>openSocialUno(""));
   document.getElementById("social-pick-checkers")?.addEventListener("click",()=>openSocialCheckers(""));
+  document.getElementById("social-pick-chess")?.addEventListener("click",()=>openSocialChess(""));
   document.getElementById("social-game-close")?.addEventListener("click",closeSocialUno);
 
   const groupModal=document.getElementById("social-group-modal");
