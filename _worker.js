@@ -80,6 +80,7 @@ let tursoSchemaReady = null;
 let unoSchemaReady = null;
 let checkersSchemaReady = null;
 let chessSchemaReady = null;
+let connect4SchemaReady = null;
 const requestUserCache = new WeakMap();
 const geminiModelCache = new Map();
 
@@ -432,6 +433,7 @@ async function routeApi(request, env, url) {
   if (pathname.startsWith("/api/boardgames/uno/")) await ensureUnoSchema(getDb(env));
   if (pathname.startsWith("/api/boardgames/checkers/")) await ensureCheckersSchema(getDb(env));
   if (pathname.startsWith("/api/boardgames/chess/")) await ensureChessSchema(getDb(env));
+  if (pathname.startsWith("/api/boardgames/connect4/")) await ensureConnect4Schema(getDb(env));
 
   if (pathname === "/api/health" && method === "GET") return health(env);
   if (pathname === "/api/device-status" && method === "GET") return deviceStatus(request, getDb(env));
@@ -469,6 +471,9 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/boardgames/chess/matches" && method === "GET") return getChessMatch(request, url, getDb(env));
   if (pathname === "/api/boardgames/chess/social-invite" && method === "POST") return createChessSocialInvite(request, getDb(env));
   if (pathname === "/api/boardgames/chess/action" && method === "POST") return chessAction(request, getDb(env));
+  if (pathname === "/api/boardgames/connect4/matches" && method === "GET") return getConnect4Match(request, url, getDb(env));
+  if (pathname === "/api/boardgames/connect4/social-invite" && method === "POST") return createConnect4SocialInvite(request, getDb(env));
+  if (pathname === "/api/boardgames/connect4/action" && method === "POST") return connect4Action(request, getDb(env));
   if (pathname === "/api/presence" && method === "POST") return setPresence(request, getDb(env));
   if (pathname === "/api/social" && method === "GET") return socialOverview(request, getDb(env));
   if (pathname === "/api/social/presence" && method === "GET") return socialPresence(request, getDb(env));
@@ -1011,7 +1016,7 @@ function checkersRow(db, id) {
 function exposeCheckersMatch(row, userId) {
   const players = [{ userId: row.red_user_id, username: row.red_username, displayName: row.red_display_name, avatarUrl: row.red_avatar_url, color: "red" },{ userId: row.black_user_id, username: row.black_username, displayName: row.black_display_name, avatarUrl: row.black_avatar_url, color: "black" }];
   const state = parseJson(row.state_json, {});
-  return { id: row.id, status: row.status, version: Number(row.version), winnerId: row.winner_id || "", redUserId: row.red_user_id, blackUserId: row.black_user_id, currentUserId: state.turn === "red" ? row.red_user_id : row.black_user_id, turn: state.turn || "red", forcedFrom: Number.isInteger(state.forcedFrom) ? state.forcedFrom : -1, board: Array.isArray(state.board) ? state.board : checkersBoard(), players, viewerId: userId, updatedAt: Number(row.updated_at) };
+  return { id: row.id, status: row.status, version: Number(row.version), winnerId: row.winner_id || "", redUserId: row.red_user_id, blackUserId: row.black_user_id, currentUserId: state.turn === "red" ? row.red_user_id : row.black_user_id, turn: state.turn || "red", forcedFrom: Number.isInteger(state.forcedFrom) ? state.forcedFrom : -1, board: Array.isArray(state.board) ? state.board : checkersBoard(), lastMove: state.lastMove || null, players, viewerId: userId, updatedAt: Number(row.updated_at) };
 }
 
 async function createCheckersSocialInvite(request, db) {
@@ -1023,7 +1028,7 @@ async function createCheckersSocialInvite(request, db) {
   if (!target || target.id === auth.id) return apiError("USER_NOT_FOUND", "Choose a Nova friend to play", 404);
   const friend = await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();
   if (!friend || await isBlockedBetween(db, auth.id, target.id)) return apiError("FRIENDS_ONLY", "Checkers can only be started with an accepted friend", 403);
-  const id = "chk_" + randomId(), now = Date.now(), state = { board: checkersBoard(), turn: "red", forcedFrom: -1 };
+  const id = "chk_" + randomId(), now = Date.now(), state = { board: checkersBoard(), turn: "red", forcedFrom: -1, lastMove: null };
   await db.prepare("INSERT INTO checkers_matches(id,red_user_id,black_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();
   const row = await checkersRow(db, id);
   return apiJson({ match: exposeCheckersMatch(row, auth.id) }, 201);
@@ -1047,7 +1052,7 @@ async function checkersAction(request, db) {
   let state = parseJson(row.state_json, {}), status = row.status, winnerId = row.winner_id || null;
   if (action === "replay") {
     if (row.status !== "finished") return apiError("MATCH_ACTIVE", "Finish this match first", 409);
-    state = { board: checkersBoard(), turn: row.winner_id === row.red_user_id ? "black" : "red", forcedFrom: -1 }; status = "playing"; winnerId = null;
+    state = { board: checkersBoard(), turn: row.winner_id === row.red_user_id ? "black" : "red", forcedFrom: -1, lastMove: null }; status = "playing"; winnerId = null;
   } else if (action === "resign") {
     if (row.status !== "playing") return apiError("MATCH_FINISHED", "This match is already finished", 409);
     winnerId = auth.id === row.red_user_id ? row.black_user_id : row.red_user_id; status = "finished"; state.forcedFrom = -1;
@@ -1064,7 +1069,7 @@ async function checkersAction(request, db) {
     const destinationRow = Math.floor(to / 8), promoted = piece === piece.toLowerCase() && ((color === "red" && destinationRow === 0) || (color === "black" && destinationRow === 7));
     if (promoted) piece = piece.toUpperCase(); board[to] = piece;
     const moreCaptures = move.capture >= 0 && !promoted ? checkersMoves(board, to, true) : [];
-    state.board = board; state.forcedFrom = moreCaptures.length ? to : -1;
+    state.board = board; state.forcedFrom = moreCaptures.length ? to : -1; state.lastMove = { from, to, capture: move.capture, promoted };
     if (!moreCaptures.length) state.turn = color === "red" ? "black" : "red";
     const opponent = color === "red" ? "black" : "red", opponentId = color === "red" ? row.black_user_id : row.red_user_id;
     if (!board.some(item => checkersColor(item) === opponent) || !checkersAllMoves(board, opponent).length) { status = "finished"; winnerId = auth.id; state.forcedFrom = -1; }
@@ -1164,6 +1169,35 @@ async function chessAction(request,db){requireSameOrigin(request);const auth=awa
   else if(action==="resign"){if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);winnerId=auth.id===row.white_user_id?row.black_user_id:row.white_user_id;status="finished";state.result="resignation";}
   else{if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);const color=auth.id===row.white_user_id?"white":"black";if(state.turn!==color)return apiError("NOT_YOUR_TURN","Wait for your friend to move",409);const from=Number(body.from),to=Number(body.to),legal=chessLegalMoves(state,color),move=legal.find(item=>item.from===from&&item.to===to);if(!move)return apiError("INVALID_MOVE","That piece cannot move there",409);state=chessApply(state,move,enumValue(body.promotion,["q","r","b","n"],"q"));const key=chessPositionKey(state);state.positions[key]=Number(state.positions[key]||0)+1;const replies=chessLegalMoves(state,state.turn);if(!replies.length){status="finished";if(chessInCheck(state.board,state.turn)){winnerId=auth.id;state.result="checkmate"}else{winnerId=null;state.result="stalemate"}}else if(state.halfmove>=100){status="finished";winnerId=null;state.result="fifty-move"}else if(state.positions[key]>=3){status="finished";winnerId=null;state.result="repetition"}else if(chessInsufficient(state.board)){status="finished";winnerId=null;state.result="insufficient-material"}}
   const result=await db.prepare("UPDATE chess_matches SET status=?,winner_id=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,winnerId,JSON.stringify(state),Date.now(),matchId,row.version).run();if(!result.meta?.changes)return apiError("GAME_CHANGED","The board changed—try again",409);const updated=await chessRow(db,matchId);return apiJson({match:exposeChessMatch(updated,auth.id)})}
+
+async function ensureConnect4Schema(db) {
+  if (!connect4SchemaReady) connect4SchemaReady = db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS connect4_matches (id TEXT PRIMARY KEY,red_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,yellow_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS connect4_red_updated_idx ON connect4_matches(red_user_id,updated_at DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS connect4_yellow_updated_idx ON connect4_matches(yellow_user_id,updated_at DESC)")
+  ]).catch(error => { connect4SchemaReady = null; throw error; });
+  return connect4SchemaReady;
+}
+
+function connect4InitialState() { return { board: Array(42).fill(""), turn: "red", lastMove: null, winning: [], result: "" }; }
+function connect4Win(board, index, color) {
+  const row = Math.floor(index / 7), col = index % 7;
+  for (const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]) {
+    const line = [index];
+    for (const sign of [-1,1]) { let r=row+dr*sign,c=col+dc*sign;while(r>=0&&r<6&&c>=0&&c<7&&board[r*7+c]===color){line.push(r*7+c);r+=dr*sign;c+=dc*sign;} }
+    if (line.length >= 4) return line.sort((a,b)=>a-b);
+  }
+  return [];
+}
+function connect4Row(db,id){return db.prepare("SELECT c.*,ru.username AS red_username,COALESCE(rp.display_name,ru.username) AS red_display_name,COALESCE(rp.avatar_url,'') AS red_avatar_url,yu.username AS yellow_username,COALESCE(yp.display_name,yu.username) AS yellow_display_name,COALESCE(yp.avatar_url,'') AS yellow_avatar_url FROM connect4_matches c JOIN users ru ON ru.id=c.red_user_id JOIN users yu ON yu.id=c.yellow_user_id LEFT JOIN user_profiles rp ON rp.user_id=ru.id LEFT JOIN user_profiles yp ON yp.user_id=yu.id WHERE c.id=? LIMIT 1").bind(id).first();}
+function exposeConnect4Match(row,userId){const state=parseJson(row.state_json,{}),players=[{userId:row.red_user_id,username:row.red_username,displayName:row.red_display_name,avatarUrl:row.red_avatar_url,color:"red"},{userId:row.yellow_user_id,username:row.yellow_username,displayName:row.yellow_display_name,avatarUrl:row.yellow_avatar_url,color:"yellow"}];return{id:row.id,status:row.status,version:Number(row.version),winnerId:row.winner_id||"",redUserId:row.red_user_id,yellowUserId:row.yellow_user_id,currentUserId:state.turn==="red"?row.red_user_id:row.yellow_user_id,turn:state.turn||"red",board:Array.isArray(state.board)?state.board:connect4InitialState().board,lastMove:state.lastMove||null,winning:Array.isArray(state.winning)?state.winning:[],result:state.result||"",players,viewerId:userId,updatedAt:Number(row.updated_at)}}
+async function createConnect4SocialInvite(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db);await enforceUserRateLimit(db,auth.id,"connect4-create",20,10*60*1000,10*60*1000);const body=await readJson(request),target=await loadUserByUsername(db,normalizeUsername(body.username));if(!target||target.id===auth.id)return apiError("USER_NOT_FOUND","Choose a Nova friend to play",404);const friend=await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();if(!friend||await isBlockedBetween(db,auth.id,target.id))return apiError("FRIENDS_ONLY","Connect Four can only be started with an accepted friend",403);const id="c4_"+randomId(),now=Date.now(),state=connect4InitialState();await db.prepare("INSERT INTO connect4_matches(id,red_user_id,yellow_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();const row=await connect4Row(db,id);return apiJson({match:exposeConnect4Match(row,auth.id)},201)}
+async function getConnect4Match(request,url,db){const auth=await requireSocialUser(request,db),id=cleanText(url.searchParams.get("id"),80),row=await connect4Row(db,id);if(!row)return apiError("MATCH_NOT_FOUND","That Connect Four match is no longer available",404);if(![row.red_user_id,row.yellow_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Connect Four match",403);return apiJson({match:exposeConnect4Match(row,auth.id)})}
+async function connect4Action(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db),body=await readJson(request),matchId=cleanText(body.matchId,80),action=enumValue(body.action,["drop","resign","replay"],"drop"),row=await connect4Row(db,matchId);if(!row)return apiError("MATCH_NOT_FOUND","That Connect Four match no longer exists",404);if(![row.red_user_id,row.yellow_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Connect Four match",403);let state=parseJson(row.state_json,{}),status=row.status,winnerId=row.winner_id||null;
+  if(action==="replay"){if(status!=="finished")return apiError("MATCH_ACTIVE","Finish this match first",409);state=connect4InitialState();state.turn=row.winner_id===row.red_user_id?"yellow":"red";status="playing";winnerId=null;}
+  else if(action==="resign"){if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);winnerId=auth.id===row.red_user_id?row.yellow_user_id:row.red_user_id;status="finished";state.result="resignation";}
+  else{if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);const color=auth.id===row.red_user_id?"red":"yellow";if(state.turn!==color)return apiError("NOT_YOUR_TURN","Wait for your friend to move",409);const column=Number(body.column);if(!Number.isInteger(column)||column<0||column>6)return apiError("INVALID_COLUMN","Choose a column",409);const board=Array.isArray(state.board)?state.board.slice(0,42):connect4InitialState().board;let index=-1;for(let rowIndex=5;rowIndex>=0;rowIndex--){const candidate=rowIndex*7+column;if(!board[candidate]){index=candidate;break}}if(index<0)return apiError("COLUMN_FULL","That column is full",409);board[index]=color;state.board=board;state.lastMove={column,index};state.winning=connect4Win(board,index,color);if(state.winning.length){status="finished";winnerId=auth.id;state.result="connect-four"}else if(board.every(Boolean)){status="finished";winnerId=null;state.result="draw"}else state.turn=color==="red"?"yellow":"red";}
+  const result=await db.prepare("UPDATE connect4_matches SET status=?,winner_id=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,winnerId,JSON.stringify(state),Date.now(),matchId,row.version).run();if(!result.meta?.changes)return apiError("GAME_CHANGED","The board changed—try again",409);const updated=await connect4Row(db,matchId);return apiJson({match:exposeConnect4Match(updated,auth.id)})}
 
 function unoDeck() {
   const deck = [];
