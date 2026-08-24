@@ -1023,6 +1023,9 @@ html[data-theme=light] .social-msg-actions,html[data-theme=light] .social-reacti
 .plan-cta-btn--trial:hover{background:rgba(245,197,24,.24);border-color:rgba(245,197,24,.72);}
 
 .sn-referral-panel{margin-top:1rem;padding:1rem;border:1px solid rgba(245,197,24,.25);border-radius:14px;background:var(--glass-bg);}
+.sn-referral-panel--hub{margin:0 0 1rem;}
+.sn-referral-claim-panel{border-color:rgba(139,143,255,.3);}
+.sn-trial-feedback{text-align:center;margin:.45rem auto 0;min-height:0;}
 .sn-referral-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;}
 .sn-referral-eyebrow{font-family:'Space Mono',monospace;font-size:.36rem;font-weight:700;letter-spacing:.12em;color:#f5c518;}
 .sn-referral-head h2{margin:.2rem 0;font-family:'Space Mono',monospace;font-size:.65rem;color:var(--white);}

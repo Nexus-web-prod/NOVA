@@ -37,7 +37,7 @@ function _showNovaUpdateBanner(){
 <title>Nova 7.0</title>
 <link rel="icon" id="favicon-link" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' ry='22' fill='%230a0a14'/><path d='M50,24 C51.5,35 62,47.5 76,50 C62,52.5 51.5,65 50,76 C48.5,65 38,52.5 24,50 C38,47.5 48.5,35 50,24Z' fill='%23ffffff' opacity='0.92'/><circle cx='50' cy='50' r='3' fill='%23ffffff'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-<link rel="stylesheet" href="/css/nova.css?v=735">
+<link rel="stylesheet" href="/css/nova.css?v=736">
 <link rel="stylesheet" href="/css/nova-ads.css?v=20260824-ads1">
 <style id="nova-account-modal-fix">.acct-modal-box{background:#0d0d1d!important;color:#eeeef6!important;z-index:1;border-color:rgba(139,143,255,.34)!important;box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(139,143,255,.12),0 0 70px rgba(107,92,255,.14)!important}</style>
 <link rel="stylesheet" href="/css/nova-game-detail.css?v=730">
@@ -2253,27 +2253,18 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 </div>
 
 </div>
-<section class="sn-referral-panel" id="sn-referral-panel" aria-labelledby="sn-referral-title" hidden>
+<section class="sn-referral-panel sn-referral-claim-panel" id="sn-referral-claim-panel" aria-labelledby="sn-referral-claim-title" hidden>
   <header class="sn-referral-head">
     <div>
-      <span class="sn-referral-eyebrow">SHARE SUPERNOVA</span>
-      <h2 id="sn-referral-title">Referral access</h2>
-      <p id="sn-referral-summary">Invite up to five people. Each accepted invite unlocks Supernova for seven days.</p>
+      <span class="sn-referral-eyebrow">SUPERNOVA INVITE</span>
+      <h2 id="sn-referral-claim-title">Your invitation</h2>
+      <p>A Supernova member invited you to unlock seven days of Pro access.</p>
     </div>
-    <span class="sn-referral-count" id="sn-referral-count" aria-live="polite"></span>
   </header>
-  <div class="sn-referral-incoming" id="sn-referral-incoming" hidden></div>
-  <form class="sn-referral-form" id="sn-referral-form" novalidate>
-    <label for="sn-referral-username">Nova username</label>
-    <div class="sn-referral-form-row">
-      <input id="sn-referral-username" name="username" autocomplete="off" maxlength="20" placeholder="username" />
-      <button type="submit" id="sn-referral-send">Send invite</button>
-    </div>
-    <p class="sn-referral-help">Invites use one of your five referral spots when sent.</p>
-    <p class="sn-referral-feedback" id="sn-referral-feedback" role="status" aria-live="polite"></p>
-  </form>
-  <div class="sn-referral-list" id="sn-referral-list"></div>
+  <div class="sn-referral-incoming" id="sn-referral-incoming"></div>
+  <p class="sn-referral-feedback" id="sn-referral-claim-feedback" role="status" aria-live="polite"></p>
 </section>
+<p class="sn-referral-feedback sn-trial-feedback" id="sn-trial-feedback" role="status" aria-live="polite"></p>
 <div class="nexus-footer"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <a href="https://nexus-n-co.pages.dev/nexus" target="_blank" class="nexus-footer-link"><strong>NEXUS</strong></a></span></div>
 </div>
 </div>
@@ -2480,6 +2471,26 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 </div>
 <div class="sn-pro-badge">✦ PRO</div>
 </div>
+<section class="sn-referral-panel sn-referral-panel--hub" id="sn-referral-panel" aria-labelledby="sn-referral-title" hidden>
+  <header class="sn-referral-head">
+    <div>
+      <span class="sn-referral-eyebrow">SHARE SUPERNOVA</span>
+      <h2 id="sn-referral-title">Invite friends</h2>
+      <p id="sn-referral-summary">Invite up to five people. Each accepted invite unlocks Supernova for seven days.</p>
+    </div>
+    <span class="sn-referral-count" id="sn-referral-count" aria-live="polite"></span>
+  </header>
+  <form class="sn-referral-form" id="sn-referral-form" novalidate>
+    <label for="sn-referral-username">Nova username</label>
+    <div class="sn-referral-form-row">
+      <input id="sn-referral-username" name="username" autocomplete="off" maxlength="20" placeholder="username" />
+      <button type="submit" id="sn-referral-send">Send invite</button>
+    </div>
+    <p class="sn-referral-help">Invites use one of your five referral spots when sent.</p>
+    <p class="sn-referral-feedback" id="sn-referral-feedback" role="status" aria-live="polite"></p>
+  </form>
+  <div class="sn-referral-list" id="sn-referral-list"></div>
+</section>
 <div class="sn-section-tabs">
 <button type="button" class="sn-section-tab active" data-sn-section="ai">
 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -3134,7 +3145,7 @@ General
 <script src="/js/nova-message-island.js?v=595" defer></script>
 <script src="/js/nova-proxy.js?v=20260822-sj2067-r8.19" defer></script>
 <script src="/js/nova-supernova-tier.js?v=721"></script>
-<script src="/js/nova-supernova-referrals.js?v=724" defer></script>
+<script src="/js/nova-supernova-referrals.js?v=725" defer></script>
 <script src="/js/nova-ads.js?v=20260824-ads1" defer></script>
 <script src="/js/nova-holiday-themes.js?v=725" defer></script>
 <script src="/js/nova-supernova-hub.js?v=723" defer></script>

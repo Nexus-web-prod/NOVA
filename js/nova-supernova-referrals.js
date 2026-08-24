@@ -2,7 +2,9 @@
   "use strict";
 
   var panel = document.getElementById("sn-referral-panel");
+  var claimPanel = document.getElementById("sn-referral-claim-panel");
   var trialButton = document.getElementById("plans-sn-trial-btn");
+  var trialFeedback = document.getElementById("sn-trial-feedback");
   var note = document.getElementById("plans-sn-cta-note");
   var count = document.getElementById("sn-referral-count");
   var form = document.getElementById("sn-referral-form");
@@ -11,6 +13,7 @@
   var feedback = document.getElementById("sn-referral-feedback");
   var list = document.getElementById("sn-referral-list");
   var incoming = document.getElementById("sn-referral-incoming");
+  var claimFeedback = document.getElementById("sn-referral-claim-feedback");
   var loading = false;
 
   function esc(value) {
@@ -28,10 +31,14 @@
     return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
   }
 
+  function setElementFeedback(element, message, type) {
+    if (!element) return;
+    element.textContent = message || "";
+    element.className = element.className.replace(/\s+is-(error|success)/g, "") + (type ? " is-" + type : "");
+  }
+
   function setFeedback(message, type) {
-    if (!feedback) return;
-    feedback.textContent = message || "";
-    feedback.className = "sn-referral-feedback" + (type ? " is-" + type : "");
+    setElementFeedback(feedback, message, type);
   }
 
   async function refreshAccount() {
@@ -42,7 +49,7 @@
 
   function renderIncoming(items) {
     if (!incoming) return;
-    incoming.hidden = !items.length;
+    if (claimPanel) claimPanel.hidden = !items.length;
     incoming.innerHTML = items.map(function (item) {
       return '<div class="sn-referral-invite"><span class="sn-referral-person"><strong>@' + esc(item.fromUsername) + '</strong><small>invited you to try Supernova for 7 days</small></span><span class="sn-referral-actions"><button class="sn-referral-action sn-referral-action--secondary" type="button" data-referral-action="decline" data-referral-id="' + esc(item.id) + '">Decline</button><button class="sn-referral-action" type="button" data-referral-action="accept" data-referral-id="' + esc(item.id) + '">Accept</button></span></div>';
     }).join("");
@@ -58,14 +65,19 @@
 
   function render(data) {
     var acct = account();
-    if (!acct || !panel) {
+    if (!acct) {
       if (panel) panel.hidden = true;
+      if (claimPanel) claimPanel.hidden = true;
       if (trialButton) trialButton.hidden = true;
       return;
     }
     var referrals = data.referrals || { remaining: 0, limit: 5, sent: [], received: [] };
-    panel.hidden = false;
-    if (trialButton) trialButton.hidden = !data.trial.eligible;
+    if (panel) panel.hidden = !data.active;
+    if (trialButton) {
+      trialButton.hidden = data.active || !data.trial.eligible;
+      trialButton.disabled = data.active;
+      trialButton.textContent = "Start free 3-day trial";
+    }
     if (note) {
       if (data.active && data.membership) note.textContent = data.membership.expiresAt ? "Supernova active until " + dateLabel(data.membership.expiresAt) : "You have Supernova Pro";
       else if (data.trial.claimed) note.textContent = "Your free device trial has already been used";
@@ -96,10 +108,10 @@
     try {
       var result = await window.NovaAPI.claimSupernovaTrial();
       await refreshAccount();
-      setFeedback("Your 3-day Supernova trial is active until " + dateLabel(result.expiresAt) + ".", "success");
+      setElementFeedback(trialFeedback, "Your 3-day Supernova trial is active until " + dateLabel(result.expiresAt) + ".", "success");
       await load();
     } catch (error) {
-      setFeedback(error.message || "The trial could not be started.", "error");
+      setElementFeedback(trialFeedback, error.message || "The trial could not be started.", "error");
       trialButton.disabled = false;
       trialButton.textContent = "Start free 3-day trial";
     }
@@ -137,17 +149,17 @@
       var result = await window.NovaAPI.respondSupernovaReferral(button.dataset.referralId, action);
       if (action === "accept") {
         await refreshAccount();
-        setFeedback("Supernova is active until " + dateLabel(result.expiresAt) + ".", "success");
-      } else setFeedback("Invite declined.", "success");
+        setElementFeedback(claimFeedback, "Supernova is active until " + dateLabel(result.expiresAt) + ".", "success");
+      } else setElementFeedback(claimFeedback, "Invite declined.", "success");
       await load();
     } catch (error) {
-      setFeedback(error.message || "The invite could not be updated.", "error");
+      setElementFeedback(claimFeedback, error.message || "The invite could not be updated.", "error");
       button.disabled = false;
     }
   });
 
-  document.addEventListener("nova:page-change", function (event) { if (event.detail && event.detail.page === "plans") load(); });
+  document.addEventListener("nova:page-change", function (event) { if (event.detail && (event.detail.page === "plans" || event.detail.page === "supernova")) load(); });
   document.addEventListener("nova:account-changed", load);
-  document.addEventListener("nova:logout", function () { if (panel) panel.hidden = true; });
+  document.addEventListener("nova:logout", function () { if (panel) panel.hidden = true; if (claimPanel) claimPanel.hidden = true; });
   setTimeout(load, 900);
 })();
