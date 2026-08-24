@@ -74,6 +74,9 @@
         if (!current.enabled || !current.inspectElement) return false;
         window.dispatchEvent(new CustomEvent("nova:inspect-page", { detail: { persist: current.persistEdits } }));
         return true;
+      },
+      showDownloadBlocked: function () {
+        confirmAction("Download blocked", "Downloads from proxied websites are disabled. Enable downloads in Settings → Developer Options.", "Open Developer Options").then(function (open) { if (open) window.NovaDeveloperOptions.open(); });
       }
     });
     applyFramePreferences(settings);
@@ -130,10 +133,13 @@
       if (!await confirmAction("Clear Website Data?", "This clears locally stored proxied-site compatibility and inspector data. Your Nova account stays signed in.", "Clear Data")) return;
       Object.keys(localStorage).filter(function (key) { return /^(nova_site_|nova_inspector_|nova_proxy_site_)/.test(key); }).forEach(function (key) { localStorage.removeItem(key); }); notify("Proxied website data cleared");
     }
-    if (action === "restart-worker") { navigator.serviceWorker?.controller?.postMessage({ type: "nova_proxy_restart" }); notify("Proxy worker restart requested"); }
+    if (action === "clear-everything") { if (!await confirmAction("Clear Browser Developer Data?", "This clears Nova browser caches, proxy caches, compatibility choices, and proxied website data. Your Nova account and unrelated settings stay intact.", "Clear Everything")) return; await clearNamedCaches(function () { return true; }); Object.keys(localStorage).filter(function (key) { return /^(nova_site_|nova_inspector_|nova_proxy_site_)|compat/i.test(key); }).forEach(function (key) { localStorage.removeItem(key); }); notify("Browser developer data cleared"); }
+    if (action === "restart-worker") { var ready = await navigator.serviceWorker?.ready; await ready?.update?.(); (ready?.active || navigator.serviceWorker?.controller)?.postMessage({ type: "nova_proxy_restart" }); notify("Proxy worker restarted"); }
     if (action === "reregister-worker") {
       var regs = await navigator.serviceWorker?.getRegistrations?.() || [];
-      await Promise.all(regs.filter(function (reg) { return /scramjet|proxy/i.test(reg.scope); }).map(function (reg) { return reg.update(); })); notify("Proxy worker re-registered");
+      var proxyRegs = regs.filter(function (reg) { return /\/sw\.js(?:\?|$)/.test(reg.active?.scriptURL || reg.waiting?.scriptURL || reg.installing?.scriptURL || ""); });
+      await Promise.all(proxyRegs.map(function (reg) { return reg.unregister(); }));
+      await navigator.serviceWorker?.register?.("/sw.js?novaProxy=20260822-sj2067-r8.19", { scope: "/", updateViaCache: "none" }); notify("Proxy worker re-registered");
     }
   }
   function render(settings) {
@@ -171,6 +177,7 @@
     });
     document.getElementById("nova-dev-custom-ua")?.addEventListener("change", function (event) { settings.customUserAgent = event.target.value.trim(); save(settings); });
     document.getElementById("nova-dev-open-diagnostics")?.addEventListener("click", openDiagnostics);
+    document.getElementById("nova-dev-inspect-now")?.addEventListener("click", function () { window._novaSwitchPage?.("browser"); setTimeout(function () { window.NovaBrowserDevTools?.inspect?.(); }, 180); });
     document.getElementById("nova-dev-export")?.addEventListener("click", downloadReport);
     document.getElementById("nova-dev-reset-health")?.addEventListener("click", function () { ["nova_proxy_health", "nova_proxy_failures", "nova_proxy_routing_log"].forEach(function (key) { localStorage.removeItem(key); }); refreshHealth(); notify("Proxy health data reset"); });
     document.getElementById("nova-dev-reset-compat")?.addEventListener("click", function () { Object.keys(localStorage).filter(function (key) { return /nova.*compat/i.test(key); }).forEach(function (key) { localStorage.removeItem(key); }); notify("Compatibility data reset"); });

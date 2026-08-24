@@ -46,7 +46,8 @@ function _showNovaUpdateBanner(){
 <link rel="stylesheet" href="/css/nova-holiday-themes.css?v=727">
     <link rel="stylesheet" href="/css/nova-v7.css?v=723">
     <link rel="stylesheet" href="/css/nova-tickets.css?v=702">
-    <link rel="stylesheet" href="/css/nova-settings-v7.css?v=706">
+    <link rel="stylesheet" href="/css/nova-settings-v7.css?v=707">
+    <link rel="stylesheet" href="/css/nova-browser-devtools.css?v=701">
     <link rel="stylesheet" href="/css/nova-setup-v7.css?v=718">
     <link rel="stylesheet" href="/css/nova-theme-global.css?v=731">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;900&family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
@@ -1935,6 +1936,9 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <button class="nav-btn browser-bookmark-btn" id="browser-bookmark-btn" title="Bookmark page">
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
 </button>
+<button class="nav-btn" id="browser-devtools-btn" title="Developer tools" aria-label="Open developer tools" hidden>
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/></svg>
+</button>
 <button class="nav-btn" id="fullscreen-btn-bar" title="Fullscreen">
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
 </button>
@@ -3138,9 +3142,10 @@ General
 <script src="/js/nova-v7-account.js?v=719" defer></script>
 <script src="/js/nova-activity.js?v=900" defer></script>
 <script src="/js/nova.js?v=566" defer></script>
-<script src="/js/nova-settings-v7-ui.js?v=718" defer></script>
+<script src="/js/nova-settings-v7-ui.js?v=719" defer></script>
 <script src="/js/nova-settings-control.js?v=718" defer></script>
-<script src="/js/nova-developer-options.js?v=701" defer></script>
+<script src="/js/nova-developer-options.js?v=702" defer></script>
+<script src="/js/nova-browser-devtools.js?v=701" defer></script>
 <script src="/js/nova-sound.js?v=714" defer></script>
 <script src="/js/nova-v7-profile.js?v=714" defer></script>
 <script src="/js/nova-v7-profile-account-bridge.js?v=744" defer></script>
@@ -3324,6 +3329,7 @@ function activateTab(id){
     }
   }
   renderTabs();
+  document.dispatchEvent(new CustomEvent('nova:browser-tab-change',{detail:{tab:tab||null}}));
 }
 /* ── close tab ── */
 function closeTab(id){
@@ -3381,6 +3387,7 @@ function newTab(url){
       try{ var t2=iframe.contentDocument&&iframe.contentDocument.title; if(t2&&t2.trim()&&t2!=='about:blank')tab.title=t2; }catch(e){}
       renderTabs();
       if(activeId===id){ if(loadingEl)loadingEl.style.display='none'; plbEnd(); }
+      document.dispatchEvent(new CustomEvent('nova:browser-frame-load',{detail:{tab:tab}}));
     });
     if(tab.url){
       var startNavigation = function(){ tab.loading=true; renderTabs(); sc.go(tab.url); };
@@ -3392,7 +3399,7 @@ function newTab(url){
 }
 /* ── navigate active tab to url ── */
 function navigateTo(url){
-  if(BLOCKED.test(url)){ toast('Downloads are disabled in Nova'); return; }
+  if(BLOCKED.test(url) && !window.NovaDeveloperOptions?.mayDownload?.(true)){ toast('Download blocked — enable downloads in Developer Options'); window.NovaDeveloperOptions?.showDownloadBlocked?.(); return; }
   var resolved = resolveURL(url);
   if(!resolved) return;
   // switch to browser page via nova.js's switchPage
@@ -3425,6 +3432,8 @@ window._novaTab = {
   reload:  function(){ var t=activeTab(); try{if(t&&t.scFrame)t.scFrame.reload();}catch(e){} },
   getUrl:  function(){ var t=activeTab(); return t?t.url:''; },
   newTab:  newTab,
+  getActive: activeTab,
+  list: function(){ return tabs.slice(); },
 };
 /* ── nav button wiring ── */
 document.getElementById('back-btn').addEventListener('click',   function(){ window._novaTab.back(); });
