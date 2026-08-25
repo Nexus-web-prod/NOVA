@@ -17,6 +17,7 @@
   var islandAlert = document.getElementById("ni-referral-alert");
   var claimFeedback = document.getElementById("sn-referral-claim-feedback");
   var loading = false;
+  var lastLoadedAt = 0;
 
   function esc(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
@@ -104,6 +105,7 @@
     loading = true;
     try {
       render(await window.NovaAPI.supernovaAccess());
+      lastLoadedAt = Date.now();
     } catch (error) {
       if (error && error.code !== "AUTH_REQUIRED") setFeedback(error.message || "Referral access could not be loaded.", "error");
     } finally {
@@ -172,5 +174,18 @@
   document.addEventListener("nova:page-change", function (event) { if (event.detail && (event.detail.page === "plans" || event.detail.page === "supernova")) load(); });
   document.addEventListener("nova:account-changed", load);
   document.addEventListener("nova:logout", function () { if (claimPanel) claimPanel.hidden = true; if (islandAlert) islandAlert.hidden = true; });
+  // Referrals can change in another person's session. Refresh while Nova is
+  // visible so declined slots return and new incoming invitations appear
+  // without requiring a reload. Focus refreshes are throttled to avoid extra
+  // database reads when users switch windows repeatedly.
+  window.addEventListener("focus", function () {
+    if (Date.now() - lastLoadedAt > 4000) load();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && Date.now() - lastLoadedAt > 4000) load();
+  });
+  setInterval(function () {
+    if (document.visibilityState === "visible") load();
+  }, 12000);
   setTimeout(load, 900);
 })();
