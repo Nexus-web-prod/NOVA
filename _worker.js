@@ -402,6 +402,19 @@ export default {
 
     if (isPrivateDeploymentPath(url.pathname)) return privateAssetNotFound();
 
+    // Keep the reorganized HTML directory out of visitor-facing URLs.
+    // The root route below still serves this file internally through ASSETS.
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      (url.pathname === "/website/html" ||
+        url.pathname === "/website/html/" ||
+        url.pathname === "/website/html/index.html")
+    ) {
+      const canonicalUrl = new URL(url);
+      canonicalUrl.pathname = "/";
+      return Response.redirect(canonicalUrl.toString(), 308);
+    }
+
     if (isDocumentRequest(request, url)) {
       if (!hasDatabaseConfig(env)) return maintenanceDocument({ message: "Nova is temporarily unavailable." });
       try {
