@@ -12,6 +12,25 @@
   var transitionTimer = null;
   var started = false;
 
+  function hasCompletedSetup() {
+    try {
+      if (localStorage.getItem(COMPLETE_KEY) === COMPLETE_VERSION) return true;
+      var saved = JSON.parse(localStorage.getItem("nova_control_center") || "null");
+      if (saved && Number(saved.setupVersion) === 7 && saved.setupCompletedAt) {
+        localStorage.setItem(COMPLETE_KEY, COMPLETE_VERSION);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  // Only the real setup controller hides Nova. AdSense rebuilds the page in a
+  // srcdoc preview where external controllers may not run; keeping this here
+  // ensures that environment receives the visible public shell.
+  if (!window.__NOVA_ADS_PREVIEW && !hasCompletedSetup()) {
+    document.documentElement.classList.add("nova-setup-pending");
+  }
+
   var state = {
     step: 1,
     mode: "guest",
@@ -856,7 +875,7 @@
       document.documentElement.classList.remove("nova-setup-active", "nova-setup-pending");
       return;
     }
-    if (localStorage.getItem(COMPLETE_KEY) !== COMPLETE_VERSION) start(false);
+    if (!hasCompletedSetup()) start(false);
     else document.documentElement.classList.remove("nova-setup-pending");
   });
 })();
