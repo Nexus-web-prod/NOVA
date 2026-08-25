@@ -88,6 +88,24 @@
   const websocketFailureSignals = { libcurl: [], epoxy: [] };
   const healthSignals = { libcurl: [], epoxy: [], legacy: [] };
   const successSignals = { libcurl: [], epoxy: [], legacy: [] };
+  const gameTransportDefaults = new Map();
+
+  function normalizedGameURL(value) {
+    try { return new URL(String(value || "")).href; } catch (_) { return String(value || ""); }
+  }
+
+  async function loadGameTransportDefaults() {
+    try {
+      const response = await fetch("/game-proxy-defaults.json", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      for (const item of data.assignments || []) {
+        if (item?.url && ["libcurl", "epoxy", "legacy"].includes(item.proxyTransport)) {
+          gameTransportDefaults.set(normalizedGameURL(item.url), item.proxyTransport);
+        }
+      }
+    } catch (_) {}
+  }
 
   function cloneState() {
     const snapshot = JSON.parse(JSON.stringify(state));
@@ -1268,6 +1286,10 @@
 
   function reportFailure(kind, error, frame, extra = {}) {
     noteFailure(kind, error, extra);
+    // The catalog audit must measure the selected transport itself. During an
+    // audit, record failures but never silently move the page to another
+    // transport, otherwise a broken libcurl/Epoxy result could look healthy.
+    if (auditTransport()) return Promise.resolve(false);
     // Rewriter/URL compatibility errors are not transport-health evidence.
     if (kind === "fatal-rewrite" || classifyFailure(kind, error, extra) === "rewrite") return Promise.resolve(false);
     if (!isMeaningfulNavigationFailure(kind)) return Promise.resolve(false);
@@ -1315,6 +1337,7 @@
       this._requestedURL = "";
       this._forcedLegacyPolicy = "";
       this._routeGeneration = 0;
+      this._preferredTransportSwitch = null;
       this._onLoad = this._onLoad.bind(this);
       this.element.addEventListener("load", this._onLoad);
 
@@ -1417,6 +1440,7 @@
       // move unrelated tabs (for example GeForce NOW/Fortnite) off Scramjet.
       this._compatTimer = setTimeout(() => {
         if (token !== this._navigationToken || this._pending || this._usesLegacy()) return;
+        if (auditTransport()) return;
         try {
           const requested = new URL(this._requestedURL || this.lastURL);
           if (isBraveSearchURL(requested.href)) return;
@@ -1552,6 +1576,33 @@
       const nextURL = String(url || "");
       if (!nextURL) return;
       const routeGeneration = ++this._routeGeneration;
+      const preferredTransport = auditTransport() ? "" : gameTransportDefaults.get(normalizedGameURL(nextURL)) || "";
+
+      if (preferredTransport === "legacy" && !this._usesLegacy()) {
+        this.lastURL = nextURL;
+        this._requestedURL = nextURL;
+        this._compatHost = hostFor(nextURL);
+        this._forcedLegacyPolicy = "game-default";
+        if (!this._preferredTransportSwitch) {
+          this._preferredTransportSwitch = switchToLegacy("catalog game default", this)
+            .catch(error => reportFailure("legacy-initialization", error, this, { url: nextURL }))
+            .finally(() => { this._preferredTransportSwitch = null; });
+        }
+        return;
+      }
+
+      if ((preferredTransport === "libcurl" || preferredTransport === "epoxy") &&
+          (state.currentTransport !== preferredTransport || this._usesLegacy())) {
+        this.lastURL = nextURL;
+        this._requestedURL = nextURL;
+        if (!this._preferredTransportSwitch) {
+          this._preferredTransportSwitch = switchModernTransport(preferredTransport)
+            .then(() => this._usesLegacy() ? this._returnToModern(nextURL) : this.go(nextURL))
+            .catch(error => reportFailure("transport-error", error, this, { url: nextURL }))
+            .finally(() => { this._preferredTransportSwitch = null; });
+        }
+        return;
+      }
 
       // Brave Search is Scramjet-only. If this tab currently belongs to
       // Vortex/BareMux (including Google forced-routing or compatibility
@@ -1567,7 +1618,7 @@
         }
       }
 
-      if (state.currentEngine === "scramjet" && this._engineOverride !== "legacy" && isLegacyGameURL(nextURL)) {
+      if (!auditTransport() && !preferredTransport && state.currentEngine === "scramjet" && this._engineOverride !== "legacy" && isLegacyGameURL(nextURL)) {
         this.lastURL = nextURL;
         this._requestedURL = nextURL;
         this._compatHost = hostFor(nextURL);
@@ -1593,7 +1644,7 @@
       // Scramjet navigation begins. This covers Google searches submitted via
       // SPA/history navigation because the Google document itself is already
       // running under Vortex.
-      if (state.currentEngine === "scramjet" && this._engineOverride !== "legacy" && isGoogleURL(nextURL)) {
+      if (!auditTransport() && state.currentEngine === "scramjet" && this._engineOverride !== "legacy" && isGoogleURL(nextURL)) {
         this.lastURL = nextURL;
         this._requestedURL = nextURL;
         this._compatHost = hostFor(nextURL);
@@ -1722,7 +1773,14 @@
     try {
       const params = new URLSearchParams(location.search);
       if (params.get("novaProxyLegacy") === "1" || localStorage.getItem("nova_proxy_legacy") === "1") return "legacy";
-      const value = params.get("novaProxyTransport") || localStorage.getItem("nova_proxy_force_transport") || "";
+      const value = params.get("novaProxyAuditTransport") || params.get("novaProxyTransport") || localStorage.getItem("nova_proxy_force_transport") || "";
+      return ["libcurl", "epoxy", "legacy"].includes(value) ? value : "";
+    } catch (_) { return ""; }
+  }
+
+  function auditTransport() {
+    try {
+      const value = new URLSearchParams(location.search).get("novaProxyAuditTransport") || "";
       return ["libcurl", "epoxy", "legacy"].includes(value) ? value : "";
     } catch (_) { return ""; }
   }
@@ -1734,6 +1792,7 @@
   async function bootstrap() {
     if (initPromise) return initPromise;
     initPromise = (async () => {
+      await loadGameTransportDefaults();
       if (forceLegacyEnabled()) {
         await prepareServiceWorker();
         await initializeLegacy();
