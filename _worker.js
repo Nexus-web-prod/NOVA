@@ -4044,12 +4044,12 @@ function escapeMaintenanceHtml(value) {
 
 function maintenanceDocument(maintenance) {
   const message = escapeMaintenanceHtml(maintenance.message || "Nova is currently under maintenance. Check back soon.");
-  const stars = Array.from({ length: 288 }, (_, index) => {
-    const row = Math.floor(index / 18);
-    const column = index % 18;
-    const x = -32 + (column * 9) + (row * 4.5);
-    const y = -16 + (row * 8);
-    return `<svg class="monogram-star" style="--x:${x}vw;--y:${y}vh" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg>`;
+  const stars = Array.from({ length: 224 }, (_, index) => {
+    const row = Math.floor(index / 14);
+    const column = index % 14;
+    const x = (column * 160) + (row % 2 ? 80 : 0);
+    const y = row * 80;
+    return `<i class="motif motif-large" style="--x:${x}px;--y:${y}px">✦</i><i class="motif motif-medium" style="--x:${x + 40}px;--y:${y + 40}px">✦</i><i class="motif motif-small" style="--x:${x + 100}px;--y:${y + 20}px">✦</i>`;
   }).join("");
   const body = `<!doctype html>
 <html lang="en">
@@ -4060,42 +4060,40 @@ function maintenanceDocument(maintenance) {
   <title>Nova maintenance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;900&family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap">
   <style>
     :root{color-scheme:dark;font-family:"Space Mono",monospace}
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;overflow:hidden;background:#02030b;color:#eeeef6}
-    .star-field{position:fixed;inset:0;overflow:hidden;background:radial-gradient(ellipse at center,rgba(91,68,170,.13) 0,rgba(15,13,38,.055) 38%,transparent 67%),linear-gradient(145deg,#03040d 0%,#050511 48%,#02030a 100%)}
-    .star-field:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at center,transparent 18%,rgba(1,2,8,.25) 72%,rgba(1,2,7,.72) 100%);pointer-events:none}
-    .monogram-track{position:absolute;inset:-16vh -18vw;animation:monogramDrift 22s linear infinite;will-change:transform}
-    .monogram-star{position:absolute;left:var(--x);top:var(--y);width:clamp(12px,1.05vw,18px);height:clamp(12px,1.05vw,18px);fill:#46436f;opacity:.44;filter:drop-shadow(0 0 9px rgba(139,143,255,.1))}
+    .star-field{position:fixed;inset:0;overflow:hidden;background:#04040c}
+    .monogram-track{position:absolute;inset:-200px;animation:monogramDrift 24s linear infinite;will-change:transform}
+    .motif{position:absolute;left:var(--x);top:var(--y);width:80px;height:80px;display:flex;align-items:center;justify-content:center;color:rgba(139,143,255,.12);font-style:normal;line-height:1}
+    .motif-large{font-size:2.2rem;color:rgba(139,143,255,.22);filter:drop-shadow(0 0 6px rgba(139,143,255,.18))}
+    .motif-medium{font-size:1rem;color:rgba(139,143,255,.12)}
+    .motif-small{font-size:.7rem;color:rgba(139,143,255,.07)}
     .stage{position:relative;z-index:1;min-height:100vh;display:grid;place-items:center;padding:40px 24px}
-    main{width:min(620px,calc(100vw - 48px));margin-top:-2vh;text-align:center}
-    .nova7-wordmark{--logo-size:clamp(62px,8vw,96px);display:inline-flex;align-items:center;justify-content:center;gap:0;position:relative;left:.34em;margin:0;color:#f8f5ff;font-family:"Oxanium",system-ui,sans-serif;font-size:var(--logo-size);line-height:.82;letter-spacing:0;filter:drop-shadow(0 16px 26px rgba(0,0,0,.62));animation:markPulse 3.6s ease-in-out infinite}
-    .nova7-logo-part{display:inline-grid;place-items:center;min-width:.64em;font-size:1em;font-weight:800;text-shadow:0 0 1px #fff,0 0 18px rgba(142,84,255,.48),0 5px 0 rgba(108,68,190,.34)}
-    .nova7-logo-n{position:relative;z-index:1;transform:scaleX(.95)}
-    .nova7-logo-star{position:relative;z-index:2;display:block;flex:0 0 auto;width:.92em;height:.92em;margin-left:-.09em;margin-right:-.05em;overflow:visible;fill:currentColor;filter:drop-shadow(0 0 14px rgba(163,103,255,.72)) drop-shadow(0 6px 0 rgba(100,54,160,.28))}
-    .nova7-logo-va{position:relative;z-index:1;display:inline-grid;grid-template-columns:.70em .86em;align-items:end;margin-left:-.06em;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 18px rgba(142,84,255,.48)) drop-shadow(0 5px 0 rgba(108,68,190,.34))}
-    .nova7-logo-v,.nova7-logo-a{font-size:1em;font-weight:800}.nova7-logo-v{transform:scaleX(1.04)}.nova7-logo-a{margin-left:-.34em;transform:scaleX(1.08)}
-    .status{display:flex;align-items:center;justify-content:center;gap:16px;margin:44px 0 30px;color:#999bff;font-family:"Oxanium",system-ui,sans-serif;font-size:clamp(14px,1.05vw,17px);font-weight:800;letter-spacing:.24em;text-transform:uppercase;text-shadow:0 0 18px rgba(126,129,255,.3)}
-    .wrench{width:19px;height:19px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    .wrench:last-child{transform:scaleX(-1)}
-    .message{max-width:590px;margin:0 auto;color:#aaa9b7;font-family:"Lato",system-ui,sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:400;line-height:1.65;letter-spacing:.012em;overflow-wrap:anywhere;text-wrap:balance}
-    .back-soon{margin-top:29px;color:#8988af;font-family:"Space Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+    main{width:min(620px,calc(100vw - 48px));margin-top:-2vh;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1.2rem}
+    .captured-logo{display:flex;flex-direction:column;align-items:center;gap:.5rem}
+    .captured-logo-star{font-size:5rem;line-height:1;color:#8b8fff;filter:drop-shadow(0 0 28px rgba(139,143,255,.55));animation:starPulse 3.5s ease-in-out infinite}
+    .captured-wordmark{font-weight:700;font-size:2.8rem;letter-spacing:.65em;color:#eeeef6;opacity:.92;padding-left:.65em;text-shadow:0 0 40px rgba(139,143,255,.25)}
+    .status{display:flex;align-items:center;justify-content:center;gap:.75rem;margin:.4rem 0;color:#8b8fff;font-size:.65rem;font-weight:700;letter-spacing:.28em;text-transform:uppercase;text-shadow:0 0 18px rgba(139,143,255,.4)}
+    .wrench{width:22px;height:22px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .message{max-width:340px;margin:0;color:rgba(238,238,246,.55);font-size:.52rem;line-height:1.7;overflow-wrap:anywhere}
+    .back-soon{color:rgba(139,143,255,.45);font-size:.42rem;font-weight:400;letter-spacing:.14em;text-transform:uppercase;margin-top:.2rem}
     .admin-link{position:fixed;right:24px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border:1px solid #2d2c54;border-radius:9px;background:#0b0b1c;color:#716f9c;font-size:10px;letter-spacing:.08em;text-decoration:none;transition:color .18s,border-color .18s,background .18s,transform .18s}
     .admin-link:hover,.admin-link:focus-visible{color:#b9b8ef;border-color:#5d5b98;background:#11112a;transform:translateY(-1px);outline:none}
     .admin-link span{color:#a68b35}
-    @keyframes monogramDrift{from{transform:translate3d(-9vw,-16vh,0)}to{transform:translate3d(0,0,0)}}
-    @keyframes markPulse{0%,100%{transform:scale(.96);opacity:.88}50%{transform:scale(1.04);opacity:1}}
-    @media(max-width:600px){main{margin-top:-5vh}.nova7-wordmark{--logo-size:60px}.status{margin:34px 0 26px;gap:12px;letter-spacing:.22em}.message{max-width:340px}.admin-link{right:14px;bottom:14px}}
-    @media(prefers-reduced-motion:reduce){.monogram-track,.nova7-wordmark{animation:none}.admin-link{transition:none}}
+    @keyframes monogramDrift{from{transform:translate3d(-160px,-160px,0)}to{transform:translate3d(0,0,0)}}
+    @keyframes starPulse{0%,100%{opacity:.85;transform:scale(1);filter:drop-shadow(0 0 18px rgba(139,143,255,.32))}50%{opacity:1;transform:scale(1.07);filter:drop-shadow(0 0 30px rgba(139,143,255,.55))}}
+    @media(max-width:600px){main{margin-top:-5vh}.captured-logo-star{font-size:4rem}.captured-wordmark{font-size:2rem}.status{letter-spacing:.2em}.message{max-width:300px}.admin-link{right:14px;bottom:14px}}
+    @media(prefers-reduced-motion:reduce){.monogram-track,.captured-logo-star{animation:none}.admin-link{transition:none}}
   </style>
 </head>
 <body>
   <div class="star-field" aria-hidden="true"><div class="monogram-track">${stars}</div></div>
   <div class="stage"><main>
-    <h1 class="nova7-wordmark" aria-label="Nova"><span class="nova7-logo-part nova7-logo-n">N</span><svg class="nova7-logo-star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg><span class="nova7-logo-va" aria-hidden="true"><span class="nova7-logo-v">V</span><span class="nova7-logo-a">A</span></span></h1>
-    <div class="status"><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"></path></svg><span>Maintenance</span><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"></path></svg></div>
+    <div class="captured-logo"><div class="captured-logo-star" aria-hidden="true">✦</div><h1 class="captured-wordmark">NOVA</h1></div>
+    <div class="status"><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg><span>Maintenance</span><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></div>
     <p class="message">${message}</p>
     <div class="back-soon">Nova · Back soon</div>
   </main></div>
