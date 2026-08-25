@@ -30,7 +30,7 @@
   function startPoll(){clearTimeout(pollTimer);pollTimer=null;if(!pollBusy)poll()}
   async function poll(){
     if(!lobby){pollBusy=false;return}
-    if(document.hidden){pollTimer=setTimeout(poll,15000);return}
+    if(document.hidden){pollTimer=setTimeout(poll,850);return}
     if(pollBusy)return;
     pollBusy=true;
     try{
@@ -43,7 +43,7 @@
         if($("table-view").hidden)enterTable(lobby);else renderTable();
       }
     }catch(e){setConnected(false)}
-    finally{pollBusy=false;if(lobby)pollTimer=setTimeout(poll,1500)}
+    finally{pollBusy=false;if(lobby)pollTimer=setTimeout(poll,850)}
   }
   function voiceSend(message){if(voice.ws&&voice.ws.readyState===WebSocket.OPEN)voice.ws.send(JSON.stringify(message))}
   function closeVoicePeer(id){var entry=voice.peers.get(id);if(entry){entry.pc.close();if(entry.audio)entry.audio.remove();voice.peers.delete(id)}}

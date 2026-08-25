@@ -383,7 +383,7 @@ window.addEventListener("beforeunload",function(){
 
 document.addEventListener("pointerdown",resumeRemoteAudio,{passive:true});
 document.addEventListener("keydown",resumeRemoteAudio);
-document.addEventListener("DOMContentLoaded",function(){ensureUI();refreshRooms();setInterval(function(){if(window.__novaV7User&&!document.hidden)refreshRooms()},20000)});
+document.addEventListener("DOMContentLoaded",function(){ensureUI();refreshRooms();setInterval(function(){if(window.__novaV7User)refreshRooms()},10000)});
 document.addEventListener("nova:social-open",function(){ensureUI();refreshRooms()});
 window.addEventListener("nova:session-changed",function(){refreshRooms()});
 window.NovaVoiceRoomsV2={refresh:refreshRooms,leave:leaveRoom};

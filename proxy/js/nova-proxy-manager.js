@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260822-sj2067-r8.19";
+  const VERSION = "20260825-sj2067-r8.20";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
@@ -1576,7 +1576,7 @@
       const nextURL = String(url || "");
       if (!nextURL) return;
       const routeGeneration = ++this._routeGeneration;
-      const preferredTransport = auditTransport() ? "" : gameTransportDefaults.get(normalizedGameURL(nextURL)) || "";
+      const preferredTransport = auditTransport() ? "" : (isLegacyGameURL(nextURL) ? "legacy" : gameTransportDefaults.get(normalizedGameURL(nextURL)) || "");
 
       if (preferredTransport === "legacy" && !this._usesLegacy()) {
         this.lastURL = nextURL;

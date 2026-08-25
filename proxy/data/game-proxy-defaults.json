@@ -3,16 +3,16 @@
   "baseURL": "https://dev.nova-7.pages.dev/",
   "waitMs": 10000,
   "summary": {
-    "libcurl": 64,
+    "libcurl": 62,
     "epoxy": 14,
-    "legacy": 3,
+    "legacy": 5,
     "broken": 7
   },
   "assignments": [
     {
       "name": "Escape Road 2",
       "url": "https://azgames.io/escape-road-2.embed",
-      "proxyTransport": "libcurl"
+      "proxyTransport": "legacy"
     },
     {
       "name": "Equinox",
@@ -77,7 +77,7 @@
     {
       "name": "Escape Road 3",
       "url": "https://escaperoad.io/escape-road-3.embed",
-      "proxyTransport": "libcurl"
+      "proxyTransport": "legacy"
     },
     {
       "name": "Geo Dash",

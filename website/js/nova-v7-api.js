@@ -23,50 +23,17 @@
     localStorage.setItem("nova_device_id", deviceId);
   }
 
-  // Nova 7.0 DB reduction layer. Same-tab requests are coalesced and selected
-  // read-heavy GETs use a tiny cross-tab cache so several open Nova tabs do not
-  // independently hit Turso for the same snapshot. Mutations invalidate it.
-  var sharedReadPrefix = "nova:shared-read:v1:";
-  var inFlightReads = new Map();
-  function sharedReadTtl(path) {
-    if (/^\/api\/social\/messages\?/.test(path)) return 5500;
-    if (/^\/api\/social\/reactions\?/.test(path)) return 6500;
-    if (/^\/api\/social\/typing\?/.test(path)) return 4500;
-    if (path === "/api/social/presence") return 20000;
-    if (path === "/api/social" || path === "/api/social/requests") return 20000;
-    if (/^\/api\/voice\/rooms/.test(path)) return 15000;
-    if (/^\/api\/boardgames\/uno\/lobbies\?/.test(path)) return 900;
-    if (path === "/api/me") return 5000;
-    return 0;
-  }
-  function sharedKey(path) {
-    var user = (window.__novaV7User && (window.__novaV7User.id || window.__novaV7User.username)) || "session";
-    return sharedReadPrefix + user + ":" + path;
-  }
-  function clearSharedReads() {
-    try {
-      var remove = [];
-      for (var i = 0; i < localStorage.length; i += 1) {
-        var key = localStorage.key(i) || "";
-        if (key.indexOf(sharedReadPrefix) === 0) remove.push(key);
-      }
-      remove.forEach(function (key) { localStorage.removeItem(key); });
-    } catch (error) {}
-  }
-  function readShared(path, ttl) {
-    try {
-      var raw = localStorage.getItem(sharedKey(path));
-      if (!raw) return null;
-      var entry = JSON.parse(raw);
-      if (!entry || Date.now() - Number(entry.at || 0) > ttl) return null;
-      return entry.data;
-    } catch (error) { return null; }
-  }
-  function writeShared(path, data) {
-    try { localStorage.setItem(sharedKey(path), JSON.stringify({ at: Date.now(), data: data })); } catch (error) {}
-  }
-
-  async function networkRequest(path, options, timeoutMs, headers) {
+  async function request(path, options) {
+    options = Object.assign({}, options || {});
+    var timeoutMs = Math.max(1000, Number(options.timeoutMs || 20000));
+    delete options.timeoutMs;
+    var headers = new Headers(options.headers || {});
+    headers.set("X-Nova-Device", deviceId);
+    if (String(options.method || "GET").toUpperCase() !== "GET") headers.set("X-Nova-Request", "1");
+    if (options.body && !(options.body instanceof FormData) && typeof options.body !== "string") {
+      headers.set("Content-Type", "application/json");
+      options.body = JSON.stringify(options.body);
+    }
     var controller = !options.signal && typeof AbortController !== "undefined" ? new AbortController() : null;
     var timeoutId = controller ? setTimeout(function () { controller.abort(); }, timeoutMs) : null;
     if (controller) options.signal = controller.signal;
@@ -93,35 +60,6 @@
       throw error;
     }
     return payload;
-  }
-
-  async function request(path, options) {
-    options = Object.assign({}, options || {});
-    var timeoutMs = Math.max(1000, Number(options.timeoutMs || 20000));
-    delete options.timeoutMs;
-    var method = String(options.method || "GET").toUpperCase();
-    var headers = new Headers(options.headers || {});
-    headers.set("X-Nova-Device", deviceId);
-    if (method !== "GET") headers.set("X-Nova-Request", "1");
-    if (options.body && !(options.body instanceof FormData) && typeof options.body !== "string") {
-      headers.set("Content-Type", "application/json");
-      options.body = JSON.stringify(options.body);
-    }
-    if (method !== "GET") {
-      clearSharedReads();
-      return networkRequest(path, options, timeoutMs, headers);
-    }
-    var ttl = sharedReadTtl(path);
-    var cached = ttl ? readShared(path, ttl) : null;
-    if (cached !== null) return cached;
-    var flightKey = path;
-    if (inFlightReads.has(flightKey)) return inFlightReads.get(flightKey);
-    var promise = networkRequest(path, options, timeoutMs, headers).then(function (payload) {
-      if (ttl) writeShared(path, payload);
-      return payload;
-    }).finally(function () { inFlightReads.delete(flightKey); });
-    inFlightReads.set(flightKey, promise);
-    return promise;
   }
 
   function cacheUser(user) {
@@ -310,7 +248,7 @@
     document.addEventListener(type, recordActivity, { passive: true, capture: true });
   });
 
-  setInterval(function () { if (!document.hidden) syncPresence(); }, 10000);
+  setInterval(syncPresence, 5000);
 
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) recordActivity();

@@ -66,19 +66,6 @@ if [ "${PLACEHOLDER_COUNT}" != "0" ] && [ "${SKIP_PLACEHOLDER_CHECK:-0}" != "1" 
   exit 3
 fi
 
-if [ "${RUN_DB_MIGRATIONS:-0}" = "1" ]; then
-  echo "==> Applying Nova database migrations"
-  if [ -z "${TURSO_DATABASE_URL:-}" ] || [ -z "${TURSO_AUTH_TOKEN:-}" ]; then
-    echo "RUN_DB_MIGRATIONS=1 requires local TURSO_DATABASE_URL and TURSO_AUTH_TOKEN." >&2
-    echo "The Cloudflare Pages secret cannot be read back into this shell." >&2
-    exit 4
-  fi
-  node tools/database/migrate.mjs
-  node tools/database/verify-schema.mjs
-else
-  echo "==> Database migrations not run (set RUN_DB_MIGRATIONS=1 with local Turso credentials to apply/verify them)"
-fi
-
 if [ "${SKIP_VOICE_DEPLOY:-0}" = "1" ]; then
   echo "==> Leaving the existing voice room coordinator unchanged"
 else

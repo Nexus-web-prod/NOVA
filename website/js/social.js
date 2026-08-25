@@ -24,7 +24,7 @@ function msgClientId(msg){return msg&&(msg._clientId||msg.cid)||null;}
 async function streamRange(stream,afterId,count){
   try{
     const channel=streamToChannel(stream),a=await NovaAPI.messages(channel,afterId||0),reactionMap=a.reactions||{};
-    if(a.reactionsIncluded!==false)applyReactionSnapshot(reactionMap,channel);
+    applyReactionSnapshot(reactionMap,channel);
     return (a.messages||[]).map(m=>({_id:String(m.id),from:m.from,text:m.body,type:m.type||"text",ts:m.createdAt||m.ts,replyToId:m.replyToId,replyFrom:m.replyFrom,replyText:m.replyBody,replyType:m.replyType,avatarUrl:m.avatarUrl,displayName:m.displayName,reactions:reactionMap[String(m.id)]||[],_channel:channel}));
   }catch(e){console.warn("[nova] message load failed",e);return[];}
 }
@@ -105,7 +105,7 @@ function _bindVisibility(){
 
 // ── Exponential backoff for chat (saves egress on idle convos) ─────────────────
 let _chatEmptyStreak=0;
-const CHAT_BASE_MS=6500, CHAT_MAX_MS=30000;
+const CHAT_BASE_MS=5000, CHAT_MAX_MS=20000;
 let _chatCurrentMs=CHAT_BASE_MS;
 function _chatBackoff(hadMessages){
   if(hadMessages){_chatEmptyStreak=0;_chatCurrentMs=CHAT_BASE_MS;}
@@ -136,7 +136,7 @@ function startFriendsPolling(){
   _friendsPollTimer=setInterval(async()=>{
     if(document.hidden||!getAccount())return;
     await _pollFriendsList();
-  },30000);
+  },15000);
 }
 function stopFriendsPolling(){clearInterval(_friendsPollTimer);_friendsPollTimer=null;}
 
@@ -178,7 +178,7 @@ async function _pollReactions(){
 function startReactionPolling(){
   stopReactionPolling();
   _pollReactions();
-  _reactionPollTimer=setInterval(_pollReactions,7000);
+  _reactionPollTimer=setInterval(_pollReactions,3000);
 }
 function stopReactionPolling(){clearInterval(_reactionPollTimer);_reactionPollTimer=null;}
 
@@ -206,7 +206,7 @@ async function pollTyping(){
 }
 function startTypingPolling(){
   stopTypingPolling();if(!typingChannel())return;
-  pollTyping();_typingPollTimer=setInterval(pollTyping,5000);
+  pollTyping();_typingPollTimer=setInterval(pollTyping,3000);
 }
 function stopTypingPolling(){
   clearInterval(_typingPollTimer);_typingPollTimer=null;clearTimeout(_typingStopTimer);_typingStopTimer=null;
@@ -230,7 +230,7 @@ function startSocialPolling(){
   _socialPollTimer=setInterval(async()=>{
     if(document.hidden||!getAccount())return;
     await _pollSocialData();
-  },30000);
+  },15000);
 }
 function stopSocialPolling(){clearInterval(_socialPollTimer);_socialPollTimer=null;}
 
