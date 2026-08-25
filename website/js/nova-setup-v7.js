@@ -852,6 +852,10 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     bindRestart();
+    if (window.__NOVA_ADS_PREVIEW) {
+      document.documentElement.classList.remove("nova-setup-active", "nova-setup-pending");
+      return;
+    }
     if (localStorage.getItem(COMPLETE_KEY) !== COMPLETE_VERSION) start(false);
     else document.documentElement.classList.remove("nova-setup-pending");
   });

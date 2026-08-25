@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
 <script>
+// AdSense's site preview has no Nova setup state. Let it render the public
+// shell instead of capturing the setup-pending background by itself.
+window.__NOVA_ADS_PREVIEW = /(?:^|[?&])google_preview(?:_hash)?=/i.test(location.search) || /adsense\.google\./i.test(document.referrer);
+</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6082584609878503"
+     crossorigin="anonymous"></script>
+<script>
 // Nova's account, presence, and social APIs require the Cloudflare origin.
 if(location.protocol === 'file:') location.replace('https://dev.nova-7.pages.dev/');
 </script>
@@ -66,7 +73,7 @@ function _showNovaUpdateBanner(){
 <script src="/website/js/nova-storage-shim.js?v=704"></script>
 <script src="/website/js/nova-update.js?v=711"></script>
 <script src="/website/js/nova-preferences-boot.js?v=719"></script>
-<script>(function(){try{var k='nova_setup_v7_complete',v='7.0-launch',done=localStorage.getItem(k)===v;if(!done){var saved=JSON.parse(localStorage.getItem('nova_control_center')||'null');if(saved&&Number(saved.setupVersion)===7&&saved.setupCompletedAt){localStorage.setItem(k,v);done=true;}}if(!done)document.documentElement.classList.add('nova-setup-pending');}catch(e){document.documentElement.classList.add('nova-setup-pending');}})();</script>
+<script>(function(){try{var k='nova_setup_v7_complete',v='7.0-launch',done=localStorage.getItem(k)===v;if(!done){var saved=JSON.parse(localStorage.getItem('nova_control_center')||'null');if(saved&&Number(saved.setupVersion)===7&&saved.setupCompletedAt){localStorage.setItem(k,v);done=true;}}if(!done&&!window.__NOVA_ADS_PREVIEW)document.documentElement.classList.add('nova-setup-pending');}catch(e){if(!window.__NOVA_ADS_PREVIEW)document.documentElement.classList.add('nova-setup-pending');}})();</script>
 <script>(function(){
   var t=localStorage.getItem('nova_theme')||'dark';
   var root=document.documentElement;
@@ -3203,7 +3210,7 @@ General
 <script src="/website/js/nova-sound.js?v=714" defer></script>
 <script src="/website/js/nova-v7-profile.js?v=714" defer></script>
 <script src="/website/js/nova-v7-profile-account-bridge.js?v=744" defer></script>
-<script src="/website/js/nova-setup-v7.js?v=718" defer></script>
+<script src="/website/js/nova-setup-v7.js?v=719" defer></script>
 <script src="/website/js/nova-message-island.js?v=595" defer></script>
 <script src="/proxy/js/nova-proxy.js?v=20260822-sj2067-r8.19" defer></script>
 <script src="/website/js/nova-supernova-tier.js?v=721"></script>
