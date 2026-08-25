@@ -3520,7 +3520,10 @@ async function respondSupernovaReferral(request, db) {
   if (!referral) return apiError("REFERRAL_NOT_FOUND", "That referral is no longer available", 404);
   const now = Date.now();
   if (action === "decline") {
-    await db.prepare("UPDATE supernova_referrals SET status='declined',responded_at=? WHERE id=? AND status='pending'").bind(now, id).run();
+    // A declined invite is not consumed. Removing it restores the sender's
+    // referral slot and also clears the unique inviter/recipient pair so the
+    // same person can be invited again later.
+    await db.prepare("DELETE FROM supernova_referrals WHERE id=? AND invited_user_id=? AND status='pending'").bind(id, auth.id).run();
     return apiJson({ ok: true, status: "declined" });
   }
   const active = await db.prepare("SELECT 1 FROM user_plans WHERE user_id=? AND plan='supernova' AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").bind(auth.id, now).first();
