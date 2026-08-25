@@ -104,7 +104,7 @@ fi
 
 if [ "${PAGES_ENV}" = "production" ]; then
   echo "==> Deploying Cloudflare Pages project ${PROJECT_NAME} (production)"
-  "${WRANGLER[@]}" pages deploy "${DEPLOY_DIR}" --project-name="${PROJECT_NAME}" --commit-message="${DEPLOY_COMMENT}" --commit-dirty=true
+  "${WRANGLER[@]}" pages deploy "${DEPLOY_DIR}" --project-name="${PROJECT_NAME}" --branch="production" --commit-message="${DEPLOY_COMMENT}" --commit-dirty=true
   TEST_URL="https://${PROJECT_NAME}.pages.dev/api/health"
 else
   echo "==> Deploying Cloudflare Pages project ${PROJECT_NAME} (${BRANCH})"
