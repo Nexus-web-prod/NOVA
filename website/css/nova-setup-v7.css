@@ -38,7 +38,7 @@ html.nova-setup-active:has(.nova-setup) #nova-island-hint {
   pointer-events: none !important;
 }
 
-html.nova-setup-active:has(.nova-setup) #shell {
+html.nova-setup-active:has(.nova-setup) #nova-shell {
   pointer-events: none !important;
 }
 
@@ -1364,7 +1364,7 @@ html[data-reduce-motion="on"] .nova-setup *::after {
   100% { box-shadow: 0 25px 70px rgba(0, 0, 0, .3), inset 0 0 50px color-mix(in srgb, var(--accent) 7%, transparent); }
 }
 
-#shell.nova-setup-home-reveal {
+#nova-shell.nova-setup-home-reveal {
   animation: novaSetupHomeReveal 720ms cubic-bezier(.22, 1, .36, 1) both;
 }
 

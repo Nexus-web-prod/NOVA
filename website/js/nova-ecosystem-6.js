@@ -73,7 +73,7 @@
     }
     var star = $('#nova-island-star');
     var island = $('#nova-island');
-    var shell = $('#shell');
+    var shell = $('#nova-shell');
     if (star) star.classList.remove('open');
     if (island) island.classList.remove('open');
     if (shell) shell.classList.remove('island-open');
