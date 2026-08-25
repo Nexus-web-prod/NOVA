@@ -12,6 +12,16 @@
   var transitionTimer = null;
   var started = false;
 
+  function isAdSensePreview() {
+    return window.__NOVA_ADS_PREVIEW === true ||
+      location.protocol === "about:" ||
+      location.href === "about:srcdoc" ||
+      /(?:^|[?&])google_preview(?:=|&|$)/i.test(location.search) ||
+      /adsense\.google\.|autoads-preview\.googleusercontent\.com/i.test(document.referrer || "");
+  }
+
+  if (isAdSensePreview()) window.__NOVA_ADS_PREVIEW = true;
+
   function hasCompletedSetup() {
     try {
       if (localStorage.getItem(COMPLETE_KEY) === COMPLETE_VERSION) return true;
@@ -27,7 +37,7 @@
   // Only the real setup controller hides Nova. AdSense rebuilds the page in a
   // srcdoc preview where external controllers may not run; keeping this here
   // ensures that environment receives the visible public shell.
-  if (!window.__NOVA_ADS_PREVIEW && !hasCompletedSetup()) {
+  if (!isAdSensePreview() && !hasCompletedSetup()) {
     document.documentElement.classList.add("nova-setup-pending");
   }
 
@@ -871,8 +881,16 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     bindRestart();
-    if (window.__NOVA_ADS_PREVIEW) {
+    if (isAdSensePreview()) {
       document.documentElement.classList.remove("nova-setup-active", "nova-setup-pending");
+      document.querySelector(".nova-setup")?.remove();
+      var shell = byId("shell");
+      if (shell) {
+        shell.style.removeProperty("display");
+        shell.style.removeProperty("opacity");
+        shell.style.removeProperty("visibility");
+        shell.style.removeProperty("pointer-events");
+      }
       return;
     }
     if (!hasCompletedSetup()) start(false);
