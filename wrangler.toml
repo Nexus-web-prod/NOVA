@@ -4,14 +4,10 @@ pages_build_output_dir = "."
 
 [vars]
 PUBLIC_ORIGIN = "https://dev.nova-7.pages.dev"
+TURSO_DATABASE_URL = "libsql://nova-db-nexuswebprod.aws-us-east-2.turso.io"
 
 [ai]
 binding = "AI"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "nova-db"
-database_id = "f440489c-aa57-4da2-bf5c-742fad98fc18"
 
 [[durable_objects.bindings]]
 name = "VOICE_ROOMS"
