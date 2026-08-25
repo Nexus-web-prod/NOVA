@@ -4072,32 +4072,29 @@ function maintenanceDocument(maintenance) {
     .motif-medium{font-size:1rem;color:rgba(139,143,255,.12)}
     .motif-small{font-size:.7rem;color:rgba(139,143,255,.07)}
     .stage{position:relative;z-index:1;min-height:100vh;display:grid;place-items:center;padding:40px 24px}
-    main{width:min(620px,calc(100vw - 48px));margin-top:-2vh;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1.2rem}
-    .captured-logo{display:flex;flex-direction:column;align-items:center;gap:.5rem}
-    .captured-logo-star{font-size:5rem;line-height:1;color:#8b8fff;filter:drop-shadow(0 0 28px rgba(139,143,255,.55));animation:starPulse 3.5s ease-in-out infinite}
-    .captured-wordmark{font-weight:700;font-size:2.8rem;letter-spacing:.65em;color:#eeeef6;opacity:.92;padding-left:.65em;text-shadow:0 0 40px rgba(139,143,255,.25)}
-    .status{display:flex;align-items:center;justify-content:center;gap:.75rem;margin:.4rem 0;color:#8b8fff;font-size:.65rem;font-weight:700;letter-spacing:.28em;text-transform:uppercase;text-shadow:0 0 18px rgba(139,143,255,.4)}
-    .wrench{width:22px;height:22px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-    .message{max-width:340px;margin:0;color:rgba(238,238,246,.55);font-size:.52rem;line-height:1.7;overflow-wrap:anywhere}
-    .back-soon{color:rgba(139,143,255,.45);font-size:.42rem;font-weight:400;letter-spacing:.14em;text-transform:uppercase;margin-top:.2rem}
-    .admin-link{position:fixed;right:24px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border:1px solid #2d2c54;border-radius:9px;background:#0b0b1c;color:#716f9c;font-size:10px;letter-spacing:.08em;text-decoration:none;transition:color .18s,border-color .18s,background .18s,transform .18s}
-    .admin-link:hover,.admin-link:focus-visible{color:#b9b8ef;border-color:#5d5b98;background:#11112a;transform:translateY(-1px);outline:none}
-    .admin-link span{color:#a68b35}
+    main{width:min(680px,calc(100vw - 48px));margin-top:-2vh;text-align:center;display:flex;flex-direction:column;align-items:center}
+    .nova7-wordmark{--logo-size:clamp(68px,7.5vw,104px);display:inline-flex;align-items:center;justify-content:center;gap:0;position:relative;left:.28em;margin:0 0 52px;color:#eeeef6;font-family:"Space Mono",monospace;font-size:var(--logo-size);font-weight:700;line-height:.82;letter-spacing:0;text-shadow:0 0 40px rgba(139,143,255,.25);filter:drop-shadow(0 14px 24px rgba(0,0,0,.58));animation:logoPulse 3.5s ease-in-out infinite}
+    .nova7-logo-n{display:inline-block;transform:scaleX(.92)}
+    .nova7-logo-star{display:block;width:.88em;height:.88em;margin:0 -.08em;fill:#8b8fff;filter:drop-shadow(0 0 18px rgba(139,143,255,.58))}
+    .nova7-logo-va{display:inline-flex;letter-spacing:-.18em}.nova7-logo-v{transform:scaleX(.96)}
+    .status{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 28px;color:#8b8fff;font-size:clamp(11px,.8vw,13px);font-weight:700;letter-spacing:.24em;text-transform:uppercase;text-shadow:0 0 18px rgba(139,143,255,.4)}
+    .wrench{width:21px;height:21px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .message{max-width:560px;margin:0;color:rgba(238,238,246,.68);font-size:clamp(12px,.9vw,15px);line-height:1.75;overflow-wrap:anywhere;text-wrap:balance}
+    .back-soon{color:rgba(139,143,255,.55);font-size:clamp(9px,.64vw,11px);font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-top:26px}
     @keyframes monogramDrift{from{transform:translate3d(-160px,-160px,0)}to{transform:translate3d(0,0,0)}}
-    @keyframes starPulse{0%,100%{opacity:.85;transform:scale(1);filter:drop-shadow(0 0 18px rgba(139,143,255,.32))}50%{opacity:1;transform:scale(1.07);filter:drop-shadow(0 0 30px rgba(139,143,255,.55))}}
-    @media(max-width:600px){main{margin-top:-5vh}.captured-logo-star{font-size:4rem}.captured-wordmark{font-size:2rem}.status{letter-spacing:.2em}.message{max-width:300px}.admin-link{right:14px;bottom:14px}}
-    @media(prefers-reduced-motion:reduce){.monogram-track,.captured-logo-star{animation:none}.admin-link{transition:none}}
+    @keyframes logoPulse{0%,100%{opacity:.9;transform:scale(.985)}50%{opacity:1;transform:scale(1.015)}}
+    @media(max-width:600px){main{width:min(92vw,520px);margin-top:-4vh}.nova7-wordmark{--logo-size:58px;margin-bottom:40px}.status{gap:10px;margin-bottom:22px;letter-spacing:.18em}.wrench{width:18px;height:18px}.message{max-width:350px}.back-soon{margin-top:22px}}
+    @media(prefers-reduced-motion:reduce){.monogram-track,.nova7-wordmark{animation:none}}
   </style>
 </head>
 <body>
   <div class="star-field" aria-hidden="true"><div class="monogram-track">${stars}</div></div>
   <div class="stage"><main>
-    <div class="captured-logo"><div class="captured-logo-star" aria-hidden="true">✦</div><h1 class="captured-wordmark">NOVA</h1></div>
+    <h1 class="nova7-wordmark" aria-label="Nova"><span class="nova7-logo-n">N</span><svg class="nova7-logo-star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg><span class="nova7-logo-va" aria-hidden="true"><span class="nova7-logo-v">V</span><span>A</span></span></h1>
     <div class="status"><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg><span>Maintenance</span><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></div>
     <p class="message">${message}</p>
     <div class="back-soon">Nova · Back soon</div>
   </main></div>
-  <a class="admin-link" href="/#admin" aria-label="Open Nova admin"><span aria-hidden="true">🔑</span> Admin</a>
 </body>
 </html>`;
   return new Response(body, {
