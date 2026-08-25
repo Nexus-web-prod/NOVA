@@ -1,0 +1,12 @@
+{
+  "name": "nova-7-database-tools",
+  "private": true,
+  "scripts": {
+    "db:snapshot": "node tools/database/snapshot-production.mjs",
+    "db:baseline": "node tools/database/create-baseline.mjs",
+    "db:verify": "node tools/database/verify-schema.mjs",
+    "db:audit": "node tools/database/audit-stale.mjs",
+    "db:cleanup": "node tools/database/cleanup-stale.mjs",
+    "db:migrate": "node tools/database/migrate.mjs"
+  }
+}
