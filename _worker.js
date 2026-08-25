@@ -3435,7 +3435,7 @@ async function getSupernovaAccess(request, db) {
     db.prepare(`SELECT r.id,r.status,r.created_at AS createdAt,r.responded_at AS respondedAt,r.expires_at AS expiresAt,
       u.username,COALESCE(p.display_name,u.username) AS displayName
       FROM supernova_referrals r JOIN users u ON u.id=r.invited_user_id LEFT JOIN user_profiles p ON p.user_id=u.id
-      WHERE r.inviter_id=? ORDER BY r.created_at DESC LIMIT 5`).bind(auth.id).all(),
+      WHERE r.inviter_id=? AND r.status!='declined' ORDER BY r.created_at DESC LIMIT 5`).bind(auth.id).all(),
     db.prepare(`SELECT r.id,r.status,r.created_at AS createdAt,u.username AS fromUsername,
       COALESCE(p.display_name,u.username) AS fromDisplayName
       FROM supernova_referrals r JOIN users u ON u.id=r.inviter_id LEFT JOIN user_profiles p ON p.user_id=u.id
@@ -3497,7 +3497,11 @@ async function createSupernovaReferral(request, db) {
   if (priorClaim) return apiError("REFERRAL_ALREADY_USED", "That person has already used a Supernova referral", 409);
   const existingPending = await db.prepare("SELECT 1 FROM supernova_referrals WHERE invited_user_id=? AND status='pending' LIMIT 1").bind(target.id).first();
   if (existingPending) return apiError("REFERRAL_PENDING", "That person already has a pending Supernova invite", 409);
-  const used = Number(await db.prepare("SELECT COUNT(*) AS total FROM supernova_referrals WHERE inviter_id=?").bind(auth.id).first("total") || 0);
+  // Older builds kept declined rows. They must not use a slot, and the old
+  // unique inviter/recipient row must be cleared before this person is sent a
+  // new invitation.
+  await db.prepare("DELETE FROM supernova_referrals WHERE inviter_id=? AND invited_user_id=? AND status='declined'").bind(auth.id, target.id).run();
+  const used = Number(await db.prepare("SELECT COUNT(*) AS total FROM supernova_referrals WHERE inviter_id=? AND status IN ('pending','accepted')").bind(auth.id).first("total") || 0);
   if (used >= SUPERNOVA_REFERRAL_LIMIT) return apiError("REFERRAL_LIMIT", "All five referral invites have been used", 409);
   const id = randomId();
   try {
