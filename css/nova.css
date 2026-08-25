@@ -2176,6 +2176,13 @@ html[data-blur-level="off"] .nova-site-banner {
 .social-dm-games-menu>button>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}.social-dm-games-menu b{color:inherit;font:700 11px "Space Mono",monospace;letter-spacing:.04em}.social-dm-games-menu small{color:var(--muted);font:600 10px "Lato",sans-serif}
 @media(max-width:640px){.social-dm-games-trigger{min-width:38px}.social-dm-games-trigger>span,.social-dm-games-chevron{display:none}.social-dm-games-menu{position:fixed;left:12px;right:12px;top:auto;bottom:76px;width:auto}}
 
+/* Incoming Supernova referral inside the Nova Island footer */
+.ni-referral-alert{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:10px;margin:0;padding:10px 14px;border-top:1px solid rgba(139,143,255,.28);background:linear-gradient(105deg,rgba(139,143,255,.18),rgba(96,76,210,.09));box-shadow:inset 0 1px rgba(255,255,255,.035);animation:niReferralEnter .3s cubic-bezier(.22,1,.36,1) both;flex:0 0 auto}
+.ni-referral-alert[hidden]{display:none!important}.ni-referral-alert-icon{width:36px;height:36px;display:grid;place-items:center;border:1px solid rgba(139,143,255,.35);border-radius:10px;background:rgba(139,143,255,.13);color:#a9abff;font-size:18px;filter:drop-shadow(0 0 9px rgba(139,143,255,.35))}.ni-referral-alert-copy{display:flex;min-width:0;flex-direction:column;gap:2px}.ni-referral-alert-copy small{color:#9ea1ff;font:700 8px "Space Mono",monospace;letter-spacing:.13em}.ni-referral-alert-copy strong{overflow:hidden;color:var(--white);font:700 11px "Space Mono",monospace;text-overflow:ellipsis;white-space:nowrap}.ni-referral-alert-copy span{color:var(--muted);font:600 10px "Lato",sans-serif}.ni-referral-alert-actions{display:flex;gap:6px}.ni-referral-alert-actions button{min-height:34px;padding:0 10px;border:1px solid rgba(139,143,255,.42);border-radius:8px;background:rgba(139,143,255,.2);color:#dfe0ff;font:700 9px "Space Mono",monospace;cursor:pointer}.ni-referral-alert-actions button:hover,.ni-referral-alert-actions button:focus-visible{background:rgba(139,143,255,.34);outline:2px solid rgba(185,187,255,.5);outline-offset:2px}.ni-referral-alert-actions .ni-referral-decline{border-color:rgba(255,255,255,.1);background:transparent;color:var(--muted)}
+@keyframes niReferralEnter{from{opacity:0;transform:translateY(8px)}}
+@media(max-width:640px){.ni-referral-alert{grid-template-columns:34px minmax(0,1fr);padding:9px 11px}.ni-referral-alert-actions{grid-column:1/-1}.ni-referral-alert-actions button{flex:1}.ni-referral-alert-copy span{display:none}}
+@media(prefers-reduced-motion:reduce){.ni-referral-alert{animation:none}}
+
 #page-home .home-inner{
   width:min(1120px,calc(100% - 48px));
   align-items:center;

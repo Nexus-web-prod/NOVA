@@ -14,6 +14,7 @@
   var feedback = document.getElementById("sn-referral-feedback");
   var list = document.getElementById("sn-referral-list");
   var incoming = document.getElementById("sn-referral-incoming");
+  var islandAlert = document.getElementById("ni-referral-alert");
   var claimFeedback = document.getElementById("sn-referral-claim-feedback");
   var loading = false;
 
@@ -54,6 +55,10 @@
     incoming.innerHTML = items.map(function (item) {
       return '<div class="sn-referral-invite"><span class="sn-referral-person"><strong>@' + esc(item.fromUsername) + '</strong><small>invited you to try Supernova for 7 days</small></span><span class="sn-referral-actions"><button class="sn-referral-action sn-referral-action--secondary" type="button" data-referral-action="decline" data-referral-id="' + esc(item.id) + '">Decline</button><button class="sn-referral-action" type="button" data-referral-action="accept" data-referral-id="' + esc(item.id) + '">Accept</button></span></div>';
     }).join("");
+    if (islandAlert) {
+      islandAlert.hidden = !items.length;
+      islandAlert.innerHTML = items.length ? '<div class="ni-referral-alert-icon" aria-hidden="true">✦</div><div class="ni-referral-alert-copy"><small>SUPERNOVA INVITE</small><strong>@' + esc(items[0].fromUsername) + ' invited you</strong><span>Unlock Supernova Pro for seven days.</span></div><div class="ni-referral-alert-actions"><button type="button" class="ni-referral-decline" data-referral-action="decline" data-referral-id="' + esc(items[0].id) + '">Decline</button><button type="button" data-referral-action="accept" data-referral-id="' + esc(items[0].id) + '">Accept</button></div>' : '';
+    }
   }
 
   function renderSent(items) {
@@ -144,7 +149,7 @@
     }
   });
 
-  if (incoming) incoming.addEventListener("click", async function (event) {
+  async function respondToInvite(event) {
     var button = event.target.closest("[data-referral-action]");
     if (!button) return;
     button.disabled = true;
@@ -160,10 +165,12 @@
       setElementFeedback(claimFeedback, error.message || "The invite could not be updated.", "error");
       button.disabled = false;
     }
-  });
+  }
+  if (incoming) incoming.addEventListener("click", respondToInvite);
+  if (islandAlert) islandAlert.addEventListener("click", respondToInvite);
 
   document.addEventListener("nova:page-change", function (event) { if (event.detail && (event.detail.page === "plans" || event.detail.page === "supernova")) load(); });
   document.addEventListener("nova:account-changed", load);
-  document.addEventListener("nova:logout", function () { if (claimPanel) claimPanel.hidden = true; });
+  document.addEventListener("nova:logout", function () { if (claimPanel) claimPanel.hidden = true; if (islandAlert) islandAlert.hidden = true; });
   setTimeout(load, 900);
 })();
