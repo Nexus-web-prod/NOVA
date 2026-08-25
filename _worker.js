@@ -437,7 +437,9 @@ export default {
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {
       const websiteUrl = new URL(url);
-      websiteUrl.pathname = "/website/html/index.html";
+      // Fetch the directory form so Pages serves its index without issuing
+      // a canonical redirect to the internal website/html path.
+      websiteUrl.pathname = "/website/html/";
       return env.ASSETS.fetch(new Request(websiteUrl, request));
     }
     return env.ASSETS.fetch(request);
