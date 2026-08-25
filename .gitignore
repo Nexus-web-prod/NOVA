@@ -17,3 +17,6 @@ temp/
 .env
 .env.*
 !.env.example
+
+# Local AI deployment credentials
+scripts/deploy/deploy-ai.sh

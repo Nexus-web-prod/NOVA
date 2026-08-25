@@ -81,6 +81,18 @@ let unoSchemaReady = null;
 let checkersSchemaReady = null;
 let chessSchemaReady = null;
 let connect4SchemaReady = null;
+let databaseMigration718Ready = null;
+
+async function hasDatabaseMigration718(db) {
+  if (databaseMigration718Ready !== null) return databaseMigration718Ready;
+  try {
+    const row = await db.prepare("SELECT version FROM schema_migrations WHERE version=718").first();
+    databaseMigration718Ready = Number(row?.version || 0) === 718;
+  } catch {
+    databaseMigration718Ready = false;
+  }
+  return databaseMigration718Ready;
+}
 const requestUserCache = new WeakMap();
 const geminiModelCache = new Map();
 
@@ -275,6 +287,7 @@ function getDb(env) {
 }
 
 async function ensureTursoSchema(db) {
+  if (await hasDatabaseMigration718(db)) return true;
   if (!db) throw new Error("Turso database is not configured");
   if (!tursoSchemaReady) {
     tursoSchemaReady = (async () => {
@@ -1019,6 +1032,7 @@ function unoCode() {
 }
 
 async function ensureUnoSchema(db) {
+  if (await hasDatabaseMigration718(db)) return true;
   if (!unoSchemaReady) unoSchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS uno_lobbies (id TEXT PRIMARY KEY,code TEXT NOT NULL UNIQUE,owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'lobby' CHECK(status IN ('lobby','playing','finished')),state_json TEXT NOT NULL DEFAULT '{}',version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS uno_lobbies_code_idx ON uno_lobbies(code,updated_at DESC)"),
@@ -1030,6 +1044,7 @@ async function ensureUnoSchema(db) {
 }
 
 async function ensureCheckersSchema(db) {
+  if (await hasDatabaseMigration718(db)) return true;
   if (!checkersSchemaReady) checkersSchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS checkers_matches (id TEXT PRIMARY KEY,red_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,black_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS checkers_red_updated_idx ON checkers_matches(red_user_id,updated_at DESC)"),
@@ -1144,6 +1159,7 @@ async function checkersAction(request, db) {
 }
 
 async function ensureChessSchema(db) {
+  if (await hasDatabaseMigration718(db)) return true;
   if (!chessSchemaReady) chessSchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS chess_matches (id TEXT PRIMARY KEY,white_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,black_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS chess_white_updated_idx ON chess_matches(white_user_id,updated_at DESC)"),
@@ -1231,6 +1247,7 @@ async function chessAction(request,db){requireSameOrigin(request);const auth=awa
   const result=await db.prepare("UPDATE chess_matches SET status=?,winner_id=?,state_json=?,version=version+1,updated_at=? WHERE id=? AND version=?").bind(status,winnerId,JSON.stringify(state),Date.now(),matchId,row.version).run();if(!result.meta?.changes)return apiError("GAME_CHANGED","The board changed—try again",409);const updated=await chessRow(db,matchId);return apiJson({match:exposeChessMatch(updated,auth.id)})}
 
 async function ensureConnect4Schema(db) {
+  if (await hasDatabaseMigration718(db)) return true;
   if (!connect4SchemaReady) connect4SchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS connect4_matches (id TEXT PRIMARY KEY,red_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,yellow_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS connect4_red_updated_idx ON connect4_matches(red_user_id,updated_at DESC)"),
@@ -1841,6 +1858,7 @@ const VOICE_V2_SIGNAL_TTL_MS = 45000;
 const VOICE_V2_CHAT_LIMIT = 140;
 
 async function ensureVoiceV2Schema(db) {
+  if (await hasDatabaseMigration718(db)) return true;
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS voice_v2_signals(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2665,6 +2683,7 @@ async function voiceIceServers(request, env) {
 }
 
 async function ensureVoiceSfuSchema(db) {
+  if (await hasDatabaseMigration718(db)) return true;
   await db.prepare(`CREATE TABLE IF NOT EXISTS voice_sfu_tracks (
     room_id TEXT NOT NULL,user_id TEXT NOT NULL,session_id TEXT NOT NULL,track_name TEXT NOT NULL DEFAULT '',updated_at INTEGER NOT NULL,
     PRIMARY KEY(room_id,user_id),FOREIGN KEY(room_id) REFERENCES voice_rooms(id) ON DELETE CASCADE
@@ -3044,10 +3063,14 @@ async function getMessages(request, url, db) {
   const result = await db.prepare(`${messageSelect()} WHERE m.channel_id=? AND m.id>? AND m.deleted_at IS NULL
     AND NOT EXISTS (SELECT 1 FROM social_blocks b WHERE (b.blocker_id=? AND b.blocked_id=m.sender_id) OR (b.blocker_id=m.sender_id AND b.blocked_id=?))
     ORDER BY m.id ${order} LIMIT 200`).bind(channel.id, after, auth.id, auth.id).all();
-  const reactions = await loadChannelReactions(db, channel.id, auth.id);
   const rows = result.results || [];
   if (!after) rows.reverse();
-  return apiJson({ channel: channel.publicId, messages: rows.map(exposeMessage), reactions });
+  // Reaction snapshots are expensive because they aggregate over the latest 200
+  // messages. Send that snapshot on the initial history load only. Incremental
+  // message polls use the dedicated, slower reaction poll instead.
+  const includeReactions = !after;
+  const reactions = includeReactions ? await loadChannelReactions(db, channel.id, auth.id) : null;
+  return apiJson({ channel: channel.publicId, messages: rows.map(exposeMessage), reactions: reactions || {}, reactionsIncluded: includeReactions });
 }
 
 async function getMessageReactions(request, url, db) {
