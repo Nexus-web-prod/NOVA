@@ -133,7 +133,7 @@
       script.async = true;
       script.crossOrigin = "anonymous";
       script.dataset.novaAdsense = "true";
-      script.src = "https://pagead2.googlesyndication.com/pagead/website/js/adsbygoogle.js?client=" + encodeURIComponent(CONFIG.publisherId);
+      script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(CONFIG.publisherId);
       script.onload = function () { state.scriptLoaded = true; resolve(true); };
       script.onerror = function () { state.loadingScript = null; resolve(false); };
       document.head.appendChild(script);
