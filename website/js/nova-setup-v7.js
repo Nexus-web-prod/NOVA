@@ -894,7 +894,17 @@
       }
       return;
     }
-    if (!hasCompletedSetup()) start(false);
-    else document.documentElement.classList.remove("nova-setup-pending");
+    if (!hasCompletedSetup()) {
+      var launchSetup = function (event) {
+        if (!event.isTrusted) return;
+        document.removeEventListener("pointerdown", launchSetup, true);
+        document.removeEventListener("touchstart", launchSetup, true);
+        document.removeEventListener("keydown", launchSetup, true);
+        start(false);
+      };
+      document.addEventListener("pointerdown", launchSetup, true);
+      document.addEventListener("touchstart", launchSetup, true);
+      document.addEventListener("keydown", launchSetup, true);
+    } else document.documentElement.classList.remove("nova-setup-pending");
   });
 })();
