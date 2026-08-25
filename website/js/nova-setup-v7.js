@@ -14,6 +14,7 @@
 
   function isAdSensePreview() {
     return window.__NOVA_ADS_PREVIEW === true ||
+      window.top !== window ||
       location.protocol === "about:" ||
       location.href === "about:srcdoc" ||
       /(?:^|[?&])google_preview(?:=|&|$)/i.test(location.search) ||
