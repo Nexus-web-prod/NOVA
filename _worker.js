@@ -4044,6 +4044,13 @@ function escapeMaintenanceHtml(value) {
 
 function maintenanceDocument(maintenance) {
   const message = escapeMaintenanceHtml(maintenance.message || "Nova is currently under maintenance. Check back soon.");
+  const stars = Array.from({ length: 72 }, (_, index) => {
+    const x = 4 + ((index * 13) % 93);
+    const y = 6 + ((index * 29) % 89);
+    const size = index % 7 === 0 ? "large" : index % 3 === 0 ? "medium" : "small";
+    const delay = -((index * 0.37) % 4).toFixed(2);
+    return `<i class="star-field-star ${size}" style="--x:${x}%;--y:${y}%;--delay:${delay}s"></i>`;
+  }).join("");
   const body = `<!doctype html>
 <html lang="en">
 <head>
@@ -4052,30 +4059,40 @@ function maintenanceDocument(maintenance) {
   <meta name="color-scheme" content="dark">
   <title>Nova maintenance</title>
   <style>
-    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    :root{color-scheme:dark;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
     *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;display:grid;place-items:center;overflow:hidden;background:#05050d;color:#f4f2ff}
-    body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 50% 38%,rgba(115,67,190,.18),transparent 34%),linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:auto,44px 44px,44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 90%);pointer-events:none}
-    main{position:relative;width:min(560px,calc(100vw - 36px));padding:52px 42px;text-align:center;border:1px solid rgba(184,148,255,.22);border-radius:18px;background:rgba(13,10,25,.82);box-shadow:0 30px 90px rgba(0,0,0,.52),0 0 70px rgba(112,59,190,.12)}
-    .wordmark{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:30px;font-weight:900;font-size:clamp(42px,10vw,72px);line-height:1;letter-spacing:0}
-    .star{width:.72em;height:.72em;background:#f5f2ff;clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);filter:drop-shadow(0 0 16px rgba(190,146,255,.62))}
-    .eyebrow{margin:0 0 12px;color:#bd94ff;font:700 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.16em}
-    h1{margin:0 0 14px;font-size:clamp(24px,5vw,34px);letter-spacing:0}
-    p{max-width:440px;margin:0 auto;color:#aaa5bb;font-size:16px;line-height:1.65;overflow-wrap:anywhere}
-    a{display:inline-flex;margin-top:28px;padding:11px 18px;border:1px solid rgba(184,148,255,.34);border-radius:9px;background:rgba(155,98,245,.12);color:#f4f2ff;text-decoration:none;font-weight:700;transition:background .18s,border-color .18s,transform .18s}
-    a:hover{background:rgba(155,98,245,.23);border-color:rgba(198,166,255,.56);transform:translateY(-1px)}
-    @media(max-width:520px){main{padding:40px 24px;border-radius:14px}.wordmark{margin-bottom:26px}}
-    @media(prefers-reduced-motion:reduce){a{transition:none}}
+    body{margin:0;min-height:100vh;overflow:hidden;background:#02030b;color:#eeeef6}
+    .star-field{position:fixed;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(66,55,152,.075),transparent 34%),#02030b}
+    .star-field-star{position:absolute;left:var(--x);top:var(--y);width:5px;height:5px;background:#34335f;clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);opacity:.42;animation:twinkle 4s ease-in-out var(--delay) infinite}
+    .star-field-star.medium{width:12px;height:12px;background:#41406f;opacity:.52}
+    .star-field-star.large{width:22px;height:22px;background:#48477b;opacity:.62}
+    .stage{position:relative;z-index:1;min-height:100vh;display:grid;place-items:center;padding:40px 24px}
+    main{width:min(620px,calc(100vw - 48px));margin-top:-2vh;text-align:center}
+    .nova-mark{width:52px;height:52px;margin:0 auto 28px;background:#8588ff;clip-path:polygon(50% 0,61% 38%,100% 50%,61% 62%,50% 100%,39% 62%,0 50%,39% 38%);filter:drop-shadow(0 0 18px rgba(126,129,255,.28));animation:markPulse 3.6s ease-in-out infinite}
+    .wordmark{margin:0;color:#f0eff6;font:900 clamp(42px,5.2vw,64px)/1 "Arial Narrow",Impact,Haettenschweiler,sans-serif;letter-spacing:.42em;text-indent:.42em;text-shadow:0 3px 0 rgba(255,255,255,.08)}
+    .status{display:flex;align-items:center;justify-content:center;gap:18px;margin:44px 0 34px;color:#8588ff;font-size:clamp(13px,1.1vw,18px);font-weight:800;letter-spacing:.34em;text-transform:uppercase;text-shadow:0 0 18px rgba(126,129,255,.3)}
+    .wrench{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
+    .message{max-width:520px;margin:0 auto;color:#8d8c9d;font-size:clamp(12px,1vw,15px);line-height:1.9;letter-spacing:.035em;overflow-wrap:anywhere}
+    .back-soon{margin-top:32px;color:#35345d;font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+    .admin-link{position:fixed;right:24px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border:1px solid #2d2c54;border-radius:9px;background:#0b0b1c;color:#716f9c;font-size:10px;letter-spacing:.08em;text-decoration:none;transition:color .18s,border-color .18s,background .18s,transform .18s}
+    .admin-link:hover,.admin-link:focus-visible{color:#b9b8ef;border-color:#5d5b98;background:#11112a;transform:translateY(-1px);outline:none}
+    .admin-link span{color:#a68b35}
+    @keyframes twinkle{0%,100%{transform:scale(.72);opacity:.24}50%{transform:scale(1.08);opacity:.68}}
+    @keyframes markPulse{0%,100%{transform:scale(.96);opacity:.88}50%{transform:scale(1.04);opacity:1}}
+    @media(max-width:600px){main{margin-top:-5vh}.nova-mark{width:42px;height:42px;margin-bottom:24px}.status{margin:34px 0 26px;gap:12px;letter-spacing:.22em}.message{max-width:340px}.admin-link{right:14px;bottom:14px}}
+    @media(prefers-reduced-motion:reduce){.star-field-star,.nova-mark{animation:none}.admin-link{transition:none}}
   </style>
 </head>
 <body>
-  <main>
-    <div class="wordmark" aria-label="Nova"><span>N</span><span class="star" aria-hidden="true"></span><span>VA</span></div>
-    <div class="eyebrow">Maintenance mode</div>
-    <h1>Nova will be right back</h1>
-    <p>${message}</p>
-    <a href="/">Check again</a>
-  </main>
+  <div class="star-field" aria-hidden="true">${stars}</div>
+  <div class="stage"><main>
+    <div class="nova-mark" aria-hidden="true"></div>
+    <h1 class="wordmark">NOVA</h1>
+    <div class="status"><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5-5L7.4 3.6l3 3L8 9a4 4 0 0 0-5 5L1 16l7 7 2-2a4 4 0 0 0 5-5l8-8-7-7-1.3 5.3Z"></path></svg><span>Maintenance</span><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5-5L7.4 3.6l3 3L8 9a4 4 0 0 0-5 5L1 16l7 7 2-2a4 4 0 0 0 5-5l8-8-7-7-1.3 5.3Z"></path></svg></div>
+    <p class="message">${message}</p>
+    <div class="back-soon">Nova · Back soon</div>
+  </main></div>
+  <a class="admin-link" href="/#admin" aria-label="Open Nova admin"><span aria-hidden="true">🔑</span> Admin</a>
 </body>
 </html>`;
   return new Response(body, {
