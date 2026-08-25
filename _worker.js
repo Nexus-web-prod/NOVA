@@ -4060,7 +4060,7 @@ function maintenanceDocument(maintenance) {
   <title>Nova maintenance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap">
   <style>
     :root{color-scheme:dark;font-family:"Space Mono",monospace}
     *{box-sizing:border-box}
@@ -4073,10 +4073,11 @@ function maintenanceDocument(maintenance) {
     .motif-small{font-size:.7rem;color:rgba(139,143,255,.07)}
     .stage{position:relative;z-index:1;min-height:100vh;display:grid;place-items:center;padding:40px 24px}
     main{width:min(680px,calc(100vw - 48px));margin-top:-2vh;text-align:center;display:flex;flex-direction:column;align-items:center}
-    .nova7-wordmark{--logo-size:clamp(68px,7.5vw,104px);display:inline-flex;align-items:center;justify-content:center;gap:0;position:relative;left:.28em;margin:0 0 52px;color:#eeeef6;font-family:"Space Mono",monospace;font-size:var(--logo-size);font-weight:700;line-height:.82;letter-spacing:0;text-shadow:0 0 40px rgba(139,143,255,.25);filter:drop-shadow(0 14px 24px rgba(0,0,0,.58));animation:logoPulse 3.5s ease-in-out infinite}
-    .nova7-logo-n{display:inline-block;transform:scaleX(.92)}
-    .nova7-logo-star{display:block;width:.88em;height:.88em;margin:0 -.08em;fill:#8b8fff;filter:drop-shadow(0 0 18px rgba(139,143,255,.58))}
-    .nova7-logo-va{display:inline-flex;letter-spacing:-.18em}.nova7-logo-v{transform:scaleX(.96)}
+    .nova7-wordmark{--logo-size:clamp(68px,7.5vw,104px);display:inline-flex;align-items:center;justify-content:center;width:auto;gap:0;margin:0 0 52px;padding:0;color:#f8f5ff;font-family:"Oxanium",system-ui,sans-serif;font-size:var(--logo-size);font-weight:800;line-height:.82;letter-spacing:0;filter:drop-shadow(0 16px 26px rgba(0,0,0,.62));animation:logoPulse 3.5s ease-in-out infinite;transform-origin:center}
+    .nova7-logo-n{position:relative;z-index:1;display:inline-grid;place-items:center;min-width:.64em;transform:scaleX(.95);text-shadow:0 0 1px #fff,0 0 18px rgba(142,84,255,.48),0 5px 0 rgba(108,68,190,.34)}
+    .nova7-logo-star{position:relative;z-index:2;display:block;flex:0 0 auto;width:.92em;height:.92em;margin-left:-.09em;margin-right:-.05em;overflow:visible;fill:currentColor;filter:drop-shadow(0 0 14px rgba(163,103,255,.72)) drop-shadow(0 6px 0 rgba(100,54,160,.28))}
+    .nova7-logo-va{position:relative;z-index:1;display:inline-grid;grid-template-columns:.70em .86em;align-items:end;margin-left:-.06em;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 18px rgba(142,84,255,.48)) drop-shadow(0 5px 0 rgba(108,68,190,.34))}
+    .nova7-logo-v,.nova7-logo-a{font-size:1em;font-weight:800;letter-spacing:0}.nova7-logo-v{transform:scaleX(1.04)}.nova7-logo-a{margin-left:-.34em;transform:scaleX(1.08)}
     .status{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 28px;color:#8b8fff;font-size:clamp(11px,.8vw,13px);font-weight:700;letter-spacing:.24em;text-transform:uppercase;text-shadow:0 0 18px rgba(139,143,255,.4)}
     .wrench{width:21px;height:21px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
     .message{max-width:560px;margin:0;color:rgba(238,238,246,.68);font-size:clamp(12px,.9vw,15px);line-height:1.75;overflow-wrap:anywhere;text-wrap:balance}
@@ -4090,7 +4091,7 @@ function maintenanceDocument(maintenance) {
 <body>
   <div class="star-field" aria-hidden="true"><div class="monogram-track">${stars}</div></div>
   <div class="stage"><main>
-    <h1 class="nova7-wordmark" aria-label="Nova"><span class="nova7-logo-n">N</span><svg class="nova7-logo-star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg><span class="nova7-logo-va" aria-hidden="true"><span class="nova7-logo-v">V</span><span>A</span></span></h1>
+    <h1 class="nova7-wordmark" aria-label="Nova"><span class="nova7-logo-n">N</span><svg class="nova7-logo-star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg><span class="nova7-logo-va" aria-hidden="true"><span class="nova7-logo-v">V</span><span class="nova7-logo-a">A</span></span></h1>
     <div class="status"><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg><span>Maintenance</span><svg class="wrench" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></div>
     <p class="message">${message}</p>
     <div class="back-soon">Nova · Back soon</div>
