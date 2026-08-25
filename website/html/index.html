@@ -4,7 +4,7 @@
 <script>
 // AdSense's site preview has no Nova setup state. Let it render the public
 // shell instead of capturing the setup-pending background by itself.
-window.__NOVA_ADS_PREVIEW = /(?:^|[?&])google_preview(?:_hash)?=/i.test(location.search) || /adsense\.google\./i.test(document.referrer);
+window.__NOVA_ADS_PREVIEW = /(?:^|[?&])google_preview(?:_hash)?=/i.test(location.search) || /adsense\.google\./i.test(document.referrer) || /AdsBot-Google|Mediapartners-Google/i.test(navigator.userAgent);
 </script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6082584609878503"
      crossorigin="anonymous"></script>
