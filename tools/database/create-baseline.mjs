@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';
+const source = 'database-cleanup/before/schema.sql';
+const target = 'database/migrations/717_production_baseline.sql';
+const integrity = JSON.parse(await fs.readFile('database-cleanup/before/integrity.json','utf8'));
+if (Number(integrity?.schema_meta?.version) !== 717) throw new Error(`Refusing baseline: expected production schema 717, got ${integrity?.schema_meta?.version ?? 'unknown'}`);
+if ((integrity?.foreign_key_check || []).length) throw new Error('Refusing baseline: foreign_key_check is not clean');
+const schema = await fs.readFile(source,'utf8');
+if (!/CREATE TABLE/i.test(schema)) throw new Error('Snapshot schema is empty');
+await fs.writeFile(target, `-- Generated from verified Nova production schema 717.\n-- Review before committing.\n\n${schema}`);
+console.log(`Created ${target}`);
