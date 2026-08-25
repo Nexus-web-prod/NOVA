@@ -25,11 +25,16 @@ html[data-performance-mode="fast"] #nova-star-canvas {
   opacity: .62;
 }
 
-html.nova-setup-pending #shell,
-html.nova-setup-active #shell,
-html.nova-setup-active #nova-island,
-html.nova-setup-active #nova-island-star,
-html.nova-setup-active #nova-island-hint {
+/*
+ * Do not hide the app merely because setup is pending. AdSense renders the
+ * page inside an about:srcdoc document where the setup state can be captured
+ * without the setup overlay itself, leaving only the star background visible.
+ * Hide the app only while the real setup overlay is present.
+ */
+html.nova-setup-active:has(.nova-setup) #shell,
+html.nova-setup-active:has(.nova-setup) #nova-island,
+html.nova-setup-active:has(.nova-setup) #nova-island-star,
+html.nova-setup-active:has(.nova-setup) #nova-island-hint {
   opacity: 0 !important;
   pointer-events: none !important;
 }
