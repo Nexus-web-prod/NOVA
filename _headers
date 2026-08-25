@@ -3,7 +3,7 @@
 # ── Global security headers ────────────────────────────────────────────────────
 /*
   ! Access-Control-Allow-Origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com wss://unified-wisp-epoxy.fly.dev https://unified-wisp-epoxy.fly.dev; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://pagead2.googlesyndication.com https://tpc.googlesyndication.com https://googleads.g.doubleclick.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: blob: https://pagead2.googlesyndication.com https://*.googlesyndication.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://fonts.googleapis.com https://fonts.gstatic.com https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev https://*.r2.dev https://*.r2.cloudflarestorage.com wss://unified-wisp-epoxy.fly.dev https://unified-wisp-epoxy.fly.dev; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: data: https://*.googlesyndication.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN
   X-Permitted-Cross-Domain-Policies: none
@@ -16,58 +16,58 @@
   Cross-Origin-Resource-Policy: same-origin
 
 # ── WASM ───────────────────────────────────────────────────────────────────────
-/vortex.wasm.wasm
+/proxy/vortex.wasm.wasm
   Content-Type: application/wasm
   Cross-Origin-Resource-Policy: cross-origin
   Cache-Control: public, max-age=31536000, immutable
 
 # ── Vortex engine files ────────────────────────────────────────────────────────
-/vortex.all.js
+/proxy/vortex.all.js
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: same-origin
   Cache-Control: no-cache, no-store, must-revalidate
 
 # Versioned importScripts() call from sw.js — same rules, no caching
-/vortex.all.js?*
+/proxy/vortex.all.js?*
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: same-origin
   Cache-Control: no-cache, no-store, must-revalidate
 
-/vortex.sync.js
+/proxy/vortex.sync.js
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: same-origin
   Cache-Control: public, max-age=31536000, immutable
 
-/vortex.bundle.js
+/proxy/vortex.bundle.js
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: same-origin
   Cache-Control: no-cache, no-store, must-revalidate
 
 # ── Epoxy transport ────────────────────────────────────────────────────────────
-/epoxy.mjs
+/proxy/epoxy.mjs
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: same-origin
   Cache-Control: public, max-age=31536000, immutable
 
 # ── Service Worker ─────────────────────────────────────────────────────────────
-/sw.js
+/proxy/sw.js
   Content-Type: application/javascript; charset=utf-8
   Service-Worker-Allowed: /
   Cache-Control: no-cache, no-store, must-revalidate
 
 # ── BareMux ────────────────────────────────────────────────────────────────────
-/baremux/index.js
+/proxy/baremux/index.js
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: same-origin
   Cache-Control: public, max-age=31536000, immutable
 
-/baremux/worker.js
+/proxy/baremux/worker.js
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: same-origin
   Cache-Control: no-cache, no-store, must-revalidate
 
 # ── Config (never cache) ───────────────────────────────────────────────────────
-/config.js
+/proxy/config.js
   Cache-Control: no-store
 
 /nova-config.js
@@ -77,79 +77,125 @@
 /
   Cache-Control: no-cache, no-store, must-revalidate
 
-/css/nova.css
+/website/css/nova.css
   Cache-Control: no-cache, no-store, must-revalidate
 
-/css/nova-settings-v7.css
+/website/css/nova-settings-v7.css
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova.js
+/website/js/nova.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-db-shim.js
+/website/js/nova-db-shim.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-admin.js
+/website/js/nova-admin.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-v7-api.js
+/website/js/nova-v7-api.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-v7-account.js
+/website/js/nova-v7-account.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-v7-profile.js
+/website/js/nova-v7-profile.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-settings-v7-ui.js
+/website/js/nova-settings-v7-ui.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-settings-control.js
+/website/js/nova-settings-control.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-v7-admin.js
+/website/js/nova-v7-admin.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-update.js
+/website/js/nova-update.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-ip-guard.js
+/website/js/nova-ip-guard.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/social.js
+/website/js/social.js
   Cache-Control: no-cache, no-store, must-revalidate
 
-/js/nova-social-vc.js
+/website/js/nova-social-vc.js
   Cache-Control: no-cache, no-store, must-revalidate
 
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/info.json
+/website/data/info.json
   Cache-Control: no-cache, no-store, must-revalidate
 
-/whats-new.json
+/website/data/whats-new.json
   Cache-Control: no-cache, no-store, must-revalidate
 
-/games.json
+/website/data/games.json
   Cache-Control: no-cache, must-revalidate
 
-/apps.json
+/website/data/apps.json
   Cache-Control: no-cache, must-revalidate
 
-/movies.json
+/website/data/movies.json
   Cache-Control: no-cache, must-revalidate
 
 # ── Static assets ──────────────────────────────────────────────────────────────
-/assets/media/icons/rs5.webp
+/website/assets/media/icons/rs5.webp
   Content-Type: image/avif
   Cache-Control: public, max-age=86400
 
-/assets/*
+/website/assets/*
   Cache-Control: public, max-age=86400
 
-/css/*
+/website/css/*
   Cache-Control: no-cache, must-revalidate
 
-/js/*
+/website/js/*
   Cache-Control: no-cache, must-revalidate
+
+# ── Scramjet 2.x proxy runtime ────────────────────────────────────────────────
+/proxy/scramjet/scramjet.js
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/scramjet/scramjet.mjs
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/scramjet/scramjet.wasm
+  Content-Type: application/wasm
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/controller/*
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/scramjet-utils/*
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/transports/libcurl/*
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/transports/epoxy/*
+  Content-Type: application/javascript; charset=utf-8
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/proxy-transports/*
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/proxy/js/nova-proxy-manager.js
+  Content-Type: application/javascript; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/proxy/store.js
+  Content-Type: application/javascript; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate

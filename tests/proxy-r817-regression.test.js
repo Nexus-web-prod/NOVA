@@ -1,0 +1,11 @@
+const fs=require('fs'); const path=require('path'); const assert=require('assert');
+const root=path.join(__dirname,'..');
+const mgr=fs.readFileSync(path.join(root,'proxy/js/nova-proxy-manager.js'),'utf8');
+const sw=fs.readFileSync(path.join(root,'proxy/sw.js'),'utf8');
+assert(mgr.includes('function stripSriBeforeScramjet'), 'pre-Scramjet SRI stripper missing');
+assert(mgr.includes('sanitizeHtmlResponseBeforeScramjet'), 'HTML transport sanitizer missing');
+assert(mgr.includes('response = await sanitizeHtmlResponseBeforeScramjet(remote, response);'), 'transport must sanitize HTML before returning to Scramjet');
+assert(/replace\(\/\\s\+integrity/.test(mgr), 'transport-level integrity removal missing');
+assert(sw.includes('stripProxiedSriFromHtml'), 'final SW defense-in-depth sanitizer missing');
+assert(sw.includes('20260822-sj2067-r8.17'), 'R8.17 revision missing');
+console.log('R8.17 regression checks passed');

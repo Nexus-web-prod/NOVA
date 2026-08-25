@@ -116,7 +116,7 @@ Brand-compliant presentations using design tokens + Chart.js + contextual decisi
 | `docs/brand-guidelines.md` | Brand identity, voice, colors |
 | `assets/design-tokens.json` | Token definitions (primitive→semantic→component) |
 | `assets/design-tokens.css` | CSS variables (import in slides) |
-| `assets/css/slide-animations.css` | CSS animation library |
+| `assets/website/css/slide-animations.css` | CSS animation library |
 
 ### Slide Search (BM25)
 

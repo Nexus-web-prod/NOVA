@@ -1,1 +1,11 @@
+/ /website/html/index.html 200
+/index.html /website/html/index.html 200
+/nova-games.html /website/html/nova-games.html 200
+/privacy-policy.html /website/html/privacy-policy.html 200
+/staff-privacy-policy.html /website/html/staff-privacy-policy.html 200
+/verification-handoff /website/html/verification-handoff.html 200
+/verification-handoff.html /website/html/verification-handoff.html 200
+/proxy-frame /proxy/html/proxy-frame.html 200
+/proxy-frame.html /proxy/html/proxy-frame.html 200
+/proxy-diagnostics.html /proxy/html/proxy-diagnostics.html 200
 /scram/* /:splat 200

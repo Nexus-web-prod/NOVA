@@ -54,23 +54,23 @@ const PRIVATE_DEPLOYMENT_FILES = new Set([
   "/turso_schema.sql",
   
   "/wrangler.toml",
-  "/deploy-pages-turso.sh",
-  "/fix-cloud-placeholders.sh",
-  "/make-deploy-clean.sh",
+  "/scripts/deploy/deploy-pages-turso.sh",
+  "/scripts/maintenance/fix-cloud-placeholders.sh",
+  "/scripts/maintenance/make-deploy-clean.sh",
   
   "/grant-owner.sh",
-  "/configure-google-ai.sh",
+  "/scripts/maintenance/configure-google-ai.sh",
   "/turso_migration_readme.md",
   "/nova_7_release_audit_2026-07-15.md",
   "/nova_7_release_stabilization_2026-07-16.md",
-  "/nova-full-prototype.html",
-  "/nova-island-prototype.html",
+  "/tools/prototypes/nova-full-prototype.html",
+  "/tools/prototypes/nova-island-prototype.html",
   "/nova-redesign-prototype.html",
   "/playground.html",
   "/playground.js",
-  "/js/nova-admin.js",
-  "/js/nova-admin-rewards.js",
-  "/js/admin.js"
+  "/website/js/nova-admin.js",
+  "/website/js/nova-admin-rewards.js",
+  "/website/js/admin.js"
 ]);
 let lastCleanupAt = 0;
 let maintenanceCache = { checkedAt: 0, state: null };
@@ -419,8 +419,13 @@ export default {
       // Serve the standalone Nova Games landing page on the games subdomain.
       // Keep the query string so invite links such as ?lobby=ABC123 still work.
       const gamesUrl = new URL(url);
-      gamesUrl.pathname = "/nova-games.html";
+      gamesUrl.pathname = "/website/html/nova-games.html";
       return env.ASSETS.fetch(new Request(gamesUrl, request));
+    }
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      const websiteUrl = new URL(url);
+      websiteUrl.pathname = "/website/html/index.html";
+      return env.ASSETS.fetch(new Request(websiteUrl, request));
     }
     return env.ASSETS.fetch(request);
   }
@@ -1331,7 +1336,7 @@ async function createUnoSocialInvite(request, db) {
   const lobby = await createUnoLobbyRecord(db, auth.id);
   const now = Date.now();
   await db.batch(invitees.map(target => db.prepare("INSERT INTO uno_lobby_invites(lobby_id,invited_user_id,invited_by,created_at) VALUES(?,?,?,?) ON CONFLICT(lobby_id,invited_user_id) DO UPDATE SET created_at=excluded.created_at,invited_by=excluded.invited_by").bind(lobby.id,target.id,auth.id,now)));
-  return apiJson({ lobby: await exposeUnoLobby(db, lobby, auth.id), invitees: invitees.map(item => item.username), launchUrl: "/nova-games.html?lobby=" + encodeURIComponent(lobby.id) }, 201);
+  return apiJson({ lobby: await exposeUnoLobby(db, lobby, auth.id), invitees: invitees.map(item => item.username), launchUrl: "/website/html/nova-games.html?lobby=" + encodeURIComponent(lobby.id) }, 201);
 }
 
 async function joinUnoLobby(request, db) {

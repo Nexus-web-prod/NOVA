@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const source = fs.readFileSync(path.join(__dirname, "../js/nova-proxy-compatibility.js"), "utf8");
+const source = fs.readFileSync(path.join(__dirname, "../proxy/js/nova-proxy-compatibility.js"), "utf8");
 const context = { URL };
 context.globalThis = context;
 vm.runInNewContext(source, context);

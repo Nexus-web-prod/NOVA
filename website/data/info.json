@@ -1,0 +1,24 @@
+{
+  "name": "Nova",
+  "version": "7.0",
+  "tagline": "Nova 7",
+  "description": "Nova brings browsing, games, apps, movies, profiles, and social features into one connected experience.",
+  "meta": [
+    {
+      "label": "Engine",
+      "value": "Vortex"
+    },
+    {
+      "label": "Transport",
+      "value": "Wisp Server"
+    },
+    {
+      "label": "Database",
+      "value": "Turso / libSQL"
+    },
+    {
+      "label": "Built",
+      "value": "2026"
+    }
+  ]
+}

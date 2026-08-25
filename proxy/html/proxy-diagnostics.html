@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova Proxy Diagnostics</title>
+<style>
+:root{color-scheme:dark}body{margin:0;background:#080910;color:#f3f4ff;font:14px/1.45 system-ui,sans-serif}main{max-width:1180px;margin:0 auto;padding:28px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:18px 0}.card{background:#11131d;border:1px solid #292d40;border-radius:14px;padding:15px}.label{color:#9ea6bd;font-size:12px;text-transform:uppercase;letter-spacing:.08em}.value{font-size:18px;margin-top:5px;overflow-wrap:anywhere}button{background:#20243a;color:white;border:1px solid #3a4163;border-radius:9px;padding:8px 11px;cursor:pointer}button:hover{background:#292e49}pre{background:#0c0e16;border:1px solid #292d40;border-radius:12px;padding:14px;max-height:420px;overflow:auto;white-space:pre-wrap}.controls{display:flex;gap:8px;flex-wrap:wrap}.warn{color:#ffcf77}
+</style>
+</head>
+<body><main>
+<div class="top"><div><h1>Nova Resilience R8 diagnostics</h1><div class="warn">Developer-only. Safe metadata only; tokens, cookies, passwords, and message content are not displayed.</div></div><a href="/">Back to Nova</a></div>
+<div class="controls"><button id="libcurl">Force libcurl</button><button id="epoxy">Force Epoxy</button><button id="legacy">Force legacy</button><button id="clear">Clear override</button><button id="fallback">Test fallback chain</button></div>
+<div class="grid" id="cards"></div>
+<h2>Rolling state</h2><pre id="state">Loading…</pre>
+<h2>Service-worker metrics</h2><pre id="metrics">Loading…</pre>
+<h2>Recent routing</h2><pre id="routing">Loading…</pre>
+<script src="/proxy/scramjet/scramjet.js?v=20260822-sj2067-r8.17"></script>
+<script src="/proxy/controller/controller.api.js?v=20260822-sj2067-r8.17"></script>
+<script src="/proxy/scramjet-utils/scramjet-utils.js?v=20260822-sj2067-r8.17"></script>
+<script src="/proxy/js/nova-proxy-manager.js?v=20260822-sj2067-r8.19-escape-road1"></script>
+<script>
+(async()=>{
+  const D=()=>window.NovaProxyDiagnostics, cards=document.querySelector('#cards');
+  try{await window.NovaProxyManager.bootstrap();D().enable()}catch(e){document.querySelector('#state').textContent='Bootstrap failed: '+(e.message||e)}
+  async function refresh(){
+    const d=D(); if(!d)return;
+    const s=d.getState(), m=await d.getMetrics(), r=await d.getRoutingLog();
+    cards.innerHTML=[['Engine',s.currentEngine],['Transport',s.currentTransport],['Wisp',s.wispEndpoint],['Runtime',s.version],['Legacy ready',String(s.legacyReady)],['Fallbacks',String(s.fallbackCount)],['SRI stripped',String(m.sriStripped||0)],['Binary anomalies',String(m.binaryHeaderAnomalies||0)]].map(([a,b])=>`<div class=card><div class=label>${a}</div><div class=value>${b??''}</div></div>`).join('');
+    document.querySelector('#state').textContent=JSON.stringify(s,null,2);document.querySelector('#metrics').textContent=JSON.stringify(m,null,2);document.querySelector('#routing').textContent=JSON.stringify(r.slice(-100),null,2);
+  }
+  document.querySelector('#libcurl').onclick=async()=>{await D().forceLibcurl();await refresh()};
+  document.querySelector('#epoxy').onclick=async()=>{await D().forceEpoxy();await refresh()};
+  document.querySelector('#legacy').onclick=()=>D().forceLegacy();
+  document.querySelector('#clear').onclick=async()=>{D().clearOverride();await refresh()};
+  document.querySelector('#fallback').onclick=async()=>{document.querySelector('#metrics').textContent=JSON.stringify(await D().testFallbackChain(),null,2)};
+  await refresh();setInterval(refresh,1500);
+})();
+</script></main></body></html>

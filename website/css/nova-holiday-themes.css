@@ -1,0 +1,1672 @@
+/* Nova Holiday Collection — registered seasonal palettes and decoration layer */
+#nova-holiday-layer{position:fixed;inset:0;z-index:12;overflow:hidden;pointer-events:none;contain:layout paint}
+.nova-holiday-corner{position:absolute;top:42px;width:clamp(100px,16vw,220px);height:clamp(100px,16vw,220px);opacity:.72;filter:drop-shadow(0 10px 30px rgba(0,0,0,.22))}
+.nova-holiday-corner--left{left:0}.nova-holiday-corner--right{right:0;transform:scaleX(-1)}
+.nova-holiday-corner b{position:absolute;top:15%;left:18%;z-index:2;color:var(--holiday-detail,#fff);font:400 clamp(1.1rem,3vw,2.2rem)/1 serif;text-shadow:0 0 24px currentColor}
+.nova-holiday-corner span{position:absolute;left:-26%;top:-32%;width:125%;height:125%;border:1px solid var(--holiday-line,rgba(255,255,255,.16));border-radius:45% 55% 45% 55%;transform:rotate(34deg)}
+.nova-holiday-corner span:before,.nova-holiday-corner span:after{content:"";position:absolute;border:1px solid var(--holiday-line,rgba(255,255,255,.16));border-radius:50%}
+.nova-holiday-corner span:before{inset:18% -12% -8% 22%}.nova-holiday-corner span:after{inset:42% -22% -22% 44%}
+.nova-holiday-particles{position:absolute;inset:0}.nova-holiday-particle{position:absolute;left:var(--holiday-left);top:-28px;color:var(--holiday-particle,#fff);font-style:normal;font-size:var(--holiday-size);opacity:.65;animation:nova-holiday-fall var(--holiday-duration) linear var(--holiday-delay) infinite;text-shadow:0 0 12px currentColor}
+@keyframes nova-holiday-fall{0%{transform:translate3d(0,-8vh,0) rotate(0);opacity:0}10%{opacity:.65}55%{transform:translate3d(24px,50vh,0) rotate(160deg)}100%{transform:translate3d(-18px,108vh,0) rotate(360deg);opacity:.05}}
+
+.nova-holiday-badge{display:flex;align-items:center;gap:.28rem;margin-top:.3rem;padding:.18rem .42rem;border:1px solid var(--holiday-line,rgba(255,255,255,.15));border-radius:100px;background:color-mix(in srgb,var(--holiday-detail,#fff) 7%,transparent);color:var(--holiday-detail,var(--accent));font:700 .28rem/1 "Space Mono",monospace;letter-spacing:.13em;box-shadow:0 0 20px color-mix(in srgb,var(--holiday-detail,#fff) 10%,transparent)}
+.nova-holiday-badge[hidden]{display:none}.nova-holiday-badge span{font-size:.4rem}
+html[data-nova-holiday] #hero-wordmark-trigger{filter:drop-shadow(0 0 24px var(--holiday-glow,rgba(255,255,255,.15)))}
+html[data-nova-holiday] #hero-wordmark-trigger .nova7-logo-star{fill:var(--holiday-detail,var(--accent));filter:drop-shadow(0 0 12px var(--holiday-glow,rgba(255,255,255,.28)))}
+html[data-nova-holiday] .top-nav{border-bottom-color:var(--holiday-line,rgba(255,255,255,.1));box-shadow:0 6px 25px var(--holiday-shadow,rgba(0,0,0,.08))}
+html[data-nova-holiday] #nova-island-star{border-color:var(--holiday-line,rgba(255,255,255,.15));box-shadow:0 0 20px var(--holiday-glow,rgba(255,255,255,.14))}
+html[data-nova-holiday] .ni-page-icon,html[data-nova-holiday] .sn-card-icon{color:var(--holiday-detail,var(--accent));border-color:var(--holiday-line,rgba(255,255,255,.14));background:color-mix(in srgb,var(--holiday-detail,var(--accent)) 9%,transparent)}
+html[data-nova-holiday] .game-card,html[data-nova-holiday] .app-card,html[data-nova-holiday] .movie-card,html[data-nova-holiday] .support-card,html[data-nova-holiday] .settings-block{border-color:var(--holiday-line,var(--glass-b))}
+html[data-nova-holiday] .glass-pill{border-color:color-mix(in srgb,var(--holiday-detail,var(--accent)) 30%,transparent);box-shadow:0 12px 34px var(--holiday-shadow,rgba(0,0,0,.1))}
+
+/* Full palettes use important custom properties so they can sit cleanly over a
+   custom Supernova theme. Decorations-only never touches the user's colors. */
+html[data-nova-holiday="christmas"][data-nova-holiday-style="full"]{
+  --bg:#04090e!important;--bg2:#07121a!important;--s1:#0c1b23!important;--text:#d5e2df!important;--muted:#6f8987!important;--dim:#405758!important;--white:#fffaf0!important;--accent:#e6c47a!important;--accent2:#bb4352!important;--glow:rgba(230,196,122,.2)!important;--glow-s:rgba(187,67,82,.1)!important;--glass-bg:rgba(224,244,242,.035)!important;--glass-bg-h:rgba(224,244,242,.075)!important;--glass-b:rgba(224,244,242,.11)!important;--glass-bh:rgba(230,196,122,.4)!important;--toast-bg:rgba(4,9,14,.98)!important
+}
+html[data-nova-holiday="christmas"]{--holiday-detail:#f0d18a;--holiday-particle:#f1fbff;--holiday-line:rgba(220,244,246,.18);--holiday-glow:rgba(240,209,138,.28);--holiday-shadow:rgba(21,72,65,.2)}
+html[data-nova-holiday="christmas"] #page-home{background:radial-gradient(circle at 50% 115%,rgba(32,111,94,.18),transparent 38%),radial-gradient(circle at 78% 20%,rgba(187,67,82,.08),transparent 28%)}
+html[data-nova-holiday="christmas"] .nova-holiday-corner span{border-radius:0 80% 0 80%;transform:rotate(18deg);border-width:2px}
+
+html[data-nova-holiday="halloween"][data-nova-holiday-style="full"]{
+  --bg:#08050d!important;--bg2:#100817!important;--s1:#1b0d25!important;--text:#d8cce2!important;--muted:#786681!important;--dim:#493653!important;--white:#f8ecff!important;--accent:#c377ff!important;--accent2:#f28a32!important;--glow:rgba(195,119,255,.22)!important;--glow-s:rgba(242,138,50,.1)!important;--glass-bg:rgba(195,119,255,.035)!important;--glass-bg-h:rgba(195,119,255,.075)!important;--glass-b:rgba(195,119,255,.12)!important;--glass-bh:rgba(242,138,50,.42)!important;--toast-bg:rgba(8,5,13,.98)!important
+}
+html[data-nova-holiday="halloween"]{--holiday-detail:#f39a45;--holiday-particle:#b77be4;--holiday-line:rgba(197,125,237,.2);--holiday-glow:rgba(242,138,50,.26);--holiday-shadow:rgba(65,22,86,.28)}
+html[data-nova-holiday="halloween"] #page-home{background:radial-gradient(ellipse at 25% 110%,rgba(73,153,102,.12),transparent 34%),radial-gradient(circle at 74% 18%,rgba(113,59,147,.2),transparent 34%)}
+html[data-nova-holiday="halloween"] .nova-holiday-corner span{border-radius:0;background:repeating-radial-gradient(circle at 0 0,transparent 0 18px,var(--holiday-line) 19px 20px);clip-path:polygon(0 0,100% 0,0 100%);border:0}
+html[data-nova-holiday="halloween"] .nova-holiday-particle{animation-name:nova-holiday-bat;opacity:.5}@keyframes nova-holiday-bat{0%{transform:translate(-12vw,15vh) rotate(-15deg);opacity:0}15%{opacity:.6}50%{transform:translate(45vw,42vh) rotate(12deg)}100%{transform:translate(110vw,12vh) rotate(-8deg);opacity:0}}
+
+html[data-nova-holiday="valentines"][data-nova-holiday-style="full"]{
+  --bg:#190b16!important;--bg2:#24101f!important;--s1:#321427!important;--text:#f0cfdd!important;--muted:#b3748e!important;--dim:#74465b!important;--white:#fff4f8!important;--accent:#ff8fb4!important;--accent2:#d94470!important;--glow:rgba(255,143,180,.22)!important;--glow-s:rgba(217,68,112,.11)!important;--glass-bg:rgba(255,176,202,.045)!important;--glass-bg-h:rgba(255,176,202,.09)!important;--glass-b:rgba(255,176,202,.13)!important;--glass-bh:rgba(255,143,180,.43)!important;--toast-bg:rgba(25,11,22,.98)!important
+}
+html[data-nova-holiday="valentines"]{--holiday-detail:#ff9fbd;--holiday-particle:#ffb4ca;--holiday-line:rgba(255,166,197,.21);--holiday-glow:rgba(255,112,157,.28);--holiday-shadow:rgba(104,31,62,.25)}
+html[data-nova-holiday="valentines"] #page-home{background:radial-gradient(circle at 20% 80%,rgba(211,61,111,.14),transparent 32%),radial-gradient(circle at 82% 18%,rgba(255,169,197,.13),transparent 30%)}
+html[data-nova-holiday="valentines"] .nova-holiday-particle{animation-name:nova-holiday-heart}@keyframes nova-holiday-heart{0%{transform:translateY(110vh) rotate(-15deg);opacity:0}15%{opacity:.55}100%{transform:translate(22px,-12vh) rotate(25deg);opacity:0}}
+
+html[data-nova-holiday="st-patricks"][data-nova-holiday-style="full"]{
+  --bg:#06110a!important;--bg2:#0a1b10!important;--s1:#102719!important;--text:#d0e9d5!important;--muted:#6f9a78!important;--dim:#42634a!important;--white:#f1fff3!important;--accent:#67d174!important;--accent2:#dcb84f!important;--glow:rgba(103,209,116,.2)!important;--glow-s:rgba(220,184,79,.1)!important;--glass-bg:rgba(120,223,132,.035)!important;--glass-bg-h:rgba(120,223,132,.08)!important;--glass-b:rgba(120,223,132,.12)!important;--glass-bh:rgba(220,184,79,.42)!important;--toast-bg:rgba(6,17,10,.98)!important
+}
+html[data-nova-holiday="st-patricks"]{--holiday-detail:#e0bd54;--holiday-particle:#6ed77c;--holiday-line:rgba(111,218,124,.2);--holiday-glow:rgba(224,189,84,.26);--holiday-shadow:rgba(16,84,34,.24)}
+html[data-nova-holiday="st-patricks"] #page-home{background:radial-gradient(circle at 18% 25%,rgba(71,177,86,.14),transparent 28%),radial-gradient(circle at 85% 88%,rgba(224,189,84,.08),transparent 30%)}
+
+html[data-nova-holiday="easter"][data-nova-holiday-style="full"]{
+  --bg:#171627!important;--bg2:#201e35!important;--s1:#2b2944!important;--text:#ddd9f0!important;--muted:#9993b5!important;--dim:#625e7c!important;--white:#fffaff!important;--accent:#d7a6ff!important;--accent2:#ffb6cf!important;--glow:rgba(215,166,255,.22)!important;--glow-s:rgba(255,182,207,.11)!important;--glass-bg:rgba(232,217,255,.045)!important;--glass-bg-h:rgba(232,217,255,.09)!important;--glass-b:rgba(232,217,255,.13)!important;--glass-bh:rgba(215,166,255,.43)!important;--toast-bg:rgba(23,22,39,.98)!important
+}
+html[data-nova-holiday="easter"]{--holiday-detail:#ffe28d;--holiday-particle:#f5b9da;--holiday-line:rgba(222,195,255,.22);--holiday-glow:rgba(215,166,255,.28);--holiday-shadow:rgba(102,80,147,.2)}
+html[data-nova-holiday="easter"] #page-home{background:radial-gradient(circle at 15% 92%,rgba(132,205,151,.12),transparent 34%),radial-gradient(circle at 82% 17%,rgba(235,184,255,.16),transparent 32%),linear-gradient(180deg,rgba(137,166,232,.05),transparent 50%)}
+html[data-nova-holiday="easter"] .nova-holiday-particle{animation-name:nova-holiday-petal}@keyframes nova-holiday-petal{0%{transform:translateY(-10vh) rotate(0);opacity:0}12%{opacity:.6}50%{transform:translate(35px,50vh) rotate(220deg)}100%{transform:translate(-15px,108vh) rotate(460deg);opacity:0}}
+
+html[data-nova-holiday="fourth-july"][data-nova-holiday-style="full"]{
+  --bg:#03091a!important;--bg2:#07122a!important;--s1:#0d1b37!important;--text:#cfdaed!important;--muted:#7184a5!important;--dim:#405578!important;--white:#f5f8ff!important;--accent:#8fc2ff!important;--accent2:#e65c67!important;--glow:rgba(143,194,255,.2)!important;--glow-s:rgba(230,92,103,.1)!important;--glass-bg:rgba(143,194,255,.035)!important;--glass-bg-h:rgba(143,194,255,.08)!important;--glass-b:rgba(143,194,255,.12)!important;--glass-bh:rgba(230,92,103,.4)!important;--toast-bg:rgba(3,9,26,.98)!important
+}
+html[data-nova-holiday="fourth-july"]{--holiday-detail:#f2f6ff;--holiday-particle:#e8616e;--holiday-line:rgba(143,194,255,.21);--holiday-glow:rgba(143,194,255,.28);--holiday-shadow:rgba(22,57,119,.26)}
+html[data-nova-holiday="fourth-july"] #page-home{background:radial-gradient(circle at 18% 16%,rgba(230,92,103,.12),transparent 2%,transparent 23%),radial-gradient(circle at 80% 28%,rgba(143,194,255,.15),transparent 3%,transparent 28%),linear-gradient(120deg,rgba(255,255,255,.025),transparent)}
+html[data-nova-holiday="fourth-july"] .nova-holiday-particle{animation-name:nova-holiday-firework}@keyframes nova-holiday-firework{0%,35%{transform:translateY(105vh) scale(.2);opacity:0}52%{transform:translateY(26vh) scale(.4);opacity:.8}58%{transform:translateY(24vh) scale(1.8);opacity:1}75%,100%{transform:translateY(30vh) scale(3);opacity:0}}
+
+html[data-nova-holiday="new-year"][data-nova-holiday-style="full"]{
+  --bg:#05050a!important;--bg2:#0b0a12!important;--s1:#15131e!important;--text:#dcd7cc!important;--muted:#888174!important;--dim:#565044!important;--white:#fffaf0!important;--accent:#f0cf70!important;--accent2:#d89df7!important;--glow:rgba(240,207,112,.22)!important;--glow-s:rgba(216,157,247,.1)!important;--glass-bg:rgba(240,207,112,.035)!important;--glass-bg-h:rgba(240,207,112,.075)!important;--glass-b:rgba(240,207,112,.11)!important;--glass-bh:rgba(240,207,112,.42)!important;--toast-bg:rgba(5,5,10,.98)!important
+}
+html[data-nova-holiday="new-year"]{--holiday-detail:#f0cf70;--holiday-particle:#e4b9fa;--holiday-line:rgba(240,207,112,.2);--holiday-glow:rgba(240,207,112,.3);--holiday-shadow:rgba(85,61,11,.24)}
+html[data-nova-holiday="new-year"] #page-home{background:radial-gradient(circle at 50% 105%,rgba(240,207,112,.12),transparent 38%),radial-gradient(circle at 76% 18%,rgba(216,157,247,.1),transparent 28%)}
+html[data-nova-holiday="new-year"] .nova-holiday-particle{animation-name:nova-holiday-confetti}@keyframes nova-holiday-confetti{0%{transform:translateY(-8vh) rotate(0) scaleX(.45);opacity:0}10%{opacity:.75}100%{transform:translate(35px,108vh) rotate(680deg) scaleX(.45);opacity:0}}
+
+/* Supernova Theme Studio Holiday Collection */
+.sn-holiday-collection{margin-bottom:.8rem;padding:.8rem;border:1px solid rgba(246,207,90,.17);border-radius:16px;background:radial-gradient(circle at 90% 0,rgba(255,114,210,.06),transparent 30%),rgba(255,255,255,.022)}
+.sn-holiday-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin-bottom:.65rem}.sn-holiday-head h3{margin:0 0 .2rem;color:var(--white);font:700 .52rem/1.2 "Space Mono",monospace}.sn-holiday-head p{margin:0;color:var(--muted);font:400 .32rem/1.55 "Space Mono",monospace}.sn-holiday-status{display:flex;align-items:center;gap:.3rem;padding:.26rem .42rem;border:1px solid rgba(118,217,180,.18);border-radius:100px;color:#76d9b4;background:rgba(118,217,180,.05);font:700 .27rem/1 "Space Mono",monospace;white-space:nowrap}.sn-holiday-status i{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 9px currentColor}
+.sn-holiday-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem;margin-bottom:.65rem}.sn-holiday-control{display:flex;flex-direction:column;gap:.22rem;padding:.48rem .55rem;border:1px solid var(--sn-line);border-radius:10px;background:rgba(255,255,255,.025)}.sn-holiday-control>span{color:var(--muted);font:700 .28rem/1.2 "Space Mono",monospace;letter-spacing:.06em;text-transform:uppercase}.sn-holiday-control select{width:100%;border:0;outline:0;background:#121020;color:var(--text);font:400 .33rem/1.3 "Space Mono",monospace;padding:.28rem 0}
+.sn-holiday-grid{display:grid;grid-template-columns:repeat(7,minmax(112px,1fr));gap:.4rem;overflow-x:auto;padding:.08rem 0 .2rem;scrollbar-width:thin;scrollbar-color:rgba(155,140,255,.22) transparent}.sn-holiday-card{position:relative;display:flex;min-height:122px;min-width:112px;overflow:hidden;flex-direction:column;justify-content:flex-end;padding:.55rem;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:#111;color:#fff;text-align:left;cursor:pointer;isolation:isolate;transition:transform .16s,border-color .16s}.sn-holiday-card:before{content:"";position:absolute;z-index:-2;inset:0;background:var(--holiday-card-bg)}.sn-holiday-card:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,transparent 12%,rgba(3,3,8,.82) 100%)}.sn-holiday-card:hover{transform:translateY(-2px);border-color:rgba(246,207,90,.42)}.sn-holiday-card.active{border-color:#f6cf5a;box-shadow:0 0 0 2px rgba(246,207,90,.1),0 8px 24px rgba(0,0,0,.2)}.sn-holiday-card b{position:absolute;left:.5rem;top:.42rem;font:400 .8rem/1 serif;text-shadow:0 0 15px currentColor}.sn-holiday-card strong{font:700 .33rem/1.2 "Space Mono",monospace}.sn-holiday-card small{margin-top:.12rem;color:rgba(255,255,255,.62);font:400 .25rem/1.25 "Space Mono",monospace}
+.sn-holiday-card[data-holiday="new-year"]{--holiday-card-bg:radial-gradient(circle at 70% 22%,rgba(240,207,112,.38),transparent 24%),linear-gradient(145deg,#090910,#261c34)}.sn-holiday-card[data-holiday="valentines"]{--holiday-card-bg:radial-gradient(circle at 75% 20%,rgba(255,190,211,.45),transparent 24%),linear-gradient(145deg,#4e142e,#b33d69)}.sn-holiday-card[data-holiday="st-patricks"]{--holiday-card-bg:radial-gradient(circle at 70% 22%,rgba(224,189,84,.35),transparent 24%),linear-gradient(145deg,#0a3218,#23723a)}.sn-holiday-card[data-holiday="easter"]{--holiday-card-bg:radial-gradient(circle at 70% 20%,rgba(255,226,141,.42),transparent 24%),linear-gradient(145deg,#645d98,#c889ad)}.sn-holiday-card[data-holiday="fourth-july"]{--holiday-card-bg:radial-gradient(circle at 70% 20%,rgba(230,92,103,.4),transparent 24%),linear-gradient(145deg,#081943,#163e82)}.sn-holiday-card[data-holiday="halloween"]{--holiday-card-bg:radial-gradient(circle at 72% 22%,rgba(242,138,50,.4),transparent 20%),linear-gradient(145deg,#17081f,#4f1d68)}.sn-holiday-card[data-holiday="christmas"]{--holiday-card-bg:radial-gradient(circle at 72% 22%,rgba(240,209,138,.38),transparent 24%),linear-gradient(145deg,#07161a,#174b41)}
+.sn-holiday-foot{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.55rem;padding-top:.5rem;border-top:1px solid var(--sn-line);color:var(--muted);font:400 .28rem/1.45 "Space Mono",monospace}.sn-holiday-foot strong{color:var(--text)}
+
+html[data-nova-holiday-effects="minimal"] .nova-holiday-particles{display:none}html[data-performance-mode="fast"] .nova-holiday-particles,html[data-reduce-motion="on"] .nova-holiday-particles{display:none!important}html[data-performance-mode="fast"] .nova-holiday-corner{opacity:.36;filter:none}html[data-reduce-motion="on"] .nova-holiday-particle{animation:none!important}
+@media(max-width:760px){.nova-holiday-corner{top:34px;opacity:.38}.sn-holiday-controls{grid-template-columns:1fr}.sn-holiday-head{flex-direction:column}.sn-holiday-grid{grid-template-columns:repeat(7,112px)}.sn-holiday-foot{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.nova-holiday-particle{display:none}.nova-holiday-corner{filter:none}.sn-holiday-card{transition:none}}
+
+/* ================================================================
+   EASTER 2026 — scenic spring homepage
+   Visual target: Easter mockup supplied for Nova 7.
+   Uses the dedicated spring background + bunny-ear logo asset while
+   keeping every Nova control live and clickable.
+   ================================================================ */
+html[data-nova-holiday="easter"]{
+  --holiday-detail:#ffdd8b;
+  --holiday-particle:#f7b6d9;
+  --holiday-line:rgba(255,226,242,.42);
+  --holiday-glow:rgba(227,143,255,.36);
+  --holiday-shadow:rgba(93,70,132,.20);
+}
+
+/* Let the photographed/illustrated spring scene replace Nova's space field. */
+html[data-nova-holiday="easter"] body::before,
+html[data-nova-holiday="easter"] #star-layer-2{opacity:0!important}
+html[data-nova-holiday="easter"] .amb{opacity:.08!important}
+
+html[data-nova-holiday="easter"] #page-home{
+  position:relative;
+  isolation:isolate;
+  background:
+    linear-gradient(90deg,rgba(255,244,248,.07) 0%,rgba(207,190,255,.05) 52%,rgba(132,144,214,.10) 100%),
+    url('/website/assets/media/holiday/easter/easter-spring-bg.png') center center/cover no-repeat!important;
+}
+html[data-nova-holiday="easter"] #page-home::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 42% 36%,rgba(255,255,255,.30),transparent 31%),
+    linear-gradient(180deg,rgba(255,236,245,.02),rgba(103,88,151,.10));
+}
+html[data-nova-holiday="easter"] #page-home::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:linear-gradient(90deg,rgba(255,248,246,.02),rgba(255,255,255,.01) 55%,rgba(84,74,145,.09));
+}
+html[data-nova-holiday="easter"] #page-home .home-inner{
+  position:relative;
+  z-index:2;
+  width:min(920px,calc(100% - 360px));
+  max-width:920px;
+  text-shadow:0 1px 12px rgba(255,255,255,.22);
+}
+
+/* Bunny ears tuck behind NOVA exactly like the concept art. */
+html[data-nova-holiday="easter"] #hero-wordmark-trigger{
+  position:relative;
+  isolation:isolate;
+  overflow:visible;
+  filter:drop-shadow(0 7px 13px rgba(175,83,216,.20)) drop-shadow(0 0 18px rgba(223,146,255,.46));
+}
+html[data-nova-holiday="easter"] #hero-wordmark-trigger::before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  width:clamp(95px,10vw,150px);
+  aspect-ratio:577/433;
+  left:64%;
+  top:-63%;
+  transform:translateX(-50%) rotate(-1deg);
+  background:url('/website/assets/media/holiday/easter/easter-bunny-ears.png') center/contain no-repeat;
+  filter:drop-shadow(0 4px 5px rgba(115,62,115,.12));
+  pointer-events:none;
+}
+html[data-nova-holiday="easter"] #hero-wordmark-trigger .nova7-logo-part,
+html[data-nova-holiday="easter"] #hero-wordmark-trigger .nova7-logo-star,
+html[data-nova-holiday="easter"] #hero-wordmark-trigger .nova7-logo-va{position:relative;z-index:1}
+html[data-nova-holiday="easter"] #hero-wordmark-trigger .nova7-logo-star{
+  fill:#fff!important;
+  filter:drop-shadow(0 0 12px rgba(219,126,255,.62));
+}
+
+/* Readable glass over a bright background, matching the mockup. */
+html[data-nova-holiday="easter"] #page-home .home-stats--summary,
+html[data-nova-holiday="easter"] #page-home .glass-pill,
+html[data-nova-holiday="easter"] #page-home .bookmark-chip,
+html[data-nova-holiday="easter"] #page-home .recent-card{
+  backdrop-filter:blur(16px) saturate(1.18);
+  -webkit-backdrop-filter:blur(16px) saturate(1.18);
+}
+html[data-nova-holiday="easter"] #page-home .home-stats--summary{
+  border-color:rgba(255,211,232,.52)!important;
+  background:linear-gradient(120deg,rgba(255,244,250,.48),rgba(219,214,255,.25))!important;
+  box-shadow:0 8px 28px rgba(104,79,138,.12),inset 0 1px 0 rgba(255,255,255,.66)!important;
+}
+html[data-nova-holiday="easter"] #page-home .glass-pill{
+  border-color:rgba(255,255,255,.78)!important;
+  background:linear-gradient(90deg,rgba(255,250,249,.66),rgba(238,220,255,.47))!important;
+  box-shadow:0 12px 34px rgba(99,72,137,.14),inset 0 1px 0 rgba(255,255,255,.78)!important;
+}
+html[data-nova-holiday="easter"] #page-home #search-input{
+  color:#5c536d!important;
+  text-shadow:none;
+}
+html[data-nova-holiday="easter"] #page-home #search-input::placeholder{color:rgba(91,79,105,.68)!important}
+html[data-nova-holiday="easter"] #page-home #go-btn{color:#cc6be0!important}
+html[data-nova-holiday="easter"] #page-home .home-section-label,
+html[data-nova-holiday="easter"] #page-home .home-section-action,
+html[data-nova-holiday="easter"] #page-home .nexus-footer--home{color:#735c91!important;text-shadow:0 1px 8px rgba(255,255,255,.7)}
+html[data-nova-holiday="easter"] #page-home .nexus-footer-link{color:#c253c9!important}
+html[data-nova-holiday="easter"] #page-home .home-stat-num{color:#b357dc!important;text-shadow:0 0 16px rgba(209,115,246,.25)}
+html[data-nova-holiday="easter"] #page-home .home-stat:nth-of-type(3) .home-stat-num{color:#e865b3!important}
+html[data-nova-holiday="easter"] #page-home .home-stat-lbl{color:#695b79!important}
+
+/* Easter Edition badge: small egg instead of a generic flower glyph. */
+html[data-nova-holiday="easter"] #nova-holiday-badge{
+  color:#89599f;
+  border-color:rgba(236,167,215,.44);
+  background:rgba(255,244,250,.56);
+  box-shadow:0 7px 22px rgba(126,73,142,.10);
+  backdrop-filter:blur(12px);
+}
+html[data-nova-holiday="easter"] #nova-holiday-badge span{font-size:.55rem}
+
+/* The live Nova Island becomes the translucent pastel side panel from the mockup. */
+html[data-nova-holiday="easter"] #nova-island.open{
+  background:linear-gradient(180deg,rgba(222,218,255,.69),rgba(212,226,255,.58))!important;
+  border:1px solid rgba(255,255,255,.52)!important;
+  box-shadow:0 18px 62px rgba(70,61,124,.24),inset 0 1px 0 rgba(255,255,255,.74)!important;
+  backdrop-filter:blur(24px) saturate(1.25)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(1.25)!important;
+}
+html[data-nova-holiday="easter"] #nova-island.open::after{opacity:0!important}
+html[data-nova-holiday="easter"] #nova-island.open::before{
+  background:linear-gradient(90deg,transparent,rgba(255,171,225,.85),rgba(184,147,255,.8),transparent)!important;
+}
+html[data-nova-holiday="easter"] #nova-island .ni-page-item{
+  border-color:transparent;
+  color:#66577e;
+}
+html[data-nova-holiday="easter"] #nova-island .ni-page-item:hover,
+html[data-nova-holiday="easter"] #nova-island .ni-page-item.active{
+  background:rgba(255,244,252,.30)!important;
+  border-color:rgba(255,188,225,.38)!important;
+}
+html[data-nova-holiday="easter"] #nova-island .ni-page-icon{
+  color:#b06be4!important;
+  border-color:rgba(205,153,240,.32)!important;
+  background:rgba(255,247,255,.42)!important;
+}
+html[data-nova-holiday="easter"] #nova-island .ni-page-label,
+html[data-nova-holiday="easter"] #nova-island .ni-p-name,
+html[data-nova-holiday="easter"] #nova-island .ni-pc-uname{color:#554767!important}
+html[data-nova-holiday="easter"] #nova-island .ni-page-sub,
+html[data-nova-holiday="easter"] #nova-island .ni-p-title,
+html[data-nova-holiday="easter"] #nova-island .ni-pc-title,
+html[data-nova-holiday="easter"] #nova-island .ni-pc-joined{color:#827494!important}
+
+/* Easter-only decorative layer built by nova-holiday-themes.js. */
+.nova-easter-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nova-easter-egg-cluster{position:absolute;right:17px;bottom:14px;display:flex;align-items:flex-end;gap:5px;opacity:.88;filter:drop-shadow(0 8px 12px rgba(80,57,95,.18))}
+.nova-easter-egg{display:block;width:28px;height:36px;border-radius:52% 52% 48% 48%/60% 60% 40% 40%;border:1px solid rgba(255,255,255,.45);background:linear-gradient(165deg,#ffd3e6,#d599ee 56%,#a5c8ff);box-shadow:inset 0 4px 6px rgba(255,255,255,.38)}
+.nova-easter-egg:nth-child(2){width:22px;height:29px;background:linear-gradient(165deg,#fff1a8,#ffbdcf 55%,#c6a9ef);transform:rotate(10deg)}
+.nova-easter-egg:nth-child(3){width:24px;height:32px;background:linear-gradient(165deg,#9ed8ff,#bca7ef 55%,#f6bbdc);transform:rotate(-8deg)}
+.nova-easter-blossom{position:absolute;font:400 24px/1 serif;color:#ffb7d8;text-shadow:0 0 12px rgba(255,255,255,.75);opacity:.75}
+.nova-easter-blossom--one{right:12px;top:7%}.nova-easter-blossom--two{right:4%;top:42%;font-size:18px}.nova-easter-blossom--three{left:1.4%;bottom:15%;font-size:20px}
+.nova-easter-blossom{animation:nova-easter-blossom-drift 7s ease-in-out infinite alternate}
+.nova-easter-blossom--two{animation-delay:-2.4s}.nova-easter-blossom--three{animation-delay:-4.8s}
+.nova-easter-pollen-field{position:absolute;inset:0;overflow:hidden}
+.nova-easter-pollen{position:absolute;left:var(--pollen-left);top:var(--pollen-top);width:var(--pollen-size);height:var(--pollen-size);border-radius:50%;background:rgba(255,244,191,.92);box-shadow:0 0 8px rgba(255,240,166,.76),0 0 18px rgba(255,206,231,.34);opacity:.18;animation:nova-easter-pollen-drift var(--pollen-duration) ease-in-out var(--pollen-delay) infinite alternate}
+.nova-easter-egg-cluster{animation:nova-easter-egg-bob 6.5s ease-in-out infinite}
+@keyframes nova-easter-blossom-drift{0%{transform:translate3d(-2px,3px,0) rotate(-4deg);opacity:.58}100%{transform:translate3d(7px,-7px,0) rotate(7deg);opacity:.9}}
+@keyframes nova-easter-pollen-drift{0%{transform:translate3d(-10px,10px,0) scale(.75);opacity:.1}35%{opacity:.55}100%{transform:translate3d(18px,-20px,0) scale(1.25);opacity:.22}}
+@keyframes nova-easter-egg-bob{0%,100%{transform:translate3d(0,0,0) rotate(-1deg)}50%{transform:translate3d(0,-5px,0) rotate(1.5deg)}}
+
+/* Petals should read as petals, not literal flower glyphs. */
+html[data-nova-holiday="easter"] .nova-holiday-particle{
+  width:var(--holiday-size);
+  height:calc(var(--holiday-size) * .62);
+  overflow:hidden;
+  color:transparent!important;
+  border-radius:90% 15% 90% 15%;
+  background:linear-gradient(135deg,rgba(255,211,229,.82),rgba(245,151,198,.64));
+  box-shadow:0 0 7px rgba(255,212,233,.35);
+}
+html[data-nova-holiday="easter"] .nova-holiday-corner{display:none}
+
+@media(max-width:1050px){
+  html[data-nova-holiday="easter"] #page-home .home-inner{width:min(760px,calc(100% - 42px))}
+}
+@media(max-width:760px){
+  html[data-nova-holiday="easter"] #page-home{background-position:40% center!important}
+  html[data-nova-holiday="easter"] #hero-wordmark-trigger::before{width:92px;left:66%;top:-68%}
+  .nova-easter-egg-cluster{display:none}
+}
+@media(max-height:620px){
+  html[data-nova-holiday="easter"] #hero-wordmark-trigger::before{width:78px;top:-58%}
+}
+
+/* Easter viewport coverage fix — keep the spring scene behind the entire Nova shell.
+   This prevents the homepage background from ending early when the page-area is
+   shorter than the browser viewport (for example while Nova Island is expanded). */
+html[data-nova-holiday="easter"],
+html[data-nova-holiday="easter"] body{
+  background:#eadff3!important;
+}
+html[data-nova-holiday="easter"] body{
+  background:
+    linear-gradient(90deg,rgba(255,244,248,.07) 0%,rgba(207,190,255,.05) 52%,rgba(132,144,214,.10) 100%),
+    url('/website/assets/media/holiday/easter/easter-spring-bg.png') center center/cover no-repeat fixed!important;
+}
+html[data-nova-holiday="easter"] #page-home{
+  min-height:100%!important;
+  height:100%!important;
+  background:transparent!important;
+}
+html[data-nova-holiday="easter"] .page-area{
+  background:transparent!important;
+}
+html[data-nova-holiday="easter"] body::before,
+html[data-nova-holiday="easter"] body::after,
+html[data-nova-holiday="easter"] #star-layer-2,
+html[data-nova-holiday="easter"] .amb{
+  opacity:0!important;
+}
+
+/* Easter motion pass: denser petals, varied sway, and ambient spring shimmer. */
+html[data-nova-holiday="easter"] .nova-holiday-particles{overflow:hidden}
+html[data-nova-holiday="easter"] .nova-holiday-particle{
+  opacity:.72;
+  animation-name:nova-easter-petal-sway!important;
+  animation-timing-function:cubic-bezier(.42,.04,.58,.96)!important;
+  will-change:transform,opacity;
+}
+html[data-nova-holiday="easter"] .nova-holiday-particle:nth-child(3n){background:linear-gradient(135deg,rgba(255,235,244,.9),rgba(246,181,214,.72));filter:blur(.15px)}
+html[data-nova-holiday="easter"] .nova-holiday-particle:nth-child(4n){border-radius:70% 20% 78% 28%;transform-origin:75% 25%}
+html[data-nova-holiday="easter"] .nova-holiday-particle:nth-child(5n){opacity:.48;filter:blur(.6px)}
+html[data-nova-holiday="easter"] #page-home::before{animation:nova-easter-light-breathe 12s ease-in-out infinite alternate}
+@keyframes nova-easter-petal-sway{
+  0%{transform:translate3d(-18px,-12vh,0) rotate(0deg) scale(.7);opacity:0}
+  8%{opacity:.72}
+  28%{transform:translate3d(22px,22vh,0) rotate(120deg) scale(.92)}
+  52%{transform:translate3d(-14px,50vh,0) rotate(260deg) scale(1.08)}
+  76%{transform:translate3d(28px,78vh,0) rotate(390deg) scale(.9);opacity:.64}
+  100%{transform:translate3d(-8px,112vh,0) rotate(540deg) scale(.74);opacity:0}
+}
+@keyframes nova-easter-light-breathe{
+  0%{transform:scale(1) translate3d(0,0,0);opacity:.84}
+  100%{transform:scale(1.035) translate3d(6px,-4px,0);opacity:1}
+}
+html[data-reduce-motion="on"][data-nova-holiday="easter"] .nova-easter-blossom,
+html[data-reduce-motion="on"][data-nova-holiday="easter"] .nova-easter-pollen,
+html[data-reduce-motion="on"][data-nova-holiday="easter"] .nova-easter-egg-cluster,
+html[data-reduce-motion="on"][data-nova-holiday="easter"] #page-home::before{animation:none!important}
+@media(prefers-reduced-motion:reduce){
+  .nova-easter-blossom,.nova-easter-pollen,.nova-easter-egg-cluster{animation:none!important}
+  html[data-nova-holiday="easter"] #page-home::before{animation:none!important}
+}
+
+/* ================================================================
+   HALLOWEEN 2026 — moonlit graveyard homepage
+   Uses the supplied haunted graveyard/castle scene and keeps Nova's
+   controls live, readable and integrated into the environment.
+   ================================================================ */
+html[data-nova-holiday="halloween"]{
+  --holiday-detail:#f59a3f;
+  --holiday-particle:#a96cf0;
+  --holiday-line:rgba(172,91,237,.28);
+  --holiday-glow:rgba(151,71,222,.34);
+  --holiday-shadow:rgba(8,3,18,.54);
+}
+html[data-nova-holiday="halloween"],
+html[data-nova-holiday="halloween"] body{background:#07050f!important}
+html[data-nova-holiday="halloween"] body{
+  background:
+    linear-gradient(90deg,rgba(7,4,15,.18),rgba(25,10,42,.09) 48%,rgba(4,3,11,.26)),
+    url('/website/assets/media/holiday/halloween/halloween-graveyard-bg.png') center center/cover no-repeat fixed!important;
+}
+html[data-nova-holiday="halloween"] body::before,
+html[data-nova-holiday="halloween"] body::after,
+html[data-nova-holiday="halloween"] #star-layer-2,
+html[data-nova-holiday="halloween"] .amb{opacity:0!important}
+html[data-nova-holiday="halloween"] .page-area{background:transparent!important}
+html[data-nova-holiday="halloween"] #page-home{
+  position:relative;
+  isolation:isolate;
+  min-height:100%!important;
+  height:100%!important;
+  background:transparent!important;
+}
+html[data-nova-holiday="halloween"] #page-home::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 23% 12%,rgba(182,136,255,.12),transparent 22%),
+    radial-gradient(circle at 63% 37%,rgba(120,61,181,.08),transparent 34%),
+    linear-gradient(90deg,rgba(2,2,8,.12),rgba(15,6,25,.04) 55%,rgba(3,2,9,.25));
+  animation:nova-halloween-moon-breathe 13s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="halloween"] #page-home::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(6,3,14,.03),rgba(3,2,9,.16) 72%,rgba(2,1,7,.31));
+}
+html[data-nova-holiday="halloween"] #page-home .home-inner{
+  position:relative;
+  z-index:2;
+  width:min(920px,calc(100% - 360px));
+  max-width:920px;
+  text-shadow:0 2px 15px rgba(0,0,0,.7);
+}
+html[data-nova-holiday="halloween"] #hero-wordmark-trigger{
+  filter:drop-shadow(0 0 14px rgba(174,105,255,.55)) drop-shadow(0 8px 17px rgba(0,0,0,.38));
+}
+html[data-nova-holiday="halloween"] #hero-wordmark-trigger .nova7-logo-star{
+  fill:#f8f4ff!important;
+  filter:drop-shadow(0 0 13px rgba(163,86,248,.72));
+}
+html[data-nova-holiday="halloween"] #page-home .home-stats--summary,
+html[data-nova-holiday="halloween"] #page-home .glass-pill,
+html[data-nova-holiday="halloween"] #page-home .bookmark-chip,
+html[data-nova-holiday="halloween"] #page-home .recent-card{
+  backdrop-filter:blur(15px) saturate(1.12);
+  -webkit-backdrop-filter:blur(15px) saturate(1.12);
+}
+html[data-nova-holiday="halloween"] #page-home .home-stats--summary{
+  border-color:rgba(168,91,234,.20)!important;
+  background:linear-gradient(120deg,rgba(10,6,20,.48),rgba(31,12,47,.30))!important;
+  box-shadow:0 10px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.035)!important;
+}
+html[data-nova-holiday="halloween"] #page-home .glass-pill{
+  border-color:rgba(161,75,232,.55)!important;
+  background:linear-gradient(90deg,rgba(8,6,18,.70),rgba(28,12,43,.52))!important;
+  box-shadow:0 13px 42px rgba(0,0,0,.32),0 0 26px rgba(119,46,184,.10),inset 0 1px 0 rgba(255,255,255,.055)!important;
+}
+html[data-nova-holiday="halloween"] #page-home #search-input{color:#ddd4e8!important;text-shadow:0 1px 7px rgba(0,0,0,.7)}
+html[data-nova-holiday="halloween"] #page-home #search-input::placeholder{color:rgba(218,208,230,.72)!important}
+html[data-nova-holiday="halloween"] #page-home #go-btn{color:#f39a42!important;border-color:rgba(242,138,50,.68)!important;box-shadow:0 0 18px rgba(242,138,50,.11)}
+html[data-nova-holiday="halloween"] #page-home .bookmark-chip,
+html[data-nova-holiday="halloween"] #page-home .recent-card{
+  background:rgba(7,5,15,.58)!important;
+  border-color:rgba(136,84,180,.28)!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.26)!important;
+}
+html[data-nova-holiday="halloween"] #page-home .bookmark-chip:hover,
+html[data-nova-holiday="halloween"] #page-home .recent-card:hover{
+  border-color:rgba(242,138,50,.42)!important;
+  background:rgba(27,11,41,.70)!important;
+}
+html[data-nova-holiday="halloween"] #page-home .home-section-label,
+html[data-nova-holiday="halloween"] #page-home .home-section-action{color:#ba76eb!important}
+html[data-nova-holiday="halloween"] #page-home .nexus-footer--home{color:#a995bd!important}
+html[data-nova-holiday="halloween"] #page-home .nexus-footer-link{color:#f0a054!important}
+html[data-nova-holiday="halloween"] #page-home .home-stat-num{color:#f0edf5!important;text-shadow:0 0 15px rgba(164,92,226,.26)}
+html[data-nova-holiday="halloween"] #page-home .home-stat-lbl{color:#a991b9!important}
+html[data-nova-holiday="halloween"] #nova-holiday-badge{
+  color:#e7d9f0;
+  border-color:rgba(165,83,229,.32);
+  background:rgba(10,5,18,.56);
+  box-shadow:0 7px 25px rgba(0,0,0,.26),0 0 18px rgba(138,59,201,.12);
+  backdrop-filter:blur(12px);
+}
+html[data-nova-holiday="halloween"] #nova-holiday-badge span{color:#f29a45;text-shadow:0 0 10px rgba(242,138,50,.48)}
+
+/* Dark haunted-glass Nova Island, based on the Halloween mockup. */
+html[data-nova-holiday="halloween"] #nova-island.open{
+  background:linear-gradient(180deg,rgba(6,5,15,.88),rgba(8,5,17,.81))!important;
+  border:1px solid rgba(139,79,190,.25)!important;
+  box-shadow:0 20px 70px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.045)!important;
+  backdrop-filter:blur(24px) saturate(1.15)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(1.15)!important;
+}
+html[data-nova-holiday="halloween"] #nova-island.open::after{opacity:.10!important}
+html[data-nova-holiday="halloween"] #nova-island.open::before{
+  background:linear-gradient(90deg,transparent,rgba(142,67,215,.86),rgba(242,138,50,.62),transparent)!important;
+}
+html[data-nova-holiday="halloween"] #nova-island .ni-page-item{border-color:transparent;color:#cfc1da}
+html[data-nova-holiday="halloween"] #nova-island .ni-page-item:hover,
+html[data-nova-holiday="halloween"] #nova-island .ni-page-item.active{
+  background:linear-gradient(90deg,rgba(75,24,111,.24),rgba(52,14,80,.19))!important;
+  border-color:rgba(154,74,222,.36)!important;
+  box-shadow:inset 0 0 26px rgba(111,41,171,.07)!important;
+}
+html[data-nova-holiday="halloween"] #nova-island .ni-page-icon{
+  color:#f29239!important;
+  border-color:rgba(155,87,207,.18)!important;
+  background:rgba(18,12,30,.74)!important;
+  box-shadow:0 0 16px rgba(242,138,50,.045)!important;
+}
+html[data-nova-holiday="halloween"] #nova-island .ni-page-label,
+html[data-nova-holiday="halloween"] #nova-island .ni-p-name,
+html[data-nova-holiday="halloween"] #nova-island .ni-pc-uname{color:#e1d8e7!important}
+html[data-nova-holiday="halloween"] #nova-island .ni-page-sub,
+html[data-nova-holiday="halloween"] #nova-island .ni-p-title,
+html[data-nova-holiday="halloween"] #nova-island .ni-pc-title,
+html[data-nova-holiday="halloween"] #nova-island .ni-pc-joined{color:#85758f!important}
+
+/* Halloween motion layer: slow fog, embers and a few subtle bats. */
+.nova-halloween-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nova-halloween-vignette{position:absolute;inset:0;background:radial-gradient(ellipse at 48% 43%,transparent 30%,rgba(2,1,8,.08) 64%,rgba(2,1,8,.26) 100%)}
+.nova-halloween-fog{position:absolute;left:-22%;width:144%;height:28%;border-radius:50%;filter:blur(24px);opacity:.13;will-change:transform;background:radial-gradient(ellipse at center,rgba(194,178,231,.42),rgba(83,65,121,.18) 38%,transparent 72%)}
+.nova-halloween-fog--back{top:18%;animation:nova-halloween-fog-drift 24s ease-in-out infinite alternate}
+.nova-halloween-fog--mid{top:47%;opacity:.10;transform:scaleX(1.18);animation:nova-halloween-fog-drift-reverse 31s ease-in-out infinite alternate}
+.nova-halloween-fog--front{bottom:-6%;opacity:.12;height:34%;filter:blur(32px);animation:nova-halloween-fog-drift 20s ease-in-out -8s infinite alternate}
+.nova-halloween-embers{position:absolute;inset:0;overflow:hidden}
+.nova-halloween-ember{position:absolute;left:var(--ember-left);bottom:var(--ember-bottom);width:var(--ember-size);height:var(--ember-size);border-radius:50%;background:#f49a40;box-shadow:0 0 7px rgba(244,154,64,.9),0 0 16px rgba(139,63,206,.34);opacity:.08;animation:nova-halloween-ember-rise var(--ember-duration) ease-in var(--ember-delay) infinite;will-change:transform,opacity}
+.nova-halloween-ember:nth-child(3n){background:#a45bed;box-shadow:0 0 7px rgba(164,91,237,.8),0 0 15px rgba(107,49,161,.35)}
+.nova-halloween-bats{position:absolute;inset:0;overflow:hidden}
+.nova-halloween-bat{position:absolute;width:22px;height:9px;background:#090610;clip-path:polygon(0 50%,17% 13%,39% 38%,50% 0,61% 38%,83% 13%,100% 50%,83% 42%,72% 76%,50% 48%,28% 76%,17% 42%);filter:drop-shadow(0 0 5px rgba(136,72,203,.32));opacity:0;will-change:transform,opacity}
+.nova-halloween-bat--one{top:11%;left:-5%;animation:nova-halloween-bat-flight 18s linear -5s infinite}
+.nova-halloween-bat--two{top:22%;left:-8%;width:15px;height:7px;animation:nova-halloween-bat-flight 24s linear -16s infinite}
+.nova-halloween-bat--three{top:34%;left:-6%;width:12px;height:6px;animation:nova-halloween-bat-flight-high 27s linear -8s infinite}
+.nova-halloween-bat--four{top:17%;left:-9%;width:18px;height:8px;animation:nova-halloween-bat-flight-high 31s linear -23s infinite}
+.nova-halloween-bat--five{top:29%;left:-7%;width:10px;height:5px;animation:nova-halloween-bat-flight 34s linear -14s infinite}
+html[data-nova-holiday="halloween"] .nova-holiday-particle{
+  color:transparent!important;
+  width:var(--holiday-size);height:var(--holiday-size);
+  border-radius:50%;
+  background:radial-gradient(circle,#f9aa54 0 20%,rgba(242,138,50,.58) 35%,transparent 72%);
+  box-shadow:0 0 8px rgba(242,138,50,.45);
+  opacity:.32;
+  animation-name:nova-halloween-spark-drift!important;
+  animation-timing-function:ease-in-out!important;
+}
+html[data-nova-holiday="halloween"] .nova-holiday-particle:nth-child(3n){background:radial-gradient(circle,#c68bff 0 18%,rgba(165,91,230,.46) 35%,transparent 72%);box-shadow:0 0 8px rgba(163,91,230,.38)}
+html[data-nova-holiday="halloween"] .nova-holiday-corner{display:none}
+@keyframes nova-halloween-fog-drift{0%{transform:translate3d(-8%,1%,0) scaleX(1)}100%{transform:translate3d(8%,-2%,0) scaleX(1.12)}}
+@keyframes nova-halloween-fog-drift-reverse{0%{transform:translate3d(8%,0,0) scaleX(1.18)}100%{transform:translate3d(-9%,2%,0) scaleX(1.04)}}
+@keyframes nova-halloween-ember-rise{0%{transform:translate3d(0,10px,0) scale(.6);opacity:0}15%{opacity:.42}55%{transform:translate3d(12px,-28vh,0) scale(1);opacity:.32}100%{transform:translate3d(-8px,-58vh,0) scale(.55);opacity:0}}
+@keyframes nova-halloween-bat-flight{0%{transform:translate3d(-8vw,0,0) scale(.7) rotate(-5deg);opacity:0}8%{opacity:.38}46%{transform:translate3d(48vw,8vh,0) scale(1) rotate(5deg);opacity:.32}100%{transform:translate3d(114vw,-4vh,0) scale(.78) rotate(-7deg);opacity:0}}
+@keyframes nova-halloween-bat-flight-high{0%{transform:translate3d(-8vw,0,0) scale(.72) rotate(8deg);opacity:0}12%{opacity:.28}50%{transform:translate3d(50vw,-7vh,0) scale(.92) rotate(-4deg);opacity:.26}100%{transform:translate3d(114vw,3vh,0) scale(.65) rotate(6deg);opacity:0}}
+@keyframes nova-halloween-spark-drift{0%{transform:translate3d(0,106vh,0) scale(.45);opacity:0}14%{opacity:.35}54%{transform:translate3d(18px,50vh,0) scale(1)}100%{transform:translate3d(-10px,-12vh,0) scale(.52);opacity:0}}
+@keyframes nova-halloween-moon-breathe{0%{opacity:.76;transform:scale(1)}100%{opacity:1;transform:scale(1.025)}}
+@media(max-width:1050px){html[data-nova-holiday="halloween"] #page-home .home-inner{width:min(760px,calc(100% - 42px))}}
+@media(max-width:760px){html[data-nova-holiday="halloween"] body{background-position:48% center!important}.nova-halloween-fog{opacity:.08}.nova-halloween-bat--four,.nova-halloween-bat--five{display:none}}
+html[data-reduce-motion="on"][data-nova-holiday="halloween"] .nova-halloween-fog,
+html[data-reduce-motion="on"][data-nova-holiday="halloween"] .nova-halloween-ember,
+html[data-reduce-motion="on"][data-nova-holiday="halloween"] .nova-halloween-bat,
+html[data-reduce-motion="on"][data-nova-holiday="halloween"] #page-home::before{animation:none!important}
+@media(prefers-reduced-motion:reduce){.nova-halloween-fog,.nova-halloween-ember,.nova-halloween-bat{animation:none!important}html[data-nova-holiday="halloween"] #page-home::before{animation:none!important}}
+
+
+/* Christmas full scene: warm snowy village, red-black glass and festive logo. */
+html[data-nova-holiday="christmas"]{
+  --holiday-detail:#ffb78a;
+  --holiday-particle:#fff7fb;
+  --holiday-line:rgba(255,162,162,.2);
+  --holiday-glow:rgba(255,205,119,.32);
+  --holiday-shadow:rgba(25,6,16,.36);
+}
+html[data-nova-holiday="christmas"],
+html[data-nova-holiday="christmas"] body{background:#08040a!important}
+html[data-nova-holiday="christmas"] body{
+  background:
+    radial-gradient(circle at 25% 24%,rgba(255,211,120,.11),transparent 24%),
+    radial-gradient(circle at 76% 26%,rgba(255,117,98,.08),transparent 24%),
+    url('/website/assets/media/holiday/christmas/christmas-village-bg.png') center center/cover no-repeat fixed!important;
+}
+html[data-nova-holiday="christmas"] body::before,
+html[data-nova-holiday="christmas"] body::after,
+html[data-nova-holiday="christmas"] #star-layer-2,
+html[data-nova-holiday="christmas"] .amb{opacity:0!important}
+html[data-nova-holiday="christmas"] .page-area{background:transparent!important}
+html[data-nova-holiday="christmas"] #page-home{
+  background:transparent!important;
+  min-height:100vh!important;
+  isolation:isolate;
+}
+html[data-nova-holiday="christmas"] #page-home::before{
+  content:"";
+  position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 16% 22%,rgba(255,206,105,.22),transparent 22%),
+    radial-gradient(circle at 85% 28%,rgba(255,130,113,.14),transparent 22%),
+    linear-gradient(180deg,rgba(8,4,11,.22),rgba(8,4,11,.10) 35%,rgba(13,6,18,.24));
+  pointer-events:none;
+  z-index:0;
+  animation:nova-christmas-ambience 14s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="christmas"] #page-home .home-inner{
+  position:relative;
+  z-index:2;
+}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger{
+  position:relative;
+  filter:drop-shadow(0 0 22px rgba(255,108,138,.24)) drop-shadow(0 0 30px rgba(255,204,105,.12));
+}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger::before{
+  content:none!important;
+}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger::after{
+  content:none!important;
+}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger .nova7-logo-star{
+  fill:#fff5db;
+  filter:drop-shadow(0 0 12px rgba(255,240,188,.5)) drop-shadow(0 0 22px rgba(255,120,120,.18));
+}
+html[data-nova-holiday="christmas"] #page-home .home-stats--summary,
+html[data-nova-holiday="christmas"] #page-home .glass-pill,
+html[data-nova-holiday="christmas"] #page-home .bookmark-chip,
+html[data-nova-holiday="christmas"] #page-home .recent-card{
+  backdrop-filter:blur(15px) saturate(1.08);
+  -webkit-backdrop-filter:blur(15px) saturate(1.08);
+}
+html[data-nova-holiday="christmas"] #page-home .home-stats--summary{
+  border-color:rgba(255,120,133,.24)!important;
+  background:linear-gradient(120deg,rgba(22,6,15,.42),rgba(70,14,28,.22))!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.045)!important;
+}
+html[data-nova-holiday="christmas"] #page-home .glass-pill{
+  border-color:rgba(255,110,126,.58)!important;
+  background:linear-gradient(90deg,rgba(12,5,14,.66),rgba(46,10,24,.45))!important;
+  box-shadow:0 13px 42px rgba(0,0,0,.28),0 0 26px rgba(255,125,130,.09),inset 0 1px 0 rgba(255,255,255,.06)!important;
+}
+html[data-nova-holiday="christmas"] #page-home #search-input{color:#fdeef0!important;text-shadow:0 1px 7px rgba(0,0,0,.5)}
+html[data-nova-holiday="christmas"] #page-home #search-input::placeholder{color:rgba(255,230,236,.72)!important}
+html[data-nova-holiday="christmas"] #page-home #go-btn{color:#ffb2b7!important;border-color:rgba(255,120,133,.68)!important;box-shadow:0 0 18px rgba(255,143,158,.12)}
+html[data-nova-holiday="christmas"] #page-home .bookmark-chip,
+html[data-nova-holiday="christmas"] #page-home .recent-card{
+  background:rgba(16,4,12,.48)!important;
+  border-color:rgba(255,129,136,.24)!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.2)!important;
+}
+html[data-nova-holiday="christmas"] #page-home .bookmark-chip:hover,
+html[data-nova-holiday="christmas"] #page-home .recent-card:hover{
+  border-color:rgba(255,206,105,.44)!important;
+  background:rgba(36,9,20,.62)!important;
+}
+html[data-nova-holiday="christmas"] #page-home .home-section-label,
+html[data-nova-holiday="christmas"] #page-home .home-section-action{color:#ffc7ca!important}
+html[data-nova-holiday="christmas"] #page-home .nexus-footer--home{color:#d5bbc2!important}
+html[data-nova-holiday="christmas"] #page-home .nexus-footer-link{color:#ffd27c!important}
+html[data-nova-holiday="christmas"] #page-home .home-stat-num{color:#fff4ec!important;text-shadow:0 0 15px rgba(255,176,124,.24)}
+html[data-nova-holiday="christmas"] #page-home .home-stat-lbl{color:#d8b9bf!important}
+html[data-nova-holiday="christmas"] #nova-holiday-badge{
+  color:#fff1f3;
+  border-color:rgba(255,125,137,.3);
+  background:rgba(31,7,19,.46);
+  box-shadow:0 7px 25px rgba(0,0,0,.22),0 0 18px rgba(255,194,99,.13);
+  backdrop-filter:blur(12px);
+}
+html[data-nova-holiday="christmas"] #nova-holiday-badge span{color:#ffd27c;text-shadow:0 0 10px rgba(255,210,124,.52)}
+html[data-nova-holiday="christmas"] #nova-island.open{
+  background:linear-gradient(180deg,rgba(10,4,14,.78),rgba(20,6,16,.74))!important;
+  border:1px solid rgba(255,120,135,.22)!important;
+  box-shadow:0 20px 70px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.05)!important;
+  backdrop-filter:blur(24px) saturate(1.08)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(1.08)!important;
+}
+html[data-nova-holiday="christmas"] #nova-island.open::after{opacity:.08!important}
+html[data-nova-holiday="christmas"] #nova-island.open::before{
+  background:linear-gradient(90deg,transparent,rgba(255,128,138,.84),rgba(255,210,124,.62),transparent)!important;
+}
+html[data-nova-holiday="christmas"] #nova-island .ni-page-item{border-color:transparent;color:#f0dbe0}
+html[data-nova-holiday="christmas"] #nova-island .ni-page-item:hover,
+html[data-nova-holiday="christmas"] #nova-island .ni-page-item.active{
+  background:linear-gradient(90deg,rgba(101,18,42,.22),rgba(58,10,28,.18))!important;
+  border-color:rgba(255,124,135,.32)!important;
+  box-shadow:inset 0 0 26px rgba(255,103,141,.05)!important;
+}
+html[data-nova-holiday="christmas"] #nova-island .ni-page-icon{
+  color:#ffadad!important;
+  border-color:rgba(255,146,159,.18)!important;
+  background:rgba(32,8,19,.65)!important;
+  box-shadow:0 0 14px rgba(255,208,122,.06)!important;
+}
+html[data-nova-holiday="christmas"] #nova-island .ni-page-label,
+html[data-nova-holiday="christmas"] #nova-island .ni-p-name,
+html[data-nova-holiday="christmas"] #nova-island .ni-pc-uname{color:#faedf0!important}
+html[data-nova-holiday="christmas"] #nova-island .ni-page-sub,
+html[data-nova-holiday="christmas"] #nova-island .ni-p-title,
+html[data-nova-holiday="christmas"] #nova-island .ni-pc-title,
+html[data-nova-holiday="christmas"] #nova-island .ni-pc-joined{color:#bf9aa3!important}
+
+.nova-christmas-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nova-christmas-glow{position:absolute;border-radius:50%;filter:blur(50px);opacity:.24;mix-blend-mode:screen;animation:nova-christmas-glow-float 13s ease-in-out infinite alternate}
+.nova-christmas-glow--left{left:-4%;bottom:8%;width:20%;height:34%;background:radial-gradient(circle at center,rgba(255,207,122,.52),rgba(255,207,122,.08) 52%,transparent 72%)}
+.nova-christmas-glow--right{right:-4%;bottom:2%;width:24%;height:42%;background:radial-gradient(circle at center,rgba(255,122,122,.44),rgba(255,122,122,.06) 54%,transparent 72%);animation-delay:-5s}
+.nova-christmas-glow--center{left:35%;top:10%;width:30%;height:22%;background:radial-gradient(circle at center,rgba(255,221,176,.18),transparent 72%);animation-delay:-9s}
+.nova-christmas-spark-field{position:absolute;inset:0;overflow:hidden}
+.nova-christmas-spark{position:absolute;left:var(--spark-left);top:var(--spark-top);width:var(--spark-size);height:var(--spark-size);border-radius:50%;background:rgba(255,225,156,.95);box-shadow:0 0 8px rgba(255,227,171,.78),0 0 20px rgba(255,113,132,.26);opacity:.2;animation:nova-christmas-spark-twinkle var(--spark-duration) ease-in-out var(--spark-delay) infinite}
+.nova-christmas-spark:nth-child(3n){background:rgba(255,246,250,.96);box-shadow:0 0 10px rgba(255,247,251,.72),0 0 18px rgba(255,245,249,.2)}
+html[data-nova-holiday="christmas"] .nova-holiday-particle{
+  color:transparent!important;
+  width:var(--holiday-size);height:var(--holiday-size);
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.98) 0 32%,rgba(255,240,244,.78) 38%,transparent 72%);
+  box-shadow:0 0 10px rgba(255,255,255,.18);
+  opacity:.46;
+  animation-name:nova-christmas-snow-fall!important;
+  animation-timing-function:linear!important;
+}
+html[data-nova-holiday="christmas"] .nova-holiday-particle:nth-child(3n){filter:blur(.3px);opacity:.34}
+html[data-nova-holiday="christmas"] .nova-holiday-particle:nth-child(4n){background:radial-gradient(circle,rgba(255,243,207,.94) 0 26%,rgba(255,243,207,.55) 36%,transparent 72%)}
+html[data-nova-holiday="christmas"] .nova-holiday-corner{display:none}
+@keyframes nova-christmas-snow-fall{0%{transform:translate3d(0,-10vh,0) scale(.6);opacity:0}10%{opacity:.48}50%{transform:translate3d(18px,52vh,0) scale(1)}100%{transform:translate3d(-12px,108vh,0) scale(.72);opacity:.04}}
+@keyframes nova-christmas-light-twinkle{0%,100%{opacity:.94;filter:drop-shadow(0 0 6px rgba(255,230,164,.34))}40%{opacity:.82}70%{opacity:1;filter:drop-shadow(0 0 11px rgba(255,229,163,.48))}}
+@keyframes nova-christmas-ambience{0%{opacity:.88;transform:scale(1)}100%{opacity:1;transform:scale(1.02)}}
+@keyframes nova-christmas-glow-float{0%{transform:translate3d(-2%,1%,0) scale(1)}100%{transform:translate3d(2%,-3%,0) scale(1.08)}}
+@keyframes nova-christmas-spark-twinkle{0%,100%{transform:scale(.6);opacity:.1}45%{transform:scale(1.25);opacity:.42}65%{transform:scale(.95);opacity:.18}}
+@media(max-width:1050px){html[data-nova-holiday="christmas"] #page-home .home-inner{width:min(760px,calc(100% - 42px))}}
+@media(max-width:760px){
+  html[data-nova-holiday="christmas"] body{background-position:54% center!important}
+  .nova-christmas-glow--center{display:none}
+}
+html[data-reduce-motion="on"][data-nova-holiday="christmas"] .nova-christmas-glow,
+html[data-reduce-motion="on"][data-nova-holiday="christmas"] .nova-christmas-spark,
+html[data-reduce-motion="on"][data-nova-holiday="christmas"] #page-home::before{animation:none!important}
+@media(prefers-reduced-motion:reduce){.nova-christmas-glow,.nova-christmas-spark{animation:none!important}html[data-nova-holiday="christmas"] #page-home::before{animation:none!important}}
+
+/* Christmas uses the supplied finished NOVA wordmark instead of CSS decorations. */
+.nova-christmas-logo{display:none;width:auto;height:auto;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger{
+  left:0!important;
+  width:clamp(300px,29vw,430px)!important;
+  max-width:min(86vw,430px);
+  line-height:1!important;
+  filter:none!important;
+}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger .nova7-logo-part,
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger .nova7-logo-star,
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger .nova7-logo-va{display:none!important}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger .nova-christmas-logo{
+  display:block!important;
+  width:100%;
+  filter:drop-shadow(0 14px 28px rgba(0,0,0,.36));
+  animation:nova-christmas-logo-glow 5.8s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger:hover .nova-christmas-logo,
+html[data-nova-holiday="christmas"] #hero-wordmark-trigger:focus-visible .nova-christmas-logo{
+  filter:drop-shadow(0 16px 30px rgba(0,0,0,.42)) brightness(1.04);
+}
+@keyframes nova-christmas-logo-glow{
+  0%{filter:drop-shadow(0 14px 28px rgba(0,0,0,.36)) brightness(.99)}
+  100%{filter:drop-shadow(0 16px 32px rgba(0,0,0,.4)) brightness(1.035)}
+}
+@media(max-width:620px){html[data-nova-holiday="christmas"] #hero-wordmark-trigger{width:min(82vw,340px)!important}}
+html[data-reduce-motion="on"][data-nova-holiday="christmas"] #hero-wordmark-trigger .nova-christmas-logo{animation:none!important}
+@media(prefers-reduced-motion:reduce){html[data-nova-holiday="christmas"] #hero-wordmark-trigger .nova-christmas-logo{animation:none!important}}
+
+
+/* St. Patrick's Day: use provided enchanted forest background and premium logo. */
+html[data-nova-holiday="st-patricks"]{
+  --holiday-detail:#f1d56a;
+  --holiday-particle:#b6f56f;
+  --holiday-line:rgba(179,247,123,.20);
+  --holiday-glow:rgba(241,213,106,.30);
+  --holiday-shadow:rgba(8,35,20,.36);
+}
+html[data-nova-holiday="st-patricks"],
+html[data-nova-holiday="st-patricks"] body{background:#05120a!important}
+html[data-nova-holiday="st-patricks"] body{
+  background:
+    radial-gradient(circle at 16% 22%,rgba(255,218,101,.10),transparent 26%),
+    radial-gradient(circle at 76% 40%,rgba(177,255,84,.09),transparent 28%),
+    url('/website/assets/media/holiday/st-patricks/st-patricks-rainbow-bg.png') center center/cover no-repeat fixed!important;
+}
+html[data-nova-holiday="st-patricks"] body::before,
+html[data-nova-holiday="st-patricks"] body::after,
+html[data-nova-holiday="st-patricks"] #star-layer-2,
+html[data-nova-holiday="st-patricks"] .amb{opacity:0!important}
+html[data-nova-holiday="st-patricks"] .page-area{background:transparent!important}
+html[data-nova-holiday="st-patricks"] #page-home{
+  background:transparent!important;
+  min-height:100vh!important;
+  isolation:isolate;
+}
+html[data-nova-holiday="st-patricks"] #page-home::before{
+  content:"";
+  position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 20% 16%,rgba(255,219,113,.13),transparent 20%),
+    radial-gradient(circle at 84% 72%,rgba(255,208,94,.11),transparent 16%),
+    linear-gradient(180deg,rgba(3,14,8,.22),rgba(3,14,8,.08) 38%,rgba(2,10,6,.18));
+  animation:nova-stpatricks-ambience 14s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="st-patricks"] #page-home .home-inner{position:relative;z-index:2}
+html[data-nova-holiday="st-patricks"] #page-home .home-stats--summary,
+html[data-nova-holiday="st-patricks"] #page-home .glass-pill,
+html[data-nova-holiday="st-patricks"] #page-home .bookmark-chip,
+html[data-nova-holiday="st-patricks"] #page-home .recent-card{
+  backdrop-filter:blur(15px) saturate(1.08);
+  -webkit-backdrop-filter:blur(15px) saturate(1.08);
+}
+html[data-nova-holiday="st-patricks"] #page-home .home-stats--summary{
+  border-color:rgba(171,247,105,.24)!important;
+  background:linear-gradient(120deg,rgba(10,28,16,.40),rgba(21,61,33,.22))!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.04)!important;
+}
+html[data-nova-holiday="st-patricks"] #page-home .glass-pill{
+  border-color:rgba(226,210,109,.56)!important;
+  background:linear-gradient(90deg,rgba(6,21,12,.60),rgba(14,42,23,.40))!important;
+  box-shadow:0 13px 42px rgba(0,0,0,.26),0 0 26px rgba(205,183,75,.10),inset 0 1px 0 rgba(255,255,255,.05)!important;
+}
+html[data-nova-holiday="st-patricks"] #page-home #search-input{color:#edf4cf!important;text-shadow:0 1px 7px rgba(0,0,0,.46)}
+html[data-nova-holiday="st-patricks"] #page-home #search-input::placeholder{color:rgba(232,244,201,.70)!important}
+html[data-nova-holiday="st-patricks"] #page-home #go-btn{color:#f1d56a!important;border-color:rgba(233,215,111,.68)!important;box-shadow:0 0 18px rgba(233,215,111,.12)}
+html[data-nova-holiday="st-patricks"] #page-home .bookmark-chip,
+html[data-nova-holiday="st-patricks"] #page-home .recent-card{
+  background:rgba(8,24,14,.44)!important;
+  border-color:rgba(131,204,91,.24)!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.2)!important;
+}
+html[data-nova-holiday="st-patricks"] #page-home .bookmark-chip:hover,
+html[data-nova-holiday="st-patricks"] #page-home .recent-card:hover{
+  border-color:rgba(241,213,106,.42)!important;
+  background:rgba(16,41,22,.58)!important;
+}
+html[data-nova-holiday="st-patricks"] #page-home .home-section-label,
+html[data-nova-holiday="st-patricks"] #page-home .home-section-action{color:#d5ef86!important}
+html[data-nova-holiday="st-patricks"] #page-home .nexus-footer--home{color:#d3e2ac!important}
+html[data-nova-holiday="st-patricks"] #page-home .nexus-footer-link{color:#f1d56a!important}
+html[data-nova-holiday="st-patricks"] #page-home .home-stat-num{color:#fff7d8!important;text-shadow:0 0 14px rgba(241,213,106,.18)}
+html[data-nova-holiday="st-patricks"] #page-home .home-stat-lbl{color:#c6d89b!important}
+html[data-nova-holiday="st-patricks"] #nova-holiday-badge{
+  color:#f8f2d8;
+  border-color:rgba(164,230,98,.28);
+  background:rgba(9,27,15,.45);
+  box-shadow:0 7px 25px rgba(0,0,0,.22),0 0 18px rgba(241,213,106,.12);
+  backdrop-filter:blur(12px);
+}
+html[data-nova-holiday="st-patricks"] #nova-holiday-badge span{color:#f1d56a;text-shadow:0 0 10px rgba(241,213,106,.42)}
+html[data-nova-holiday="st-patricks"] #nova-island.open{
+  background:linear-gradient(180deg,rgba(6,18,11,.76),rgba(7,15,10,.73))!important;
+  border:1px solid rgba(202,193,96,.20)!important;
+  box-shadow:0 20px 70px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.045)!important;
+  backdrop-filter:blur(24px) saturate(1.08)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(1.08)!important;
+}
+html[data-nova-holiday="st-patricks"] #nova-island.open::after{opacity:.08!important}
+html[data-nova-holiday="st-patricks"] #nova-island.open::before{
+  background:linear-gradient(90deg,transparent,rgba(141,232,99,.84),rgba(241,213,106,.60),transparent)!important;
+}
+html[data-nova-holiday="st-patricks"] #nova-island .ni-page-item{border-color:transparent;color:#e9f0cf}
+html[data-nova-holiday="st-patricks"] #nova-island .ni-page-item:hover,
+html[data-nova-holiday="st-patricks"] #nova-island .ni-page-item.active{
+  background:linear-gradient(90deg,rgba(24,74,35,.20),rgba(12,44,22,.16))!important;
+  border-color:rgba(208,197,102,.30)!important;
+  box-shadow:inset 0 0 26px rgba(149,210,75,.05)!important;
+}
+html[data-nova-holiday="st-patricks"] #nova-island .ni-page-icon{
+  color:#f1d56a!important;
+  border-color:rgba(192,224,112,.16)!important;
+  background:rgba(15,44,23,.58)!important;
+  box-shadow:0 0 14px rgba(241,213,106,.05)!important;
+}
+html[data-nova-holiday="st-patricks"] #nova-island .ni-page-label,
+html[data-nova-holiday="st-patricks"] #nova-island .ni-p-name,
+html[data-nova-holiday="st-patricks"] #nova-island .ni-pc-uname{color:#f4f6df!important}
+html[data-nova-holiday="st-patricks"] #nova-island .ni-page-sub,
+html[data-nova-holiday="st-patricks"] #nova-island .ni-p-title,
+html[data-nova-holiday="st-patricks"] #nova-island .ni-pc-title,
+html[data-nova-holiday="st-patricks"] #nova-island .ni-pc-joined{color:#9ec180!important}
+
+.nova-stpatricks-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nova-stpatricks-glow{position:absolute;border-radius:50%;filter:blur(54px);opacity:.18;mix-blend-mode:screen;animation:nova-stpatricks-glow-float 12s ease-in-out infinite alternate}
+.nova-stpatricks-glow--left{left:-6%;top:18%;width:28%;height:30%;background:radial-gradient(circle at center,rgba(248,217,108,.38),rgba(248,217,108,.06) 54%,transparent 72%)}
+.nova-stpatricks-glow--right{right:-4%;bottom:6%;width:30%;height:40%;background:radial-gradient(circle at center,rgba(124,255,102,.22),rgba(124,255,102,.05) 58%,transparent 72%);animation-delay:-5s}
+.nova-stpatricks-rainbow{position:absolute;right:6%;bottom:2%;width:24%;height:44%;opacity:.14;border-radius:50%;filter:blur(2px);background:conic-gradient(from 210deg at 100% 100%,rgba(255,60,60,.00) 0 7%,rgba(255,85,85,.36) 8% 11%,rgba(255,173,61,.34) 12% 15%,rgba(255,227,82,.34) 16% 19%,rgba(107,232,90,.34) 20% 23%,rgba(87,139,255,.30) 24% 27%,rgba(160,90,255,.26) 28% 31%,transparent 32% 100%);mask:radial-gradient(circle at 100% 100%,transparent 0 52%,#000 56% 64%,transparent 68%);-webkit-mask:radial-gradient(circle at 100% 100%,transparent 0 52%,#000 56% 64%,transparent 68%)}
+.nova-stpatricks-spark-field,.nova-stpatricks-clover-field{position:absolute;inset:0;overflow:hidden}
+.nova-stpatricks-spark{position:absolute;left:var(--spark-left);top:var(--spark-top);width:var(--spark-size);height:var(--spark-size);border-radius:50%;background:rgba(255,225,129,.95);box-shadow:0 0 8px rgba(255,227,171,.72),0 0 18px rgba(199,255,118,.18);opacity:.18;animation:nova-stpatricks-spark-twinkle var(--spark-duration) ease-in-out var(--spark-delay) infinite}
+.nova-stpatricks-spark:nth-child(3n){background:rgba(193,255,132,.9);box-shadow:0 0 8px rgba(193,255,132,.5),0 0 16px rgba(193,255,132,.16)}
+.nova-stpatricks-clover{position:absolute;left:var(--clover-left);top:var(--clover-top);font-style:normal;font-size:var(--clover-size);color:rgba(178,251,118,.75);text-shadow:0 0 12px rgba(241,213,106,.28);opacity:.18;animation:nova-stpatricks-clover-drift var(--clover-duration) ease-in-out var(--clover-delay) infinite}
+html[data-nova-holiday="st-patricks"] .nova-holiday-particle{
+  color:#c4ff7f!important;
+  text-shadow:0 0 12px rgba(241,213,106,.28);
+  opacity:.30;
+  animation-name:nova-stpatricks-clover-fall!important;
+  animation-timing-function:ease-in-out!important;
+}
+html[data-nova-holiday="st-patricks"] .nova-holiday-corner{display:none}
+@keyframes nova-stpatricks-ambience{0%{opacity:.88;transform:scale(1)}100%{opacity:1;transform:scale(1.02)}}
+@keyframes nova-stpatricks-glow-float{0%{transform:translate3d(-2%,1%,0) scale(1)}100%{transform:translate3d(2%,-3%,0) scale(1.08)}}
+@keyframes nova-stpatricks-spark-twinkle{0%,100%{transform:scale(.6);opacity:.08}40%{transform:scale(1.15);opacity:.32}70%{transform:scale(.9);opacity:.14}}
+@keyframes nova-stpatricks-clover-drift{0%,100%{transform:translate3d(0,0,0) rotate(0deg)}50%{transform:translate3d(12px,-14px,0) rotate(10deg)}}
+@keyframes nova-stpatricks-clover-fall{0%{transform:translate3d(0,-10vh,0) rotate(0deg);opacity:0}12%{opacity:.30}50%{transform:translate3d(18px,48vh,0) rotate(140deg)}100%{transform:translate3d(-14px,108vh,0) rotate(240deg);opacity:0}}
+@media(max-width:1050px){html[data-nova-holiday="st-patricks"] #page-home .home-inner{width:min(760px,calc(100% - 42px))}}
+@media(max-width:760px){html[data-nova-holiday="st-patricks"] body{background-position:54% center!important}.nova-stpatricks-rainbow{width:34%;height:38%;opacity:.11}}
+html[data-reduce-motion="on"][data-nova-holiday="st-patricks"] .nova-stpatricks-glow,
+html[data-reduce-motion="on"][data-nova-holiday="st-patricks"] .nova-stpatricks-spark,
+html[data-reduce-motion="on"][data-nova-holiday="st-patricks"] .nova-stpatricks-clover,
+html[data-reduce-motion="on"][data-nova-holiday="st-patricks"] #page-home::before{animation:none!important}
+@media(prefers-reduced-motion:reduce){.nova-stpatricks-glow,.nova-stpatricks-spark,.nova-stpatricks-clover{animation:none!important}html[data-nova-holiday="st-patricks"] #page-home::before{animation:none!important}}
+
+/* St. Patrick's Day uses the supplied finished NOVA wordmark. */
+.nova-stpatricks-logo{display:none;width:auto;height:auto;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger{
+  left:0!important;
+  width:clamp(300px,29vw,430px)!important;
+  max-width:min(86vw,430px);
+  line-height:1!important;
+  filter:none!important;
+}
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger .nova7-logo-part,
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger .nova7-logo-star,
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger .nova7-logo-va,
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger .nova-christmas-logo{display:none!important}
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger .nova-stpatricks-logo{
+  display:block!important;
+  width:100%;
+  filter:drop-shadow(0 16px 30px rgba(0,0,0,.38));
+  animation:nova-stpatricks-logo-glow 5.6s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger:hover .nova-stpatricks-logo,
+html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger:focus-visible .nova-stpatricks-logo{filter:drop-shadow(0 18px 32px rgba(0,0,0,.42)) brightness(1.03)}
+@keyframes nova-stpatricks-logo-glow{0%{filter:drop-shadow(0 16px 30px rgba(0,0,0,.38)) brightness(.99)}100%{filter:drop-shadow(0 18px 34px rgba(0,0,0,.42)) brightness(1.04)}}
+@media(max-width:620px){html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger{width:min(82vw,340px)!important}}
+html[data-reduce-motion="on"][data-nova-holiday="st-patricks"] #hero-wordmark-trigger .nova-stpatricks-logo{animation:none!important}
+@media(prefers-reduced-motion:reduce){html[data-nova-holiday="st-patricks"] #hero-wordmark-trigger .nova-stpatricks-logo{animation:none!important}}
+
+
+/* Valentine's Day: rose glow, heart frame and bright pink glass. */
+html[data-nova-holiday="valentines"]{
+  --holiday-detail:#ff8fb6;
+  --holiday-particle:#ffa1c3;
+  --holiday-line:rgba(255,150,190,.22);
+  --holiday-glow:rgba(255,84,148,.30);
+  --holiday-shadow:rgba(74,7,35,.34);
+}
+html[data-nova-holiday="valentines"],
+html[data-nova-holiday="valentines"] body{background:#19010e!important}
+html[data-nova-holiday="valentines"] body{
+  background:
+    radial-gradient(circle at 18% 18%,rgba(255,148,197,.12),transparent 24%),
+    radial-gradient(circle at 78% 66%,rgba(255,89,147,.10),transparent 28%),
+    url('/website/assets/media/holiday/valentines/valentines-bg.png') center center/cover no-repeat fixed!important;
+}
+html[data-nova-holiday="valentines"] body::before,
+html[data-nova-holiday="valentines"] body::after,
+html[data-nova-holiday="valentines"] #star-layer-2,
+html[data-nova-holiday="valentines"] .amb{opacity:0!important}
+html[data-nova-holiday="valentines"] .page-area{background:transparent!important}
+html[data-nova-holiday="valentines"] #page-home{
+  background:transparent!important;
+  min-height:100vh!important;
+  isolation:isolate;
+}
+html[data-nova-holiday="valentines"] #page-home::before{
+  content:"";
+  position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 24% 18%,rgba(255,164,205,.16),transparent 18%),
+    radial-gradient(circle at 84% 70%,rgba(255,93,156,.14),transparent 22%),
+    linear-gradient(180deg,rgba(24,2,14,.18),rgba(24,2,14,.06) 42%,rgba(20,1,12,.18));
+  animation:nova-valentines-ambience 14s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="valentines"] #page-home .home-inner{position:relative;z-index:2}
+html[data-nova-holiday="valentines"] #page-home .nova-hero{
+  position:relative;
+  isolation:isolate;
+  overflow:visible;
+  padding:clamp(.75rem,2vw,1.15rem) 0 clamp(.95rem,2.8vw,1.35rem);
+  margin-bottom:clamp(1.15rem,3vh,1.75rem)!important;
+}
+html[data-nova-holiday="valentines"] #page-home .nova-hero::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:49%;
+  width:clamp(500px,44vw,680px);
+  height:clamp(320px,30vw,430px);
+  transform:translate(-50%,-50%);
+  background:url('/website/assets/media/holiday/valentines/valentines-heart-frame.png') center 42%/contain no-repeat;
+  pointer-events:none;
+  z-index:0;
+  opacity:.97;
+  filter:drop-shadow(0 0 16px rgba(255,96,156,.2));
+  animation:nova-valentines-heart-glow 8s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="valentines"] #hero-wordmark-trigger{
+  position:relative;
+  left:0!important;
+  z-index:2;
+  filter:drop-shadow(0 0 24px rgba(255,102,164,.22)) drop-shadow(0 0 34px rgba(255,189,215,.12));
+}
+html[data-nova-holiday="valentines"] #hero-wordmark-trigger::before{display:none!important}
+html[data-nova-holiday="valentines"] #hero-wordmark-trigger .nova-christmas-logo,
+html[data-nova-holiday="valentines"] #hero-wordmark-trigger .nova-stpatricks-logo{display:none!important}
+html[data-nova-holiday="valentines"] #hero-wordmark-trigger .nova7-logo-star{
+  fill:#fff8fb;
+  filter:drop-shadow(0 0 10px rgba(255,228,240,.5)) drop-shadow(0 0 20px rgba(255,110,170,.22));
+}
+html[data-nova-holiday="valentines"] #page-home .home-stats--summary,
+html[data-nova-holiday="valentines"] #page-home .glass-pill,
+html[data-nova-holiday="valentines"] #page-home .bookmark-chip,
+html[data-nova-holiday="valentines"] #page-home .recent-card{
+  backdrop-filter:blur(16px) saturate(1.08);
+  -webkit-backdrop-filter:blur(16px) saturate(1.08);
+}
+html[data-nova-holiday="valentines"] #page-home .home-stats--summary{
+  border-color:rgba(255,121,178,.24)!important;
+  background:linear-gradient(120deg,rgba(39,5,19,.40),rgba(94,12,43,.22))!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.04)!important;
+}
+html[data-nova-holiday="valentines"] #page-home .glass-pill{
+  border-color:rgba(255,120,176,.60)!important;
+  background:linear-gradient(90deg,rgba(34,3,16,.66),rgba(102,10,40,.40))!important;
+  box-shadow:0 13px 42px rgba(0,0,0,.28),0 0 26px rgba(255,111,163,.12),inset 0 1px 0 rgba(255,255,255,.05)!important;
+}
+html[data-nova-holiday="valentines"] #page-home #search-input{color:#fff0f5!important;text-shadow:0 1px 7px rgba(0,0,0,.5)}
+html[data-nova-holiday="valentines"] #page-home #search-input::placeholder{color:rgba(255,230,240,.72)!important}
+html[data-nova-holiday="valentines"] #page-home #go-btn{color:#ffb2d1!important;border-color:rgba(255,128,186,.72)!important;box-shadow:0 0 18px rgba(255,148,197,.14)}
+html[data-nova-holiday="valentines"] #page-home .bookmark-chip,
+html[data-nova-holiday="valentines"] #page-home .recent-card{
+  background:rgba(29,3,15,.46)!important;
+  border-color:rgba(255,129,187,.24)!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.2)!important;
+}
+html[data-nova-holiday="valentines"] #page-home .bookmark-chip:hover,
+html[data-nova-holiday="valentines"] #page-home .recent-card:hover{
+  border-color:rgba(255,190,220,.40)!important;
+  background:rgba(58,6,24,.60)!important;
+}
+html[data-nova-holiday="valentines"] #page-home .home-section-label,
+html[data-nova-holiday="valentines"] #page-home .home-section-action{color:#ffc6d9!important}
+html[data-nova-holiday="valentines"] #page-home .nexus-footer--home{color:#e2b8c9!important}
+html[data-nova-holiday="valentines"] #page-home .nexus-footer-link{color:#ff9fc4!important}
+html[data-nova-holiday="valentines"] #page-home .home-stat-num{color:#fff5f7!important;text-shadow:0 0 14px rgba(255,160,200,.20)}
+html[data-nova-holiday="valentines"] #page-home .home-stat-lbl{color:#deb5c6!important}
+html[data-nova-holiday="valentines"] #nova-holiday-badge{
+  color:#fff1f6;
+  border-color:rgba(255,123,183,.30);
+  background:rgba(44,4,21,.46);
+  box-shadow:0 7px 25px rgba(0,0,0,.22),0 0 18px rgba(255,165,205,.12);
+  backdrop-filter:blur(12px);
+}
+html[data-nova-holiday="valentines"] #nova-holiday-badge span{color:#ff9fc4;text-shadow:0 0 10px rgba(255,176,211,.44)}
+html[data-nova-holiday="valentines"] #nova-island.open{
+  background:linear-gradient(180deg,rgba(26,2,14,.78),rgba(37,4,18,.74))!important;
+  border:1px solid rgba(255,121,178,.22)!important;
+  box-shadow:0 20px 70px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.045)!important;
+  backdrop-filter:blur(24px) saturate(1.08)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(1.08)!important;
+}
+html[data-nova-holiday="valentines"] #nova-island.open::after{opacity:.08!important}
+html[data-nova-holiday="valentines"] #nova-island.open::before{
+  background:linear-gradient(90deg,transparent,rgba(255,118,177,.84),rgba(255,181,214,.60),transparent)!important;
+}
+html[data-nova-holiday="valentines"] #nova-island .ni-page-item{border-color:transparent;color:#fae9ef}
+html[data-nova-holiday="valentines"] #nova-island .ni-page-item:hover,
+html[data-nova-holiday="valentines"] #nova-island .ni-page-item.active{
+  background:linear-gradient(90deg,rgba(113,17,54,.20),rgba(57,7,25,.16))!important;
+  border-color:rgba(255,135,189,.34)!important;
+  box-shadow:inset 0 0 26px rgba(255,108,170,.06)!important;
+}
+html[data-nova-holiday="valentines"] #nova-island .ni-page-icon{
+  color:#ffb9d2!important;
+  border-color:rgba(255,152,196,.18)!important;
+  background:rgba(54,7,24,.58)!important;
+  box-shadow:0 0 14px rgba(255,194,221,.06)!important;
+}
+html[data-nova-holiday="valentines"] #nova-island .ni-page-label,
+html[data-nova-holiday="valentines"] #nova-island .ni-p-name,
+html[data-nova-holiday="valentines"] #nova-island .ni-pc-uname{color:#fff0f4!important}
+html[data-nova-holiday="valentines"] #nova-island .ni-page-sub,
+html[data-nova-holiday="valentines"] #nova-island .ni-p-title,
+html[data-nova-holiday="valentines"] #nova-island .ni-pc-title,
+html[data-nova-holiday="valentines"] #nova-island .ni-pc-joined{color:#cfa4b6!important}
+
+.nova-valentines-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nova-valentines-glow{position:absolute;border-radius:50%;filter:blur(50px);opacity:.22;mix-blend-mode:screen;animation:nova-valentines-glow-float 13s ease-in-out infinite alternate}
+.nova-valentines-glow--left{left:-6%;bottom:8%;width:26%;height:36%;background:radial-gradient(circle at center,rgba(255,112,166,.46),rgba(255,112,166,.08) 54%,transparent 72%)}
+.nova-valentines-glow--right{right:-4%;bottom:2%;width:30%;height:40%;background:radial-gradient(circle at center,rgba(255,160,202,.34),rgba(255,160,202,.06) 56%,transparent 72%);animation-delay:-5s}
+.nova-valentines-glow--center{left:34%;top:10%;width:32%;height:22%;background:radial-gradient(circle at center,rgba(255,218,232,.14),transparent 72%);animation-delay:-9s}
+.nova-valentines-glint-field,.nova-valentines-petal-field{position:absolute;inset:0;overflow:hidden}
+.nova-valentines-glint{position:absolute;left:var(--glint-left);top:var(--glint-top);width:var(--glint-size);height:var(--glint-size);border-radius:50%;background:rgba(255,216,233,.96);box-shadow:0 0 8px rgba(255,220,235,.72),0 0 18px rgba(255,122,181,.24);opacity:.18;animation:nova-valentines-glint-twinkle var(--glint-duration) ease-in-out var(--glint-delay) infinite}
+.nova-valentines-glint:nth-child(3n){background:rgba(255,145,195,.94);box-shadow:0 0 8px rgba(255,145,195,.6),0 0 18px rgba(255,145,195,.22)}
+.nova-valentines-petal{position:absolute;left:var(--petal-left);top:var(--petal-top);width:14px;height:18px;border-radius:78% 18% 78% 20%;background:linear-gradient(160deg,rgba(255,153,196,.92),rgba(180,17,82,.90));box-shadow:0 0 10px rgba(255,118,178,.16);opacity:.18;transform:rotate(-18deg);animation:nova-valentines-petal-drift var(--petal-duration) ease-in-out var(--petal-delay) infinite}
+html[data-nova-holiday="valentines"] .nova-holiday-particle{color:#ff9ec4!important;text-shadow:0 0 12px rgba(255,167,204,.32);opacity:.32;animation-name:nova-valentines-heart-fall!important;animation-timing-function:ease-in-out!important}
+html[data-nova-holiday="valentines"] .nova-holiday-corner{display:none}
+@keyframes nova-valentines-ambience{0%{opacity:.88;transform:scale(1)}100%{opacity:1;transform:scale(1.02)}}
+@keyframes nova-valentines-heart-glow{0%{opacity:.92;filter:drop-shadow(0 0 15px rgba(255,95,155,.18))}100%{opacity:1;filter:drop-shadow(0 0 21px rgba(255,145,195,.28))}}
+@keyframes nova-valentines-glow-float{0%{transform:translate3d(-2%,1%,0) scale(1)}100%{transform:translate3d(2%,-3%,0) scale(1.08)}}
+@keyframes nova-valentines-glint-twinkle{0%,100%{transform:scale(.6);opacity:.08}45%{transform:scale(1.2);opacity:.38}70%{transform:scale(.95);opacity:.16}}
+@keyframes nova-valentines-petal-drift{0%,100%{transform:translate3d(0,0,0) rotate(-16deg)}50%{transform:translate3d(16px,-14px,0) rotate(16deg)}}
+@keyframes nova-valentines-heart-fall{0%{transform:translate3d(0,-10vh,0) rotate(0deg);opacity:0}12%{opacity:.32}50%{transform:translate3d(16px,48vh,0) rotate(16deg)}100%{transform:translate3d(-12px,108vh,0) rotate(24deg);opacity:0}}
+@media(max-width:1050px){html[data-nova-holiday="valentines"] #page-home .home-inner{width:min(760px,calc(100% - 42px))}}
+@media(max-width:760px){html[data-nova-holiday="valentines"] body{background-position:54% center!important}html[data-nova-holiday="valentines"] #page-home .nova-hero{padding:.55rem 0 .85rem;margin-bottom:1rem!important}html[data-nova-holiday="valentines"] #page-home .nova-hero::before{top:47%;width:min(90vw,430px);height:min(58vw,280px);transform:translate(-50%,-50%)}.nova-valentines-glow--center{display:none}}
+html[data-reduce-motion="on"][data-nova-holiday="valentines"] .nova-valentines-glow,
+html[data-reduce-motion="on"][data-nova-holiday="valentines"] .nova-valentines-glint,
+html[data-reduce-motion="on"][data-nova-holiday="valentines"] .nova-valentines-petal,
+html[data-reduce-motion="on"][data-nova-holiday="valentines"] #page-home::before,
+html[data-reduce-motion="on"][data-nova-holiday="valentines"] #hero-wordmark-trigger::before{animation:none!important}
+@media(prefers-reduced-motion:reduce){.nova-valentines-glow,.nova-valentines-glint,.nova-valentines-petal{animation:none!important}html[data-nova-holiday="valentines"] #page-home::before,html[data-nova-holiday="valentines"] #hero-wordmark-trigger::before{animation:none!important}}
+
+
+/* Thanksgiving: warm autumn cabin, harvest glass, leaves and supplied NOVA wordmark. */
+html[data-nova-holiday="thanksgiving"][data-nova-holiday-style="full"]{
+  --bg:#120704!important;--bg2:#1c0b05!important;--s1:#281207!important;--text:#f2d6b2!important;--muted:#aa7b56!important;--dim:#6f472e!important;--white:#fff4df!important;--accent:#ff9d42!important;--accent2:#c85a1f!important;--glow:rgba(255,157,66,.22)!important;--glow-s:rgba(200,90,31,.1)!important;--glass-bg:rgba(255,171,88,.035)!important;--glass-bg-h:rgba(255,171,88,.08)!important;--glass-b:rgba(255,171,88,.12)!important;--glass-bh:rgba(255,157,66,.42)!important;--toast-bg:rgba(18,7,4,.98)!important
+}
+html[data-nova-holiday="thanksgiving"]{--holiday-detail:#ffad55;--holiday-particle:#e77c2c;--holiday-line:rgba(255,156,71,.20);--holiday-glow:rgba(255,157,66,.28);--holiday-shadow:rgba(63,21,4,.28)}
+html[data-nova-holiday="thanksgiving"],html[data-nova-holiday="thanksgiving"] body{background:#100603!important}
+html[data-nova-holiday="thanksgiving"] body{
+  background:
+    radial-gradient(circle at 18% 20%,rgba(255,168,68,.10),transparent 24%),
+    radial-gradient(circle at 78% 22%,rgba(255,121,38,.08),transparent 25%),
+    url('/website/assets/media/holiday/thanksgiving/thanksgiving-bg.png') center center/cover no-repeat fixed!important;
+}
+html[data-nova-holiday="thanksgiving"] body::before,
+html[data-nova-holiday="thanksgiving"] body::after,
+html[data-nova-holiday="thanksgiving"] #star-layer-2,
+html[data-nova-holiday="thanksgiving"] .amb{opacity:0!important}
+html[data-nova-holiday="thanksgiving"] .page-area{background:transparent!important}
+html[data-nova-holiday="thanksgiving"] #page-home{background:transparent!important;min-height:100vh!important;isolation:isolate}
+html[data-nova-holiday="thanksgiving"] #page-home::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(circle at 15% 75%,rgba(255,121,38,.14),transparent 22%),radial-gradient(circle at 82% 18%,rgba(255,183,84,.10),transparent 22%),linear-gradient(180deg,rgba(15,5,2,.14),rgba(15,5,2,.05) 45%,rgba(17,6,2,.18));
+  animation:nova-thanksgiving-ambience 15s ease-in-out infinite alternate
+}
+html[data-nova-holiday="thanksgiving"] #page-home .home-inner{position:relative;z-index:2}
+html[data-nova-holiday="thanksgiving"] #page-home .home-stats--summary,
+html[data-nova-holiday="thanksgiving"] #page-home .glass-pill,
+html[data-nova-holiday="thanksgiving"] #page-home .bookmark-chip,
+html[data-nova-holiday="thanksgiving"] #page-home .recent-card{backdrop-filter:blur(15px) saturate(1.08);-webkit-backdrop-filter:blur(15px) saturate(1.08)}
+html[data-nova-holiday="thanksgiving"] #page-home .home-stats--summary{border-color:rgba(255,151,65,.24)!important;background:linear-gradient(120deg,rgba(35,12,4,.40),rgba(93,31,6,.22))!important;box-shadow:0 12px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.04)!important}
+html[data-nova-holiday="thanksgiving"] #page-home .glass-pill{border-color:rgba(255,143,46,.58)!important;background:linear-gradient(90deg,rgba(26,9,3,.62),rgba(76,22,5,.42))!important;box-shadow:0 13px 42px rgba(0,0,0,.28),0 0 24px rgba(255,142,45,.10),inset 0 1px 0 rgba(255,255,255,.05)!important}
+html[data-nova-holiday="thanksgiving"] #page-home #search-input{color:#f9e7d0!important;text-shadow:0 1px 7px rgba(0,0,0,.5)}
+html[data-nova-holiday="thanksgiving"] #page-home #search-input::placeholder{color:rgba(248,226,202,.72)!important}
+html[data-nova-holiday="thanksgiving"] #page-home #go-btn{color:#ffb05e!important;border-color:rgba(255,151,61,.70)!important;box-shadow:0 0 18px rgba(255,151,61,.12)}
+html[data-nova-holiday="thanksgiving"] #page-home .bookmark-chip,html[data-nova-holiday="thanksgiving"] #page-home .recent-card{background:rgba(28,9,3,.48)!important;border-color:rgba(255,141,47,.22)!important;box-shadow:0 10px 26px rgba(0,0,0,.2)!important}
+html[data-nova-holiday="thanksgiving"] #page-home .bookmark-chip:hover,html[data-nova-holiday="thanksgiving"] #page-home .recent-card:hover{border-color:rgba(255,187,95,.42)!important;background:rgba(54,17,4,.60)!important}
+html[data-nova-holiday="thanksgiving"] #page-home .home-section-label,html[data-nova-holiday="thanksgiving"] #page-home .home-section-action{color:#f2b36f!important}
+html[data-nova-holiday="thanksgiving"] #page-home .nexus-footer--home{color:#d5ab82!important}
+html[data-nova-holiday="thanksgiving"] #page-home .nexus-footer-link{color:#ffad55!important}
+html[data-nova-holiday="thanksgiving"] #page-home .home-stat-num{color:#fff1dc!important;text-shadow:0 0 14px rgba(255,168,83,.20)}
+html[data-nova-holiday="thanksgiving"] #page-home .home-stat-lbl{color:#cfa67f!important}
+html[data-nova-holiday="thanksgiving"] #nova-holiday-badge{color:#ffe9ce;border-color:rgba(255,148,55,.30);background:rgba(42,13,3,.46);box-shadow:0 7px 25px rgba(0,0,0,.22),0 0 18px rgba(255,166,73,.12);backdrop-filter:blur(12px)}
+html[data-nova-holiday="thanksgiving"] #nova-holiday-badge span{color:#ffad55;text-shadow:0 0 10px rgba(255,173,85,.44)}
+html[data-nova-holiday="thanksgiving"] #nova-island.open{background:linear-gradient(180deg,rgba(22,8,3,.78),rgba(32,10,3,.74))!important;border:1px solid rgba(255,145,48,.22)!important;box-shadow:0 20px 70px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.045)!important;backdrop-filter:blur(24px) saturate(1.08)!important;-webkit-backdrop-filter:blur(24px) saturate(1.08)!important}
+html[data-nova-holiday="thanksgiving"] #nova-island.open::after{opacity:.08!important}
+html[data-nova-holiday="thanksgiving"] #nova-island.open::before{background:linear-gradient(90deg,transparent,rgba(255,145,47,.84),rgba(255,189,102,.60),transparent)!important}
+html[data-nova-holiday="thanksgiving"] #nova-island .ni-page-item{border-color:transparent;color:#efd6bb}
+html[data-nova-holiday="thanksgiving"] #nova-island .ni-page-item:hover,html[data-nova-holiday="thanksgiving"] #nova-island .ni-page-item.active{background:linear-gradient(90deg,rgba(95,30,5,.20),rgba(53,15,3,.16))!important;border-color:rgba(255,149,52,.34)!important;box-shadow:inset 0 0 26px rgba(255,122,25,.06)!important}
+html[data-nova-holiday="thanksgiving"] #nova-island .ni-page-icon{color:#ffb05a!important;border-color:rgba(255,161,75,.18)!important;background:rgba(52,17,4,.58)!important;box-shadow:0 0 14px rgba(255,181,98,.06)!important}
+html[data-nova-holiday="thanksgiving"] #nova-island .ni-page-label,html[data-nova-holiday="thanksgiving"] #nova-island .ni-p-name,html[data-nova-holiday="thanksgiving"] #nova-island .ni-pc-uname{color:#faead8!important}
+html[data-nova-holiday="thanksgiving"] #nova-island .ni-page-sub,html[data-nova-holiday="thanksgiving"] #nova-island .ni-p-title,html[data-nova-holiday="thanksgiving"] #nova-island .ni-pc-title,html[data-nova-holiday="thanksgiving"] #nova-island .ni-pc-joined{color:#bf9270!important}
+
+.nova-thanksgiving-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nova-thanksgiving-glow{position:absolute;border-radius:50%;filter:blur(52px);opacity:.18;mix-blend-mode:screen;animation:nova-thanksgiving-glow-float 13s ease-in-out infinite alternate}
+.nova-thanksgiving-glow--left{left:-6%;bottom:8%;width:28%;height:36%;background:radial-gradient(circle at center,rgba(255,159,66,.42),rgba(255,159,66,.07) 54%,transparent 72%)}
+.nova-thanksgiving-glow--right{right:-4%;top:12%;width:28%;height:32%;background:radial-gradient(circle at center,rgba(255,194,112,.28),rgba(255,194,112,.05) 56%,transparent 72%);animation-delay:-5s}
+.nova-thanksgiving-motes,.nova-thanksgiving-leaves{position:absolute;inset:0;overflow:hidden}
+.nova-thanksgiving-mote{position:absolute;left:var(--mote-left);top:var(--mote-top);width:var(--mote-size);height:var(--mote-size);border-radius:50%;background:rgba(255,194,108,.92);box-shadow:0 0 8px rgba(255,194,108,.62),0 0 18px rgba(255,123,40,.18);opacity:.14;animation:nova-thanksgiving-mote-twinkle var(--mote-duration) ease-in-out var(--mote-delay) infinite}
+.nova-thanksgiving-leaf{position:absolute;left:var(--leaf-left);top:-12vh;font-style:normal;font-size:var(--leaf-size);opacity:.24;filter:drop-shadow(0 0 6px rgba(255,130,35,.16));animation:nova-thanksgiving-leaf-fall var(--leaf-duration) ease-in-out var(--leaf-delay) infinite}
+html[data-nova-holiday="thanksgiving"] .nova-holiday-particle{color:#d86f23!important;text-shadow:0 0 10px rgba(255,148,58,.24);opacity:.18;animation-name:nova-thanksgiving-leaf-fall!important;animation-timing-function:ease-in-out!important}
+html[data-nova-holiday="thanksgiving"] .nova-holiday-corner{display:none}
+@keyframes nova-thanksgiving-ambience{0%{opacity:.88;transform:scale(1)}100%{opacity:1;transform:scale(1.02)}}
+@keyframes nova-thanksgiving-glow-float{0%{transform:translate3d(-2%,1%,0) scale(1)}100%{transform:translate3d(2%,-3%,0) scale(1.07)}}
+@keyframes nova-thanksgiving-mote-twinkle{0%,100%{transform:scale(.6);opacity:.05}45%{transform:scale(1.15);opacity:.26}70%{transform:scale(.9);opacity:.12}}
+@keyframes nova-thanksgiving-leaf-fall{0%{transform:translate3d(0,-12vh,0) rotate(0deg);opacity:0}12%{opacity:.26}50%{transform:translate3d(24px,48vh,0) rotate(150deg)}100%{transform:translate3d(-18px,110vh,0) rotate(300deg);opacity:0}}
+
+.nova-thanksgiving-logo{display:none;width:auto;height:auto;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger{left:0!important;width:clamp(300px,29vw,430px)!important;max-width:min(86vw,430px);line-height:1!important;filter:none!important}
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova7-logo-part,
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova7-logo-star,
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova7-logo-va,
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova-christmas-logo,
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova-stpatricks-logo{display:none!important}
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova-thanksgiving-logo{display:block!important;width:100%;filter:drop-shadow(0 15px 30px rgba(0,0,0,.38));animation:nova-thanksgiving-logo-glow 6s ease-in-out infinite alternate}
+html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger:hover .nova-thanksgiving-logo,html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger:focus-visible .nova-thanksgiving-logo{filter:drop-shadow(0 17px 32px rgba(0,0,0,.42)) brightness(1.03)}
+@keyframes nova-thanksgiving-logo-glow{0%{filter:drop-shadow(0 15px 30px rgba(0,0,0,.38)) brightness(.99)}100%{filter:drop-shadow(0 17px 34px rgba(0,0,0,.42)) brightness(1.035)}}
+@media(max-width:1050px){html[data-nova-holiday="thanksgiving"] #page-home .home-inner{width:min(760px,calc(100% - 42px))}}
+@media(max-width:760px){html[data-nova-holiday="thanksgiving"] body{background-position:52% center!important}.nova-thanksgiving-glow--right{display:none}}
+@media(max-width:620px){html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger{width:min(82vw,340px)!important}}
+html[data-reduce-motion="on"][data-nova-holiday="thanksgiving"] .nova-thanksgiving-glow,html[data-reduce-motion="on"][data-nova-holiday="thanksgiving"] .nova-thanksgiving-mote,html[data-reduce-motion="on"][data-nova-holiday="thanksgiving"] .nova-thanksgiving-leaf,html[data-reduce-motion="on"][data-nova-holiday="thanksgiving"] #page-home::before,html[data-reduce-motion="on"][data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova-thanksgiving-logo{animation:none!important}
+@media(prefers-reduced-motion:reduce){.nova-thanksgiving-glow,.nova-thanksgiving-mote,.nova-thanksgiving-leaf{animation:none!important}html[data-nova-holiday="thanksgiving"] #page-home::before,html[data-nova-holiday="thanksgiving"] #hero-wordmark-trigger .nova-thanksgiving-logo{animation:none!important}}
+
+
+/* New Year: fireworks skyline, supplied wordmark and midnight glass. */
+html[data-nova-holiday="new-year"]{
+  --holiday-detail:#f2c56d;
+  --holiday-particle:#d5a8ff;
+  --holiday-line:rgba(242,197,109,.20);
+  --holiday-glow:rgba(154,95,255,.26);
+  --holiday-shadow:rgba(8,10,36,.34);
+}
+html[data-nova-holiday="new-year"],
+html[data-nova-holiday="new-year"] body{background:#070914!important}
+html[data-nova-holiday="new-year"] body{
+  background:
+    radial-gradient(circle at 18% 16%,rgba(255,219,127,.10),transparent 18%),
+    radial-gradient(circle at 82% 20%,rgba(179,119,255,.12),transparent 26%),
+    radial-gradient(circle at 50% 112%,rgba(71,61,175,.22),transparent 36%),
+    url('/website/assets/media/holiday/new-year/new-year-city-bg.png') center center/cover no-repeat fixed!important;
+}
+html[data-nova-holiday="new-year"] body::before,
+html[data-nova-holiday="new-year"] body::after,
+html[data-nova-holiday="new-year"] #star-layer-2,
+html[data-nova-holiday="new-year"] .amb{opacity:0!important}
+html[data-nova-holiday="new-year"] .page-area{background:transparent!important}
+html[data-nova-holiday="new-year"] #page-home{background:transparent!important;min-height:100vh!important;isolation:isolate}
+html[data-nova-holiday="new-year"] #page-home::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 22% 14%,rgba(255,215,130,.14),transparent 18%),
+    radial-gradient(circle at 78% 24%,rgba(188,124,255,.18),transparent 26%),
+    linear-gradient(180deg,rgba(7,8,24,.10),rgba(7,8,24,.03) 42%,rgba(6,7,20,.18));
+  animation:nova-newyear-ambience 12s ease-in-out infinite alternate;
+}
+html[data-nova-holiday="new-year"] #page-home .home-inner{position:relative;z-index:2}
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger{left:0!important;width:clamp(320px,30vw,450px)!important;max-width:min(88vw,450px);line-height:1!important;filter:none!important}
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova7-logo-part,
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova7-logo-star,
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova7-logo-va,
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova-christmas-logo,
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova-stpatricks-logo,
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova-thanksgiving-logo{display:none!important}
+.nova-newyear-logo{display:none;width:auto;height:auto;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova-newyear-logo{display:block!important;width:100%;filter:drop-shadow(0 16px 32px rgba(0,0,0,.42));animation:nova-newyear-logo-glow 5.8s ease-in-out infinite alternate}
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger:hover .nova-newyear-logo,
+html[data-nova-holiday="new-year"] #hero-wordmark-trigger:focus-visible .nova-newyear-logo{filter:drop-shadow(0 18px 36px rgba(0,0,0,.46)) brightness(1.04)}
+html[data-nova-holiday="new-year"] #page-home .home-stats--summary,
+html[data-nova-holiday="new-year"] #page-home .glass-pill,
+html[data-nova-holiday="new-year"] #page-home .bookmark-chip,
+html[data-nova-holiday="new-year"] #page-home .recent-card{backdrop-filter:blur(16px) saturate(1.08);-webkit-backdrop-filter:blur(16px) saturate(1.08)}
+html[data-nova-holiday="new-year"] #page-home .home-stats--summary{border-color:rgba(167,113,255,.24)!important;background:linear-gradient(120deg,rgba(9,12,34,.48),rgba(34,18,72,.24))!important;box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05)!important}
+html[data-nova-holiday="new-year"] #page-home .glass-pill{border-color:rgba(165,117,255,.52)!important;background:linear-gradient(90deg,rgba(8,10,28,.68),rgba(27,19,62,.44))!important;box-shadow:0 14px 42px rgba(0,0,0,.32),0 0 24px rgba(162,116,255,.12),inset 0 1px 0 rgba(255,255,255,.05)!important}
+html[data-nova-holiday="new-year"] #page-home #search-input{color:#f0e6ff!important;text-shadow:0 1px 7px rgba(0,0,0,.55)}
+html[data-nova-holiday="new-year"] #page-home #search-input::placeholder{color:rgba(232,219,255,.74)!important}
+html[data-nova-holiday="new-year"] #page-home #go-btn{color:#d4b0ff!important;border-color:rgba(193,148,255,.68)!important;box-shadow:0 0 18px rgba(184,138,255,.12)}
+html[data-nova-holiday="new-year"] #page-home .bookmark-chip,html[data-nova-holiday="new-year"] #page-home .recent-card{background:rgba(11,12,32,.50)!important;border-color:rgba(186,140,255,.24)!important;box-shadow:0 10px 26px rgba(0,0,0,.22)!important}
+html[data-nova-holiday="new-year"] #page-home .bookmark-chip:hover,html[data-nova-holiday="new-year"] #page-home .recent-card:hover{border-color:rgba(230,198,112,.38)!important;background:rgba(20,16,46,.64)!important}
+html[data-nova-holiday="new-year"] #page-home .home-section-label,html[data-nova-holiday="new-year"] #page-home .home-section-action{color:#ceb3ff!important}
+html[data-nova-holiday="new-year"] #page-home .nexus-footer--home{color:#d8c8f6!important}
+html[data-nova-holiday="new-year"] #page-home .nexus-footer-link{color:#f0c96e!important}
+html[data-nova-holiday="new-year"] #page-home .home-stat-num{color:#fff8d8!important;text-shadow:0 0 14px rgba(242,197,109,.22)}
+html[data-nova-holiday="new-year"] #page-home .home-stat-lbl{color:#c7b6ea!important}
+html[data-nova-holiday="new-year"] #nova-holiday-badge{color:#f2e9ff;border-color:rgba(193,149,255,.28);background:rgba(16,10,36,.46);box-shadow:0 7px 25px rgba(0,0,0,.26),0 0 18px rgba(181,130,255,.14);backdrop-filter:blur(12px)}
+html[data-nova-holiday="new-year"] #nova-holiday-badge span{color:#f0c96e;text-shadow:0 0 10px rgba(240,201,110,.46)}
+html[data-nova-holiday="new-year"] #nova-island.open{background:linear-gradient(180deg,rgba(8,10,26,.80),rgba(11,13,34,.76))!important;border:1px solid rgba(162,116,255,.22)!important;box-shadow:0 20px 70px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.045)!important;backdrop-filter:blur(24px) saturate(1.08)!important;-webkit-backdrop-filter:blur(24px) saturate(1.08)!important}
+html[data-nova-holiday="new-year"] #nova-island.open::after{opacity:.08!important}
+html[data-nova-holiday="new-year"] #nova-island.open::before{background:linear-gradient(90deg,transparent,rgba(171,128,255,.88),rgba(240,201,110,.62),transparent)!important}
+html[data-nova-holiday="new-year"] #nova-island .ni-page-item{border-color:transparent;color:#e4dbff}
+html[data-nova-holiday="new-year"] #nova-island .ni-page-item:hover,html[data-nova-holiday="new-year"] #nova-island .ni-page-item.active{background:linear-gradient(90deg,rgba(44,27,102,.24),rgba(18,14,44,.20))!important;border-color:rgba(174,131,255,.34)!important;box-shadow:inset 0 0 26px rgba(155,111,255,.08)!important}
+html[data-nova-holiday="new-year"] #nova-island .ni-page-icon{color:#f0c96e!important;border-color:rgba(240,201,110,.16)!important;background:rgba(25,18,52,.58)!important;box-shadow:0 0 14px rgba(240,201,110,.06)!important}
+html[data-nova-holiday="new-year"] #nova-island .ni-page-label,html[data-nova-holiday="new-year"] #nova-island .ni-p-name,html[data-nova-holiday="new-year"] #nova-island .ni-pc-uname{color:#f4efff!important}
+html[data-nova-holiday="new-year"] #nova-island .ni-page-sub,html[data-nova-holiday="new-year"] #nova-island .ni-p-title,html[data-nova-holiday="new-year"] #nova-island .ni-pc-title,html[data-nova-holiday="new-year"] #nova-island .ni-pc-joined{color:#b7acd7!important}
+.nova-newyear-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nova-newyear-glow{position:absolute;border-radius:50%;filter:blur(54px);opacity:.18;mix-blend-mode:screen;animation:nova-newyear-glow-float 12s ease-in-out infinite alternate}
+.nova-newyear-glow--left{left:-6%;bottom:8%;width:32%;height:34%;background:radial-gradient(circle at center,rgba(255,208,110,.36),rgba(255,208,110,.06) 56%,transparent 72%)}
+.nova-newyear-glow--right{right:-4%;top:10%;width:34%;height:34%;background:radial-gradient(circle at center,rgba(196,132,255,.24),rgba(196,132,255,.05) 56%,transparent 72%);animation-delay:-5s}
+.nova-newyear-glow--center{left:34%;top:4%;width:34%;height:28%;background:radial-gradient(circle at center,rgba(233,188,255,.15),rgba(233,188,255,.03) 58%,transparent 72%);animation-delay:-2.5s}
+.nova-newyear-bursts{position:absolute;inset:0;overflow:hidden}
+.nova-newyear-burst{position:absolute;left:var(--burst-left);top:var(--burst-top);width:var(--burst-size);height:var(--burst-size);border-radius:50%;background:rgba(255,226,151,.94);box-shadow:0 0 8px rgba(255,226,151,.70),0 0 18px rgba(196,138,255,.22);opacity:.10;animation:nova-newyear-burst-twinkle var(--burst-duration) ease-in-out var(--burst-delay) infinite}
+.nova-newyear-burst:nth-child(3n){background:rgba(205,157,255,.94);box-shadow:0 0 8px rgba(205,157,255,.62),0 0 18px rgba(240,201,110,.20)}
+html[data-nova-holiday="new-year"] .nova-holiday-particle{color:#f0c96e!important;text-shadow:0 0 10px rgba(198,143,255,.20);opacity:.26;animation-name:nova-newyear-confetti-fall!important;animation-timing-function:linear!important}
+html[data-nova-holiday="new-year"] .nova-holiday-particle:nth-child(2n){color:#d5adff!important}
+html[data-nova-holiday="new-year"] .nova-holiday-particle:nth-child(3n){color:#ffffff!important;opacity:.18}
+html[data-nova-holiday="new-year"] .nova-holiday-corner{display:none}
+@keyframes nova-newyear-ambience{0%{opacity:.88;transform:scale(1)}100%{opacity:1;transform:scale(1.02)}}
+@keyframes nova-newyear-glow-float{0%{transform:translate3d(-2%,1%,0) scale(1)}100%{transform:translate3d(2%,-3%,0) scale(1.08)}}
+@keyframes nova-newyear-burst-twinkle{0%,100%{transform:scale(.6);opacity:.04}42%{transform:scale(1.18);opacity:.22}72%{transform:scale(.88);opacity:.10}}
+@keyframes nova-newyear-confetti-fall{0%{transform:translate3d(0,-12vh,0) rotate(0deg);opacity:0}10%{opacity:.30}50%{transform:translate3d(16px,48vh,0) rotate(220deg)}100%{transform:translate3d(-14px,108vh,0) rotate(440deg);opacity:0}}
+@keyframes nova-newyear-logo-glow{0%{filter:drop-shadow(0 16px 32px rgba(0,0,0,.42)) brightness(.99)}100%{filter:drop-shadow(0 18px 36px rgba(0,0,0,.46)) brightness(1.04)}}
+@media(max-width:1050px){html[data-nova-holiday="new-year"] #page-home .home-inner{width:min(760px,calc(100% - 42px))}}
+@media(max-width:760px){html[data-nova-holiday="new-year"] body{background-position:54% center!important}.nova-newyear-glow--center{display:none}}
+@media(max-width:620px){html[data-nova-holiday="new-year"] #hero-wordmark-trigger{width:min(84vw,360px)!important}}
+html[data-reduce-motion="on"][data-nova-holiday="new-year"] .nova-newyear-glow,html[data-reduce-motion="on"][data-nova-holiday="new-year"] .nova-newyear-burst,html[data-reduce-motion="on"][data-nova-holiday="new-year"] #page-home::before,html[data-reduce-motion="on"][data-nova-holiday="new-year"] #hero-wordmark-trigger .nova-newyear-logo{animation:none!important}
+@media(prefers-reduced-motion:reduce){.nova-newyear-glow,.nova-newyear-burst{animation:none!important}html[data-nova-holiday="new-year"] #page-home::before,html[data-nova-holiday="new-year"] #hero-wordmark-trigger .nova-newyear-logo{animation:none!important}}
+
+
+/* New Year live countdown replaces Version / Games / Apps. */
+html[data-nova-holiday="new-year"] #page-home .home-stats--summary.home-stats--newyear-countdown{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:.34rem!important;
+  width:min(430px,82vw)!important;
+  padding:.58rem 1rem .64rem!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+  border:1px solid rgba(185,142,255,.25)!important;
+  border-radius:14px!important;
+  background:linear-gradient(120deg,rgba(9,11,32,.58),rgba(41,23,78,.34))!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.28),0 0 22px rgba(164,115,255,.08),inset 0 1px 0 rgba(255,255,255,.05)!important;
+}
+.nova-newyear-countdown-title{
+  font-family:"Space Mono",monospace;
+  font-size:.46rem;
+  font-weight:700;
+  letter-spacing:.16em;
+  color:#f1cf79;
+  text-shadow:0 0 10px rgba(241,207,121,.24);
+  white-space:nowrap;
+}
+.nova-newyear-countdown-grid{
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  gap:.48rem;
+  width:100%;
+}
+.nova-newyear-countdown-unit{
+  min-width:54px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:.08rem;
+}
+.nova-newyear-countdown-unit strong{
+  font-family:"Space Mono",monospace;
+  font-size:1.05rem;
+  line-height:1;
+  font-weight:700;
+  color:#f8f3ff;
+  text-shadow:0 0 14px rgba(183,135,255,.28);
+  font-variant-numeric:tabular-nums;
+}
+.nova-newyear-countdown-unit span{
+  font-family:"Space Mono",monospace;
+  font-size:.34rem;
+  letter-spacing:.11em;
+  color:#bba9da;
+}
+.nova-newyear-countdown-sep{
+  margin-top:.06rem;
+  font-size:.9rem;
+  line-height:1;
+  color:#d5b3ff;
+  opacity:.72;
+}
+@media(max-width:620px){
+  html[data-nova-holiday="new-year"] #page-home .home-stats--summary.home-stats--newyear-countdown{
+    width:min(92vw,380px)!important;
+    padding:.5rem .7rem .56rem!important;
+  }
+  .nova-newyear-countdown-grid{gap:.28rem}
+  .nova-newyear-countdown-unit{min-width:44px}
+  .nova-newyear-countdown-unit strong{font-size:.88rem}
+  .nova-newyear-countdown-sep{font-size:.76rem}
+}
+
+/* ================================================================
+   HOLIDAY FX STACKING FIX
+   Keep holiday effects behind Nova's app shell without changing the
+   shell's own stacking context. The base shell stays at z-index:10.
+   ================================================================ */
+#nova-holiday-layer{
+  z-index:5!important;
+}
+
+/* ================================================================
+   THEME STUDIO — COMPACT HOLIDAY COLLECTION
+   Holiday editions now live at the bottom of Theme Studio as a
+   connected seasonal extension instead of occupying the top half.
+   ================================================================ */
+.sn-holiday-bridge{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  margin:.95rem .12rem .5rem;
+  color:var(--dim);
+  font:700 .26rem/1 "Space Mono",monospace;
+  letter-spacing:.15em;
+}
+.sn-holiday-bridge span{height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(246,207,90,.16))}
+.sn-holiday-bridge span:last-child{background:linear-gradient(90deg,rgba(246,207,90,.16),transparent)}
+.sn-holiday-bridge strong{color:#d5b956;white-space:nowrap}
+
+#sn-panel-themes .sn-holiday-collection{
+  margin:0 0 .85rem;
+  padding:.68rem .72rem .62rem;
+  border-radius:15px;
+  border-color:rgba(246,207,90,.14);
+  background:linear-gradient(145deg,rgba(246,207,90,.025),rgba(139,143,255,.022));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+#sn-panel-themes .sn-holiday-head{
+  align-items:center;
+  margin-bottom:.5rem;
+}
+#sn-panel-themes .sn-holiday-head h3{
+  margin:0 0 .12rem;
+  font-size:.44rem;
+}
+#sn-panel-themes .sn-holiday-head p{
+  max-width:720px;
+  font-size:.27rem;
+  line-height:1.45;
+}
+#sn-panel-themes .sn-holiday-status{
+  padding:.22rem .36rem;
+  font-size:.24rem;
+}
+#sn-panel-themes .sn-holiday-controls{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:.38rem;
+  margin-bottom:.48rem;
+}
+#sn-panel-themes .sn-holiday-control{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:.5rem;
+  min-height:42px;
+  padding:.38rem .45rem;
+  border-radius:9px;
+}
+#sn-panel-themes .sn-holiday-control>span{
+  font-size:.24rem;
+  white-space:nowrap;
+}
+#sn-panel-themes .sn-holiday-control select{
+  padding:.22rem .1rem;
+  font-size:.29rem;
+  text-align:right;
+}
+#sn-panel-themes .sn-holiday-grid{
+  grid-template-columns:repeat(7,minmax(100px,1fr));
+  gap:.34rem;
+  padding:.03rem 0 .1rem;
+}
+#sn-panel-themes .sn-holiday-card{
+  min-width:100px;
+  min-height:76px;
+  padding:.42rem .46rem;
+  border-radius:10px;
+}
+#sn-panel-themes .sn-holiday-card b{
+  left:.42rem;
+  top:.34rem;
+  font-size:.62rem;
+}
+#sn-panel-themes .sn-holiday-card strong{
+  font-size:.28rem;
+}
+#sn-panel-themes .sn-holiday-card small{
+  display:none;
+}
+#sn-panel-themes .sn-holiday-foot{
+  margin-top:.4rem;
+  padding-top:.38rem;
+  font-size:.24rem;
+  line-height:1.35;
+}
+
+@media(max-width:920px){
+  #sn-panel-themes .sn-holiday-grid{grid-template-columns:repeat(7,96px)}
+  #sn-panel-themes .sn-holiday-card{min-width:96px}
+}
+@media(max-width:760px){
+  #sn-panel-themes .sn-holiday-head{align-items:flex-start}
+  #sn-panel-themes .sn-holiday-controls{grid-template-columns:1fr}
+  #sn-panel-themes .sn-holiday-control{grid-template-columns:110px minmax(0,1fr)}
+  #sn-panel-themes .sn-holiday-grid{grid-template-columns:repeat(7,92px)}
+  #sn-panel-themes .sn-holiday-card{min-width:92px;min-height:72px}
+  #sn-panel-themes .sn-holiday-foot{gap:.35rem}
+}
+@media(max-width:520px){
+  .sn-holiday-bridge{margin-top:.7rem}
+  #sn-panel-themes .sn-holiday-collection{padding:.58rem}
+  #sn-panel-themes .sn-holiday-head p{display:none}
+  #sn-panel-themes .sn-holiday-control{grid-template-columns:92px minmax(0,1fr)}
+}
+
+/* Theme Studio integration: Holiday Collection is part of the studio footer,
+   not a separate layer above the editor. */
+#sn-panel-themes .sn-theme-seasonal-footer{
+  margin-top:.85rem;
+  padding-top:.7rem;
+  border-top:1px solid rgba(246,207,90,.14);
+}
+#sn-panel-themes .sn-theme-seasonal-footer .sn-holiday-bridge{
+  margin:.05rem 0 .48rem;
+}
+#sn-panel-themes .sn-theme-seasonal-footer .sn-holiday-collection{
+  margin:0;
+  border-radius:0 0 16px 16px;
+  border-top-color:rgba(246,207,90,.10);
+  background:linear-gradient(180deg,rgba(246,207,90,.018),rgba(139,143,255,.025));
+  box-shadow:none;
+}
+
+
+
+/* v2.9 — Support / Rewards / Plans use the real holiday body scene.
+   Do not override the holiday body background here; only make page canvases transparent. */
+html[data-nova-holiday] #page-support,
+html[data-nova-holiday] #page-rewards,
+html[data-nova-holiday] #page-plans,
+html[data-nova-holiday] #page-support .content-page,
+html[data-nova-holiday] #page-rewards .content-page,
+html[data-nova-holiday] #page-plans .content-page,
+html[data-nova-holiday]:has(#page-support.active) .page-area,
+html[data-nova-holiday]:has(#page-rewards.active) .page-area,
+html[data-nova-holiday]:has(#page-plans.active) .page-area{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+}
+
+
+/* v4.5 — Christmas effects visibility fix */
+html[data-nova-holiday="christmas"] #nova-holiday-layer{
+  display:block!important;
+  opacity:1!important;
+  z-index:9!important; /* behind Nova UI, above the scenic background */
+}
+html[data-nova-holiday="christmas"] .nova-holiday-particles,
+html[data-nova-holiday="christmas"] .nova-christmas-scene,
+html[data-nova-holiday="christmas"] .nova-christmas-spark-field{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+html[data-nova-holiday="christmas"] .nova-holiday-particle{
+  display:block!important;
+  visibility:visible!important;
+  opacity:.62;
+  box-shadow:0 0 12px rgba(255,255,255,.28)!important;
+}
+html[data-nova-holiday="christmas"] .nova-christmas-spark{
+  display:block!important;
+  visibility:visible!important;
+}
+
+/* Accessibility remains authoritative. */
+html[data-reduce-motion="on"][data-nova-holiday="christmas"] .nova-holiday-particle,
+html[data-reduce-motion="on"][data-nova-holiday="christmas"] .nova-christmas-spark,
+html[data-reduce-motion="on"][data-nova-holiday="christmas"] .nova-christmas-glow{
+  animation:none!important;
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-nova-holiday="christmas"] .nova-holiday-particle,
+  html[data-nova-holiday="christmas"] .nova-christmas-spark{
+    animation:none!important;
+  }
+}
+
+
+/* =====================================================================
+   v5.3 — EASTER SOCIAL COHESION
+   Easter's Nova Island is pastel/light, so Social must match it instead
+   of falling back to the global dark Social theme.
+   ===================================================================== */
+html[data-nova-holiday="easter"] #ni-social-dock,
+html[data-nova-holiday="easter"] #ni-social-mount{
+  background:rgba(226,223,248,.94)!important;
+  color:#4e435f!important;
+}
+
+/* Main conversation */
+html[data-nova-holiday="easter"] #ni-social-mount.ni-social-layout .social-chat-area,
+html[data-nova-holiday="easter"] #ni-social-mount.ni-social-layout .social-everyone-panel,
+html[data-nova-holiday="easter"] #ni-social-mount.ni-social-layout .social-chat-inner,
+html[data-nova-holiday="easter"] #ni-social-mount.ni-social-layout .social-no-chat{
+  background:
+    radial-gradient(circle at 12% 8%,rgba(255,216,238,.22),transparent 28%),
+    linear-gradient(180deg,rgba(232,227,252,.97),rgba(220,228,248,.95))!important;
+  color:#4e435f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount.ni-social-layout .social-chat-header{
+  background:rgba(236,229,248,.90)!important;
+  border-color:rgba(152,122,190,.20)!important;
+  color:#4e435f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-messages{
+  background:transparent!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg-name,
+html[data-nova-holiday="easter"] #ni-social-mount .social-chat-peer-name,
+html[data-nova-holiday="easter"] #ni-social-mount .social-no-chat-title{
+  color:#4e435f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg-time,
+html[data-nova-holiday="easter"] #ni-social-mount .social-chat-peer-status,
+html[data-nova-holiday="easter"] #ni-social-mount .social-no-chat-sub{
+  color:#877895!important;
+}
+
+/* Message bubbles */
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg.mine .social-msg-bubble,
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg.own .social-msg-bubble{
+  background:linear-gradient(135deg,rgba(220,187,246,.82),rgba(255,199,227,.72))!important;
+  border-color:rgba(176,116,213,.28)!important;
+  color:#493a5b!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg.theirs .social-msg-bubble,
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg:not(.mine):not(.own) .social-msg-bubble{
+  background:rgba(255,249,253,.67)!important;
+  border-color:rgba(151,127,177,.20)!important;
+  color:#51465f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg-sender,
+html[data-nova-holiday="easter"] #ni-social-mount .nova-reply-label{
+  color:#a15ac8!important;
+}
+
+/* Composer */
+html[data-nova-holiday="easter"] #ni-social-mount.ni-social-layout .social-input-row{
+  background:rgba(240,232,249,.92)!important;
+  border-color:rgba(153,124,187,.22)!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg-input{
+  background:rgba(255,251,253,.66)!important;
+  border-color:rgba(151,126,178,.18)!important;
+  color:#4e435f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-msg-input::placeholder{
+  color:#94869f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-send-btn{
+  background:linear-gradient(135deg,#c57be3,#f08cbd)!important;
+  border-color:rgba(255,255,255,.58)!important;
+  color:#fff!important;
+}
+html[data-nova-holiday="easter"] #ni-social-mount .social-photo-btn,
+html[data-nova-holiday="easter"] #ni-social-mount .social-chat-safety-btn,
+html[data-nova-holiday="easter"] #ni-social-mount .social-chat-remove-btn,
+html[data-nova-holiday="easter"] #ni-social-mount .social-uno-start{
+  background:rgba(255,247,252,.46)!important;
+  border-color:rgba(162,128,194,.20)!important;
+  color:#a662cc!important;
+}
+
+/* Social sidebar inside Nova Island */
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount.ni-social-sidebar-layout .social-sidebar{
+  background:linear-gradient(180deg,rgba(227,221,247,.96),rgba(218,227,247,.94))!important;
+  color:#4e435f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-sidebar-header{
+  background:rgba(235,227,248,.84)!important;
+  border-color:rgba(153,124,187,.18)!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-sidebar-title,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-friend-name,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-group-name{
+  color:#51445f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-sidebar-subtitle,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-friend-status,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-group-members{
+  color:#877894!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-section-label{
+  color:#9e61bf!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-everyone-tab,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-games-tab{
+  background:rgba(255,247,252,.44)!important;
+  border-color:rgba(162,127,194,.22)!important;
+  color:#5b486b!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-search-wrap{
+  background:rgba(255,250,253,.42)!important;
+  border-color:rgba(151,126,178,.16)!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-search-input{
+  background:transparent!important;
+  color:#51465f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-search-input::placeholder{
+  color:#96889f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-friend-item,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-group-item{
+  color:#51465f!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-friend-item:hover,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-group-item:hover{
+  background:rgba(255,244,252,.35)!important;
+  border-color:rgba(224,160,209,.24)!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-friend-item.active,
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-group-item.active{
+  background:linear-gradient(135deg,rgba(255,220,239,.38),rgba(214,190,246,.40))!important;
+  border-color:rgba(197,128,215,.32)!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-sidebar-actions{
+  background:rgba(255,247,252,.35)!important;
+  border-color:rgba(154,127,185,.18)!important;
+}
+html[data-nova-holiday="easter"] #ni-social-sidebar-mount .social-add-btn{
+  color:#a866cd!important;
+  border-color:rgba(164,128,197,.18)!important;
+}
+
+/* Keep the profile/footer region visually connected to Easter Social. */
+html[data-nova-holiday="easter"] #ni-profile-bar{
+  background:rgba(220,224,248,.84)!important;
+  border-color:rgba(153,124,187,.16)!important;
+}

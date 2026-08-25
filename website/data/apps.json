@@ -1,0 +1,357 @@
+[
+  {
+    "name": "Request An App",
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLScN7qzRdWgdAFqia6Pew9dvlPhEcwkCdL26HO2I1sUb6GzVLw/viewform?pli=1",
+    "image": "/website/assets/media/icons/request.webp",
+    "blank": true,
+    "noRating": true
+  },
+  {
+    "name": "Amazon",
+    "url": "https://amazon.com/",
+    "image": "/website/assets/media/icons/amazon.webp"
+  },
+  {
+    "name": "Steam",
+    "url": "https://store.steampowered.com/",
+    "image": "/website/assets/media/icons/steam.webp",
+    "say": "Steam can't actually be added because it's an app, not a website. This only lets you browse the Steam website, you can't actually play any games unless you use Geforce Now.",
+    "partial": true
+  },
+  {
+    "name": "BuzzFeed Quizzes",
+    "url": "https://www.buzzfeed.com/quizzes",
+    "image": "/website/assets/media/icons/buzzfeed.webp"
+  },
+  {
+    "name": "Guilded",
+    "url": "https://www.guilded.gg/",
+    "image": "/website/assets/media/icons/guilded.webp"
+  },
+  {
+    "name": "Android",
+    "url": "https://now.gg/iframe/snippet?app_pkg=com.uncube.launcher3",
+    "image": "/website/assets/media/icons/android.webp"
+  },
+  {
+    "name": "Temu",
+    "url": "https://www.temu.com/",
+    "image": "/website/assets/media/icons/temu.webp"
+  },
+  {
+    "name": "Character AI",
+    "url": "https://now.gg/iframe/snippet?app_pkg=ai.character.app",
+    "image": "/website/assets/media/icons/characterai.webp"
+  },
+  {
+    "name": "Aptoide",
+    "url": "https://now.gg/iframe/snippet?app_pkg=com.aptoide.partners.nowgg.store",
+    "image": "/website/assets/media/icons/aptoide.webp"
+  },
+  {
+    "name": "Scratch",
+    "url": "https://scratch.mit.edu",
+    "image": "/website/assets/media/icons/scratch.webp"
+  },
+  {
+    "name": "Chess.com",
+    "url": "https://www.chess.com/",
+    "image": "/website/assets/media/icons/chess.webp"
+  },
+  {
+    "name": "Cool Math Games",
+    "url": "https://www.coolmathgames.com/",
+    "image": "/website/assets/media/icons/coolmath.webp"
+  },
+  {
+    "name": "Discord",
+    "url": "https://discord.com/app",
+    "image": "/website/assets/media/icons/dc.jpg"
+  },
+  {
+    "name": "DuckDuckGo",
+    "url": "https://start.duckduckgo.com/",
+    "image": "/website/assets/media/icons/duckduckgo.webp"
+  },
+  {
+    "name": "ESPN",
+    "url": "https://www.espn.com/watch/",
+    "image": "/website/assets/media/icons/espn.webp"
+  },
+  {
+    "name": "Fifa Rosters",
+    "url": "https://fifarosters.com/",
+    "image": "/website/assets/media/icons/fifa.webp"
+  },
+  {
+    "name": "Firefox Web Browser",
+    "url": "https://replit.com/@cooleddie001/Firefox-Legacy?v=1",
+    "image": "/website/assets/media/icons/firefox.webp"
+  },
+  {
+    "name": "Geforce NOW",
+    "url": "https://play.geforcenow.com",
+    "image": "/website/assets/media/icons/geforce-now.webp"
+  },
+  {
+    "name": "Github",
+    "url": "https://github.com",
+    "image": "/website/assets/media/icons/github.webp"
+  },
+  {
+    "name": "Google",
+    "url": "https://google.com",
+    "image": "/website/assets/media/icons/google.webp"
+  },
+  {
+    "name": "HBO MAX",
+    "url": "https://www.hbomax.com/",
+    "image": "/website/assets/media/icons/hbo.webp"
+  },
+  {
+    "name": "Messenger",
+    "url": "https://messenger.com/",
+    "image": "/website/assets/media/icons/messenger.webp"
+  },
+  {
+    "name": "MLB",
+    "url": "https://mlb.com",
+    "image": "/website/assets/media/icons/mlb.webp"
+  },
+  {
+    "name": "NFL",
+    "url": "https://nfl.com",
+    "image": "/website/assets/media/icons/nfl.webp"
+  },
+  {
+    "name": "NBA",
+    "url": "https://nba.com",
+    "image": "/website/assets/media/icons/nba.webp"
+  },
+  {
+    "name": "Paramount Plus",
+    "url": "https://paramountplus.com",
+    "image": "/website/assets/media/icons/paramount.webp"
+  },
+  {
+    "name": "Pinterest",
+    "url": "https://pinterest.com",
+    "image": "/website/assets/media/icons/pinterest.webp"
+  },
+  {
+    "name": "Pixlr",
+    "url": "https://pixlr.com/",
+    "image": "/website/assets/media/icons/pix.webp"
+  },
+  {
+    "name": "Poki",
+    "url": "https://poki.com",
+    "image": "/website/assets/media/icons/poki.webp"
+  },
+  {
+    "name": "Premier League",
+    "url": "https://premierleague.com",
+    "image": "/website/assets/media/icons/pl.webp"
+  },
+  {
+    "name": "Soundcloud",
+    "url": "https://soundcloud.com",
+    "image": "/website/assets/media/icons/soundcloud.webp"
+  },
+  {
+    "name": "Spotify",
+    "url": "https://open.spotify.com/",
+    "image": "/website/assets/media/icons/spotify.webp"
+  },
+  {
+    "name": "Telegram",
+    "url": "https://web.telegram.org/",
+    "image": "/website/assets/media/icons/telegram.webp"
+  },
+  {
+    "name": "Tiktok",
+    "url": "https://tiktok.com",
+    "image": "/website/assets/media/icons/tiktok.webp"
+  },
+  {
+    "name": "Free Media Heck Yeah",
+    "url": "https://fmhy.pages.dev",
+    "image": "/website/assets/media/icons/fmhy.webp"
+  },
+  {
+    "name": "Canva",
+    "url": "https://canva.com",
+    "image": "/website/assets/media/icons/canva.webp"
+  },
+  {
+    "name": "Wikipedia",
+    "url": "https://en.wikipedia.org",
+    "image": "/website/assets/media/icons/wiki.webp"
+  },
+  {
+    "name": "GOAL",
+    "url": "https://goal.com",
+    "image": "/website/assets/media/icons/goal.webp"
+  },
+  {
+    "name": "Trello",
+    "url": "https://trello.com",
+    "image": "/website/assets/media/icons/trello.webp"
+  },
+  {
+    "name": "Gidd.io Games",
+    "url": "https://gidd.io",
+    "image": "/website/assets/media/icons/gidd.webp"
+  },
+  {
+    "name": "Tumblr",
+    "url": "https://tumblr.com/",
+    "image": "/website/assets/media/icons/tumblr.webp"
+  },
+  {
+    "name": "Twitch",
+    "url": "https://twitch.tv",
+    "image": "/website/assets/media/icons/twitch.webp"
+  },
+  {
+    "name": "Twitter",
+    "url": "https://twitter.com",
+    "image": "/website/assets/media/icons/twitter.webp"
+  },
+  {
+    "name": "VS Code",
+    "url": "https://vscode.dev",
+    "image": "/website/assets/media/icons/vscode.webp"
+  },
+  {
+    "name": "Y8 Games",
+    "url": "https://y8.com/",
+    "image": "/website/assets/media/icons/y8.webp"
+  },
+  {
+    "name": "YouTube",
+    "url": "https://youtube.com",
+    "image": "/website/assets/media/icons/youtube.webp",
+    "partial": true
+  },
+  {
+    "name": "YouTube Alternative (Invidious)",
+    "url": "https://vid.puffyan.us/",
+    "image": "/website/assets/media/icons/youtube.webp"
+  },
+  {
+    "name": "WhatsApp",
+    "url": "https://web.whatsapp.com/",
+    "image": "/website/assets/media/icons/whatsapp.webp"
+  },
+  {
+    "name": "Wattpad",
+    "url": "https://www.wattpad.com/",
+    "image": "/website/assets/media/icons/wattpad.webp"
+  },
+  {
+    "name": "Discord - Login",
+    "url": "https://discord.com/app",
+    "image": "/website/assets/media/icons/dc.jpg",
+    "blank": true
+  },
+  {
+    "name": "HD Today",
+    "url": "https://hdtoday.tv",
+    "image": "/website/assets/media/icons/hd.webp"
+  },
+  {
+    "name": "Now.GG",
+    "url": "https://now.gg",
+    "image": "/website/assets/media/icons/now-gg.webp"
+  },
+  {
+    "name": "Now.GG (NowGG.me) [Working]",
+    "url": "https://nowgg.me",
+    "image": "/website/assets/media/icons/shuttle.webp"
+  },
+  {
+    "name": "Amazon Luna",
+    "url": "https://luna.amazon.com/",
+    "image": "/website/assets/media/icons/amazon-luna.webp",
+    "blank": true
+  },
+  {
+    "name": "Google Gemini",
+    "url": "https://gemini.google.com",
+    "image": "/website/assets/media/icons/gemini.webp"
+  },
+  {
+    "name": "Google Mail (Gmail)",
+    "url": "https://mail.google.com/",
+    "image": "/website/assets/media/icons/gmail.webp",
+    "partial": true,
+    "blank": true
+  },
+  {
+    "name": "Outlook",
+    "url": "https://outlook.live.com/",
+    "image": "/website/assets/media/icons/outlook.webp",
+    "partial": true
+  },
+  {
+    "name": "Snapchat",
+    "url": "https://web.snapchat.com/",
+    "image": "/website/assets/media/icons/snap.webp"
+  },
+  {
+    "name": "Newgrounds",
+    "url": "https://www.newgrounds.com",
+    "image": "/website/assets/media/icons/newgrounds.webp"
+  },
+  {
+    "name": "Instagram",
+    "url": "https://www.instagram.com/",
+    "image": "/website/assets/media/icons/insta.webp"
+  },
+  {
+    "name": "SpaceHey",
+    "url": "https://www.spacehey.com",
+    "image": "/website/assets/media/icons/spacehey.png"
+  },
+  {
+    "name": "GBA Games",
+    "url": "https://gba.js.org/",
+    "image": "/website/assets/media/icons/gba.png"
+  },
+  {
+    "name": "Grammarly Plagiarism Checker",
+    "url": "https://www.grammarly.com/plagiarism-checker",
+    "image": "/website/assets/media/icons/gm.png"
+  },
+  {
+    "name": "Plagiarism Detector",
+    "url": "https://plagiarismdetector.net/",
+    "image": "/website/assets/media/icons/pdn.png"
+  },
+  {
+    "name": "Blooket Cheats",
+    "url": "https://github.com/005konz/Blooket-Cheats",
+    "image": "/website/assets/media/icons/bl.webp"
+  },
+  {
+    "name": "Edpuzzle Cheats",
+    "url": "https://github.com/ading2210/edpuzzle-answers",
+    "image": "/website/assets/media/icons/ep.png"
+  },
+  {
+    "name": "Xbox Cloud Gaming",
+    "url": "https://www.xbox.com/en-us/play",
+    "image": "/website/assets/media/icons/xbox.png"
+  },
+  {
+    "name": "FL Web",
+    "url": "https://auth.image-line.com/registration",
+    "image": "/website/assets/media/icons/fl-web.png"
+  },
+  {
+    "name": "FreedomGPT",
+    "url": "https://chat.freedomgpt.com/",
+    "image": "/website/assets/media/icons/gpt.jpg"
+  }
+]

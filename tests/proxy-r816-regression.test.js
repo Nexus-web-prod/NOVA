@@ -1,0 +1,13 @@
+const fs=require('fs'); const path=require('path'); const assert=require('assert');
+const root=path.join(__dirname,'..');
+const sw=fs.readFileSync(path.join(root,'proxy/sw.js'),'utf8');
+const sj=fs.readFileSync(path.join(root,'proxy/scramjet/scramjet.js'),'utf8');
+const mgr=fs.readFileSync(path.join(root,'proxy/js/nova-proxy-manager.js'),'utf8');
+assert(sw.includes('20260822-sj2067-r8.17'));
+assert(sw.includes('NULL_BODY_STATUSES'));
+assert(sw.includes('integrity=""') || sw.includes("integrity=\"\""));
+assert(sj.includes('{fn:()=>"",integrity:["script","link"]}'), 'Scramjet initial HTML must emit empty SRI metadata');
+assert(sj.includes('setAttribute",t.this,"integrity",""'), 'dynamic integrity must be forced empty');
+assert(mgr.includes('fontContainerValidation'), 'font structural validation missing');
+assert(mgr.includes('woff2-size-invariant'), 'WOFF2 invariant test missing');
+console.log('R8.16 regression checks passed');

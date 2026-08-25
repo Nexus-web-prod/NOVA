@@ -1,0 +1,381 @@
+/* =====================================================================
+   NOVA 7 — MOTION SYSTEM V2
+   Cohesive motion pass: fast, soft, GPU-friendly, and consistent.
+   Avoids large layout shifts, clip-path transitions, and heavy blur animation.
+   ===================================================================== */
+
+:root{
+  --motion-fast:140ms;
+  --motion-ui:190ms;
+  --motion-page:260ms;
+  --motion-slow:420ms;
+  --motion-ease:cubic-bezier(.22,1,.36,1);
+  --motion-spring:cubic-bezier(.2,1.22,.34,1);
+  --motion-soft:cubic-bezier(.33,1,.68,1);
+}
+
+/* Core keyframes */
+@keyframes novaMotionPageIn{
+  from{opacity:0;transform:translate3d(0,7px,0) scale(.997)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes novaMotionPageOut{
+  from{opacity:1;transform:translate3d(0,0,0) scale(1)}
+  to{opacity:0;transform:translate3d(0,-3px,0) scale(.999)}
+}
+@keyframes novaMotionSoftUp{
+  from{opacity:0;transform:translate3d(0,10px,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+@keyframes novaMotionSoftLeft{
+  from{opacity:0;transform:translate3d(-7px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+@keyframes novaMotionPop{
+  0%{opacity:0;transform:scale(.965) translate3d(0,4px,0)}
+  100%{opacity:1;transform:scale(1) translate3d(0,0,0)}
+}
+@keyframes novaMotionMessage{
+  0%{opacity:0;transform:translate3d(0,5px,0) scale(.985)}
+  100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes novaMotionGlow{
+  0%,100%{box-shadow:0 0 0 color-mix(in srgb,var(--accent) 0%,transparent)}
+  50%{box-shadow:0 0 20px color-mix(in srgb,var(--accent) 13%,transparent)}
+}
+@keyframes novaMotionDot{
+  0%,100%{opacity:.72;transform:scale(.92)}
+  50%{opacity:1;transform:scale(1.1)}
+}
+@keyframes novaMotionFloat{
+  0%,100%{transform:translate3d(0,0,0)}
+  50%{transform:translate3d(0,-3px,0)}
+}
+@keyframes novaMotionOrbit{
+  from{transform:translateX(-50%) rotate(0deg)}
+  to{transform:translateX(-50%) rotate(360deg)}
+}
+@keyframes novaMotionSweep{
+  0%{transform:translateX(-145%) skewX(-18deg);opacity:0}
+  20%{opacity:.42}
+  70%,100%{transform:translateX(185%) skewX(-18deg);opacity:0}
+}
+@keyframes novaMotionProgress{
+  from{transform:scaleX(.25);opacity:.6}
+  to{transform:scaleX(1);opacity:1}
+}
+@keyframes novaMotionStageIn{
+  from{opacity:0;transform:translate3d(8px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+
+/* ---------------------------------------------------------------------
+   PAGE NAVIGATION
+   Single, subtle transition instead of stacked page + child movement.
+   --------------------------------------------------------------------- */
+.page.pg-enter-right,
+.page.pg-enter-left,
+.page.pg-enter-up{
+  animation:novaMotionPageIn var(--motion-page) var(--motion-ease) both!important;
+  will-change:opacity,transform;
+}
+.page.pg-exit-left,
+.page.pg-exit-right,
+.page.pg-exit-down{
+  animation:novaMotionPageOut 110ms ease-out both!important;
+  will-change:opacity,transform;
+}
+
+/* Content hierarchy: only small independent pieces move after the page. */
+.page.active .page-title,
+.page.active .page-subtitle,
+.page.active .settings-pane-head,
+.page.active .content-head,
+.page.active .support-header{
+  animation:novaMotionSoftUp 320ms var(--motion-ease) both!important;
+}
+.page.active .page-subtitle{animation-delay:30ms!important}
+
+/* ---------------------------------------------------------------------
+   HOME
+   --------------------------------------------------------------------- */
+html:not([data-reduce-motion="on"]) .nova-hero-logo,
+html:not([data-reduce-motion="on"]) .nova-hero-star{
+  animation:novaMotionFloat 4.4s ease-in-out infinite!important;
+}
+html:not([data-reduce-motion="on"]) .nova-hero-star{
+  animation-duration:3.5s!important;
+}
+.home-search-wrap,
+.home-search,
+.quick-links,
+.recently-played{
+  transition:transform var(--motion-ui) var(--motion-ease),
+             border-color var(--motion-ui) ease,
+             box-shadow var(--motion-ui) ease,
+             background var(--motion-ui) ease!important;
+}
+.home-search-wrap:focus-within,
+.home-search:focus-within{
+  transform:translate3d(0,-1px,0);
+  box-shadow:0 12px 34px rgba(0,0,0,.18),0 0 0 1px color-mix(in srgb,var(--accent) 20%,transparent)!important;
+}
+
+/* ---------------------------------------------------------------------
+   BUTTONS / CONTROLS
+   --------------------------------------------------------------------- */
+button,
+[role="button"],
+.shortcut-btn,
+.social-games-tab,
+.social-everyone-tab,
+.ni-page-item,
+.settings-rail-btn{
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    background var(--motion-ui) ease,
+    border-color var(--motion-ui) ease,
+    box-shadow var(--motion-ui) ease,
+    color var(--motion-ui) ease,
+    opacity var(--motion-fast) ease!important;
+}
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active,
+.shortcut-btn:active,
+.ni-page-item:active{
+  transform:translate3d(0,1px,0) scale(.985)!important;
+}
+input,select,textarea{
+  transition:
+    border-color var(--motion-ui) ease,
+    box-shadow var(--motion-ui) ease,
+    background var(--motion-ui) ease,
+    color var(--motion-ui) ease!important;
+}
+input:focus,select:focus,textarea:focus{
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 9%,transparent)!important;
+}
+
+/* ---------------------------------------------------------------------
+   CARDS / TILES
+   --------------------------------------------------------------------- */
+.game-card,.app-card,.movie-card,.support-card,.plan-card,.reward-card,
+.settings-panel,.settings-block,.settings-profile-card,.settings-about,
+.nap-card,.nap-stat-card,.recent-card,.social-friend-item,.social-group-item,
+.nova-ticket-app,.nova-ticket-shell{
+  transition:
+    transform 220ms var(--motion-ease),
+    border-color 190ms ease,
+    background 190ms ease,
+    box-shadow 220ms ease!important;
+}
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .game-card:hover,
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .app-card:hover,
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .movie-card:hover,
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .support-card:hover,
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .plan-card:hover,
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .reward-card:hover,
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .settings-panel:hover,
+html:not([data-reduce-motion="on"])[data-hover-zoom="on"] .recent-card:hover{
+  transform:translate3d(0,-3px,0) scale(1.008)!important;
+}
+.game-card img,.app-card img,.movie-card img{
+  transition:transform 340ms var(--motion-ease),filter 220ms ease!important;
+}
+.game-card:hover img,.app-card:hover img,.movie-card:hover img{
+  transform:scale(1.035)!important;
+}
+
+/* One clean sheen per hover, using transform only. */
+.game-card::after,.app-card::after,.movie-card::after,.support-card::after,
+.plan-card::after,.reward-card::after,.settings-panel::after,.recent-card::after{
+  transition:none!important;
+}
+html:not([data-reduce-motion="on"]) .game-card:hover::after,
+html:not([data-reduce-motion="on"]) .app-card:hover::after,
+html:not([data-reduce-motion="on"]) .movie-card:hover::after,
+html:not([data-reduce-motion="on"]) .support-card:hover::after,
+html:not([data-reduce-motion="on"]) .plan-card:hover::after,
+html:not([data-reduce-motion="on"]) .reward-card:hover::after,
+html:not([data-reduce-motion="on"]) .settings-panel:hover::after,
+html:not([data-reduce-motion="on"]) .recent-card:hover::after{
+  animation:novaMotionSweep 720ms ease-out both!important;
+}
+
+/* ---------------------------------------------------------------------
+   NOVA ISLAND
+   Keep the shell size animation smooth, but make content feel lively.
+   --------------------------------------------------------------------- */
+#nova-island.open{
+  transition:
+    width var(--ni-open-duration,.42s) var(--motion-ease),
+    height var(--ni-open-duration,.42s) var(--motion-ease),
+    border-radius 180ms ease,
+    box-shadow 220ms ease,
+    opacity 120ms ease!important;
+}
+.ni-panel.active.ni-panel-forward,
+.ni-panel.active.ni-panel-back{
+  animation:novaMotionSoftUp 180ms var(--motion-ease) both!important;
+}
+.ni-tab-indicator{
+  transition:transform 260ms var(--motion-spring),width 220ms var(--motion-ease)!important;
+}
+#nova-island-close{
+  transition:transform 160ms var(--motion-spring),
+             background 160ms ease,
+             border-color 160ms ease,
+             color 160ms ease!important;
+}
+#nova-island-close:hover{transform:scale(1.07)!important}
+#nova-island-close:active{transform:scale(.94)!important}
+#ni-profile-card.open{
+  animation:novaMotionPop 210ms var(--motion-ease) both!important;
+}
+
+/* ---------------------------------------------------------------------
+   SOCIAL
+   --------------------------------------------------------------------- */
+#ni-social-dock{
+  transform:none!important;
+  transition:opacity 190ms ease-out,visibility 0s linear 190ms!important;
+}
+#ni-social-dock.open{
+  animation:novaMotionStageIn 220ms var(--motion-ease) both!important;
+  transition:opacity 190ms ease-out,visibility 0s linear 0s!important;
+}
+.social-friend-item,
+.social-group-item,
+.social-everyone-tab,
+.social-games-tab{
+  animation:none!important;
+}
+.social-friend-item:hover,
+.social-group-item:hover{
+  transform:translate3d(2px,0,0)!important;
+}
+.social-msg-bubble,
+.ni-msg-bubble{
+  animation:novaMotionMessage 210ms var(--motion-ease) both!important;
+  transform-origin:bottom left;
+}
+.social-msg-row.mine .social-msg-bubble,
+.social-msg.mine .social-msg-bubble{
+  transform-origin:bottom right;
+}
+.social-typing-indicator{
+  transition:opacity 180ms ease,transform 180ms var(--motion-ease)!important;
+}
+.social-status-dot,
+.home-status-dot,
+.settings-sync-dot,
+.nova-v2-room-row i{
+  animation:novaMotionDot 2.2s ease-in-out infinite!important;
+}
+
+/* ---------------------------------------------------------------------
+   SETTINGS
+   --------------------------------------------------------------------- */
+.settings-pane.active{
+  animation:novaMotionSoftUp 240ms var(--motion-ease) both!important;
+}
+.settings-rail-indicator{
+  transition:transform 330ms var(--motion-spring),height 260ms var(--motion-ease)!important;
+}
+.settings-pane.active .settings-panel,
+.settings-pane.active .settings-profile-card,
+.settings-pane.active .settings-about{
+  animation:novaMotionSoftUp 300ms var(--motion-ease) both!important;
+}
+.settings-pane.active .settings-panel:nth-child(2){animation-delay:22ms!important}
+.settings-pane.active .settings-panel:nth-child(3){animation-delay:44ms!important}
+.settings-pane.active .settings-panel:nth-child(4){animation-delay:66ms!important}
+.settings-pane.active .settings-panel:nth-child(5){animation-delay:88ms!important}
+.settings-avatar-orbit{
+  animation:novaMotionOrbit 24s linear infinite!important;
+}
+.settings-avatar-orbit::after{
+  animation:novaMotionGlow 2.8s ease-in-out infinite!important;
+}
+
+/* ---------------------------------------------------------------------
+   MODALS / POPOVERS / TOASTS
+   --------------------------------------------------------------------- */
+.modal:not([hidden]) .modal-card,
+.social-modal-overlay:not(.hidden) .social-modal-box,
+#account-modal:not(.hidden) .modal-card,
+.nova-admin-layer.open .nova-admin-dialog,
+.settings-camera-overlay .social-camera-panel,
+.nova-profile-popover.visible{
+  animation:novaMotionPop 220ms var(--motion-ease) both!important;
+}
+.toast.show,
+.nova-toast.show{
+  animation:novaMotionSoftUp 210ms var(--motion-ease) both!important;
+}
+
+/* ---------------------------------------------------------------------
+   VOICE ROOMS V2
+   --------------------------------------------------------------------- */
+.nova-v2-stage:not(.hidden){
+  animation:novaMotionStageIn 230ms var(--motion-ease) both!important;
+}
+.nova-v2-member{
+  animation:novaMotionSoftUp 240ms var(--motion-ease) both!important;
+}
+.nova-v2-member:nth-child(2){animation-delay:30ms!important}
+.nova-v2-member:nth-child(3){animation-delay:60ms!important}
+.nova-v2-member:nth-child(4){animation-delay:90ms!important}
+.nova-v2-chat-line{
+  animation:novaMotionMessage 190ms var(--motion-ease) both!important;
+}
+.nova-v2-orbit{
+  animation:novaMotionGlow 2.6s ease-in-out infinite!important;
+}
+.nova-v2-controls button:hover{
+  transform:translate3d(0,-2px,0)!important;
+}
+
+/* ---------------------------------------------------------------------
+   PROGRESS / ACTIVE STATES
+   --------------------------------------------------------------------- */
+.ni-pc-xp-fill,.rewards-xp-fill,.settings-progress-fill,.nova-v2-level-fill{
+  transform-origin:left center;
+  animation:novaMotionProgress 520ms var(--motion-ease) both!important;
+}
+.nav-tab.active,.theme-opt.active,.movie-genre-btn.active,.rewards-inner-tab.active{
+  animation:none!important;
+}
+
+/* Keep active elements alive without an obvious pulsing box. */
+.nav-tab.active::after,
+.theme-opt.active::after{
+  transition:opacity 180ms ease,transform 180ms var(--motion-ease)!important;
+}
+
+/* ---------------------------------------------------------------------
+   HOLIDAY PARTICLES / STARFIELD
+   Preserve their own animation systems. Only improve UI motion above them.
+   --------------------------------------------------------------------- */
+#nova-star-canvas{
+  transition:opacity 400ms ease!important;
+}
+
+/* ---------------------------------------------------------------------
+   MOTION ACCESSIBILITY
+   The user's Nova Reduce Motion setting and OS preference are authoritative.
+   --------------------------------------------------------------------- */
+html[data-reduce-motion="on"] *,
+html[data-reduce-motion="on"] *::before,
+html[data-reduce-motion="on"] *::after{
+  animation:none!important;
+  transition-duration:.01ms!important;
+  transition-delay:0ms!important;
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation:none!important;
+    transition-duration:.01ms!important;
+    transition-delay:0ms!important;
+  }
+}
