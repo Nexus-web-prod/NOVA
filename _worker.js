@@ -402,6 +402,17 @@ export default {
 
     if (isPrivateDeploymentPath(url.pathname)) return privateAssetNotFound();
 
+    // Google reconstructs the site inside an about:srcdoc document for its Ad
+    // Settings preview. Serve its crawler a self-contained public Nova shell
+    // so the preview does not depend on setup state, storage, or app scripts.
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      (url.pathname === "/" || url.pathname === "/index.html") &&
+      isAdSensePreviewRequest(request, url)
+    ) {
+      return adSensePreviewDocument(request.method === "HEAD");
+    }
+
     // Keep the reorganized HTML directory out of visitor-facing URLs.
     // The root route below still serves this file internally through ASSETS.
     if (
@@ -445,6 +456,35 @@ export default {
     return env.ASSETS.fetch(request);
   }
 };
+
+function isAdSensePreviewRequest(request, url) {
+  const userAgent = request.headers.get("User-Agent") || "";
+  const referer = request.headers.get("Referer") || "";
+  const origin = request.headers.get("Origin") || "";
+  return /AdsBot-Google|Mediapartners-Google/i.test(userAgent) ||
+    /(?:^|\.)adsense\.google\./i.test((() => { try { return new URL(referer).hostname; } catch (_) { return ""; } })()) ||
+    /(?:^|\.)adsense\.google\./i.test((() => { try { return new URL(origin).hostname; } catch (_) { return ""; } })()) ||
+    url.searchParams.has("google_preview") || url.searchParams.has("google_preview_hash");
+}
+
+function adSensePreviewDocument(headOnly = false) {
+  const html = `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova 7.0</title>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6082584609878503" crossorigin="anonymous"></script>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#04040a;color:#eeeef6;font-family:Arial,sans-serif}body{min-height:100vh;overflow:hidden;background:radial-gradient(circle at 12% 16%,rgba(139,143,255,.16) 0 1px,transparent 2px),radial-gradient(circle at 76% 30%,rgba(139,143,255,.12) 0 1px,transparent 2px),radial-gradient(circle at 44% 72%,rgba(139,143,255,.13) 0 1px,transparent 2px),linear-gradient(145deg,#05050e,#020208);background-size:190px 190px,270px 270px,330px 330px,auto}.nova{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:100vh}.stage{padding:34px;display:flex;flex-direction:column;gap:22px}.top{display:flex;align-items:center;justify-content:space-between}.brand{font-weight:900;letter-spacing:.38em;font-size:20px}.brand i{font-style:normal;color:#8b8fff;text-shadow:0 0 20px #777bff}.cloud{padding:8px 13px;border:1px solid rgba(139,143,255,.25);border-radius:999px;color:#9b9eff;font:700 10px monospace;letter-spacing:.12em}.home{flex:1;display:grid;place-items:center}.home-inner{width:min(760px,90%);text-align:center}.mark{font-size:clamp(70px,10vw,126px);font-weight:900;letter-spacing:-.08em;line-height:.9;text-shadow:0 14px 40px rgba(0,0,0,.65)}.mark span{display:inline-block;color:#8b8fff;transform:scale(1.15);margin:0 .08em;text-shadow:0 0 28px rgba(139,143,255,.55)}.time{margin:46px 0 6px;font-size:clamp(44px,6vw,82px);font-weight:800;letter-spacing:.05em}.date{color:#77798f;font:700 11px monospace;letter-spacing:.28em;text-transform:uppercase}.search{margin:36px auto 28px;height:58px;display:flex;align-items:center;gap:12px;padding:0 10px 0 20px;border:1px solid rgba(139,143,255,.28);border-radius:999px;background:rgba(15,15,34,.82);color:#77798f;text-align:left}.search b{margin-left:auto;width:40px;height:40px;display:grid;place-items:center;border-radius:50%;background:#23234c;color:#a8aaff}.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.quick div{padding:20px 8px;border:1px solid rgba(139,143,255,.16);border-radius:16px;background:rgba(12,12,27,.72);font:700 10px monospace;color:#a4a5b6}.quick strong{display:block;margin-bottom:10px;color:#8b8fff;font-size:20px}.owner{color:#6f7184;font:700 9px monospace;letter-spacing:.2em;text-align:center}.island{margin:22px 22px 22px 0;border:1px solid rgba(139,143,255,.2);border-radius:28px;background:rgba(12,12,28,.94);box-shadow:0 24px 80px rgba(0,0,0,.48);display:flex;flex-direction:column;overflow:hidden}.tabs{display:grid;grid-template-columns:repeat(3,1fr);padding:22px 18px 14px;border-bottom:1px solid rgba(139,143,255,.12);color:#77798f;font:700 10px monospace;text-align:center;letter-spacing:.12em}.tabs b{color:#eeeef6;border-bottom:2px solid #8b8fff;padding-bottom:14px}.pages{padding:14px}.page{display:flex;align-items:center;gap:13px;padding:13px 11px;border-radius:14px}.page:first-child{background:rgba(139,143,255,.1)}.icon{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:rgba(139,143,255,.12);color:#9ea0ff}.page div{display:flex;flex-direction:column;gap:3px}.page strong{font-size:14px}.page small{color:#77798f;font:11px monospace}.island-foot{margin-top:auto;border-top:1px solid rgba(139,143,255,.14);padding:18px 22px}.island-foot b{letter-spacing:.35em}.profile{display:flex;gap:12px;align-items:center;padding-top:16px}.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(145deg,#8b8fff,#4945c7)}.profile small{display:block;color:#77798f;margin-top:4px}@media(max-width:850px){.nova{grid-template-columns:1fr}.island{display:none}.stage{padding:22px}.quick{grid-template-columns:repeat(2,1fr)}}
+</style></head><body><main class="nova"><section class="stage"><header class="top"><div class="brand">N<i>✦</i>VA</div><div class="cloud">CLOUD SYNCED · V7</div></header><div class="home"><div class="home-inner"><div class="mark">N<span>✦</span>VA</div><div class="time">NOVA 7.0</div><div class="date">The future of the open web</div><div class="search">Search or enter a URL… <b>→</b></div><div class="quick"><div><strong>⌕</strong>BRAVE</div><div><strong>▶</strong>YOUTUBE</div><div><strong>◫</strong>TWITCH</div><div><strong>⌘</strong>GITHUB</div></div></div></div><footer class="owner">NOVA IS OWNED BY NEXUS · THE FUTURE OF THE OPEN WEB</footer></section><aside class="island"><div class="tabs"><b>PAGES</b><span>SOCIAL</span><span>RECENT</span></div><div class="pages"><div class="page"><span class="icon">⌂</span><div><strong>Home</strong><small>Nova start page</small></div></div><div class="page"><span class="icon">◎</span><div><strong>Browser</strong><small>Browse freely</small></div></div><div class="page"><span class="icon">▣</span><div><strong>Games</strong><small>89 games to play</small></div></div><div class="page"><span class="icon">▤</span><div><strong>Apps</strong><small>Tools & platforms</small></div></div><div class="page"><span class="icon">▥</span><div><strong>Movies</strong><small>Watch & stream</small></div></div><div class="page"><span class="icon">☆</span><div><strong>Rewards</strong><small>Badges, XP & shop</small></div></div><div class="page"><span class="icon">✦</span><div><strong>Supernova</strong><small>Your Pro power layer</small></div></div><div class="page"><span class="icon">⚙</span><div><strong>Settings</strong><small>Configure Nova</small></div></div></div><div class="island-foot"><b>NOVA</b><div class="profile"><span class="avatar"></span><div><strong>Guest</strong><small>Nova 7.0</small></div></div></div></aside></main></body></html>`;
+  return new Response(headOnly ? null : html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store, max-age=0",
+      "Content-Security-Policy": "default-src 'none'; script-src https://pagead2.googlesyndication.com; style-src 'unsafe-inline'; img-src data: https:; frame-src https://*.googlesyndication.com https://*.doubleclick.net; connect-src https://*.googlesyndication.com https://*.doubleclick.net; base-uri 'none'; form-action 'none'"
+    }
+  });
+}
 
 async function routeApi(request, env, url) {
   const { pathname } = url;
