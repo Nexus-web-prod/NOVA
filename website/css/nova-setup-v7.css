@@ -31,11 +31,14 @@ html[data-performance-mode="fast"] #nova-star-canvas {
  * without the setup overlay itself, leaving only the star background visible.
  * Hide the app only while the real setup overlay is present.
  */
-html.nova-setup-active:has(.nova-setup) #shell,
 html.nova-setup-active:has(.nova-setup) #nova-island,
 html.nova-setup-active:has(.nova-setup) #nova-island-star,
 html.nova-setup-active:has(.nova-setup) #nova-island-hint {
   opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.nova-setup-active:has(.nova-setup) #shell {
   pointer-events: none !important;
 }
 
