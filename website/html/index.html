@@ -1847,6 +1847,33 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <div id="account-modal-body"></div>
 </div>
 </div>
+<style>
+#nova-adsense-static-preview{display:none}
+body:has(#shell[style*="display: none"])>#nova-adsense-static-preview,
+body:has(#shell[style*="display:none"])>#nova-adsense-static-preview{
+  display:flex!important;position:relative;z-index:20;min-height:100vh;padding:clamp(22px,4vw,64px);
+  box-sizing:border-box;flex-direction:column;gap:clamp(20px,3vw,38px);color:#eeeef6;
+  font-family:"Space Mono",ui-monospace,monospace;background:#04040a
+}
+.nap-brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.22em;font-size:clamp(15px,2vw,24px)}
+.nap-star{display:grid;place-items:center;width:44px;height:44px;border:1px solid #5559bd;border-radius:14px;color:#8b8fff;background:#101027;box-shadow:0 0 28px #6d70ff33}
+.nap-nav{display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid #29294d;border-radius:18px;background:#0a0a16}
+.nap-nav span{padding:12px 18px;border-radius:12px;color:#a7a7c1;font-size:12px}.nap-nav span:first-child{color:#fff;background:#17172e;border:1px solid #44458a}
+.nap-hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(240px,.65fr);gap:22px;align-items:stretch}
+.nap-card{border:1px solid #29294d;border-radius:24px;background:linear-gradient(145deg,#101021,#090912);padding:clamp(25px,4vw,56px);box-shadow:0 24px 70px #0008}
+.nap-kicker{color:#8b8fff;font-size:11px;letter-spacing:.2em;text-transform:uppercase}.nap-card h1{font-size:clamp(34px,6vw,78px);line-height:.98;margin:18px 0;color:#f5f5ff;letter-spacing:-.06em}.nap-card p{max-width:650px;color:#9a9ab3;line-height:1.7;font-size:clamp(12px,1.4vw,16px)}
+.nap-search{margin-top:30px;padding:17px 20px;border:1px solid #3c3d78;border-radius:15px;color:#bfc0e9;background:#111124}
+.nap-side{display:grid;gap:14px}.nap-link{display:flex;align-items:center;gap:14px;border:1px solid #29294d;border-radius:18px;background:#0c0c19;padding:20px;color:#e9e9f5}.nap-link b{display:block}.nap-link small{display:block;margin-top:5px;color:#777795}.nap-icon{font-size:22px;color:#8b8fff}
+@media(max-width:760px){.nap-hero{grid-template-columns:1fr}.nap-nav span{padding:9px 11px;font-size:10px}}
+</style>
+<section id="nova-adsense-static-preview" aria-label="Nova preview">
+  <div class="nap-brand"><span class="nap-star">✦</span><span>NOVA</span></div>
+  <nav class="nap-nav"><span>Home</span><span>Browser</span><span>Games</span><span>Apps</span><span>Movies</span><span>Social</span></nav>
+  <div class="nap-hero">
+    <article class="nap-card"><span class="nap-kicker">Nova 7 · The open web</span><h1>Your web.<br>Your way.</h1><p>Browse, play, connect, and customize one private space built around you.</p><div class="nap-search">Search or enter a URL…</div></article>
+    <aside class="nap-side"><div class="nap-link"><span class="nap-icon">◎</span><span><b>Browser</b><small>Browse freely</small></span></div><div class="nap-link"><span class="nap-icon">▣</span><span><b>Games</b><small>Play the Nova library</small></span></div><div class="nap-link"><span class="nap-icon">✦</span><span><b>Nova Social</b><small>Connect with friends</small></span></div><div class="nap-link"><span class="nap-icon">◇</span><span><b>Supernova</b><small>Your power layer</small></span></div></aside>
+  </div>
+</section>
 <div id="shell" class="island-open">
 <div style="display:none" id="ni-hidden-navtabs">
 <button class="nav-tab active" data-page="home">Home</button>
@@ -3209,7 +3236,7 @@ General
 <script src="/website/js/nova-sound.js?v=714" defer></script>
 <script src="/website/js/nova-v7-profile.js?v=714" defer></script>
 <script src="/website/js/nova-v7-profile-account-bridge.js?v=744" defer></script>
-<script src="/website/js/nova-setup-v7.js?v=723" defer></script>
+<script src="/website/js/nova-setup-v7.js?v=724" defer></script>
 <script src="/website/js/nova-message-island.js?v=595" defer></script>
 <script src="/proxy/js/nova-proxy.js?v=20260822-sj2067-r8.19" defer></script>
 <script src="/website/js/nova-supernova-tier.js?v=721"></script>
