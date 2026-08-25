@@ -2162,6 +2162,20 @@ html[data-blur-level="off"] .nova-site-banner {
 @media (max-width:620px){.nova-hero-wordmark.nova7-wordmark{--logo-size:68px}}
 @media (max-height:520px){.nova-hero-wordmark.nova7-wordmark{--logo-size:60px}}
 
+/* Compact direct-message game launcher */
+#social-chat-header{position:relative}
+.social-dm-games{position:relative;flex:0 0 auto}
+.social-dm-games-trigger{min-width:92px}
+.social-dm-games-chevron{transition:transform .16s ease}
+.social-dm-games-trigger[aria-expanded="true"] .social-dm-games-chevron{transform:rotate(180deg)}
+.social-dm-games-menu{position:absolute;z-index:80;top:calc(100% + 9px);right:0;width:248px;padding:8px;border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:14px;background:color-mix(in srgb,var(--bg2) 96%,var(--accent) 4%);box-shadow:0 22px 60px rgba(0,0,0,.52);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.social-dm-games-menu[hidden]{display:none!important}
+.social-dm-games-menu>button{width:100%;min-height:50px;display:flex;align-items:center;gap:11px;padding:7px 9px;border:0;border-radius:9px;background:transparent;color:var(--text);text-align:left;cursor:pointer;transition:background .14s,color .14s}
+.social-dm-games-menu>button:hover,.social-dm-games-menu>button:focus-visible{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--white);outline:none}
+.social-dm-game-icon{width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto;border:1px solid color-mix(in srgb,var(--accent) 28%,transparent);border-radius:9px;background:color-mix(in srgb,var(--accent) 9%,transparent);color:var(--accent);font:700 17px "Space Mono",monospace}
+.social-dm-games-menu>button>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}.social-dm-games-menu b{color:inherit;font:700 11px "Space Mono",monospace;letter-spacing:.04em}.social-dm-games-menu small{color:var(--muted);font:600 10px "Lato",sans-serif}
+@media(max-width:640px){.social-dm-games-trigger{min-width:38px}.social-dm-games-trigger>span,.social-dm-games-chevron{display:none}.social-dm-games-menu{position:fixed;left:12px;right:12px;top:auto;bottom:76px;width:auto}}
+
 #page-home .home-inner{
   width:min(1120px,calc(100% - 48px));
   align-items:center;
