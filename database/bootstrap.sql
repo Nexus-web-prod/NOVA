@@ -1,0 +1,4 @@
+-- Nova bootstrap manifest.
+-- The production schema-717 baseline must first be generated from a verified
+-- production snapshot with `npm run db:snapshot` and `npm run db:baseline`.
+-- Then run `npm run db:migrate` to apply 718+ migrations.
