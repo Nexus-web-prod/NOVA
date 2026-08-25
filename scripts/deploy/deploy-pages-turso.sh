@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_NAME="${PROJECT_NAME:-nova-7}"
 BRANCH="${BRANCH:-dev}"
 PAGES_ENV="${PAGES_ENV:-preview}"
+DEPLOY_COMMENT="${DEPLOY_COMMENT:-pushed by nova deploy cmd}"
 TMP_DIR="${TMPDIR:-/tmp}"
 WRANGLER_VERSION="${WRANGLER_VERSION:-4.112.0}"
 export npm_config_cache="${npm_config_cache:-${TMP_DIR}/nova-npm-cache}"
@@ -103,11 +104,11 @@ fi
 
 if [ "${PAGES_ENV}" = "production" ]; then
   echo "==> Deploying Cloudflare Pages project ${PROJECT_NAME} (production)"
-  "${WRANGLER[@]}" pages deploy "${DEPLOY_DIR}" --project-name="${PROJECT_NAME}"
+  "${WRANGLER[@]}" pages deploy "${DEPLOY_DIR}" --project-name="${PROJECT_NAME}" --commit-message="${DEPLOY_COMMENT}" --commit-dirty=true
   TEST_URL="https://${PROJECT_NAME}.pages.dev/api/health"
 else
   echo "==> Deploying Cloudflare Pages project ${PROJECT_NAME} (${BRANCH})"
-  "${WRANGLER[@]}" pages deploy "${DEPLOY_DIR}" --project-name="${PROJECT_NAME}" --branch="${BRANCH}"
+  "${WRANGLER[@]}" pages deploy "${DEPLOY_DIR}" --project-name="${PROJECT_NAME}" --branch="${BRANCH}" --commit-message="${DEPLOY_COMMENT}" --commit-dirty=true
   TEST_URL="https://${BRANCH}.${PROJECT_NAME}.pages.dev/api/health"
 fi
 

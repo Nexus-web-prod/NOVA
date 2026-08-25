@@ -18,6 +18,12 @@ fi
 echo "Nova 7 deployment"
 echo "================="
 echo
+default_comment="pushed by nova deploy cmd"
+printf "Comment for all deployments and GitHub [%s]: " "${default_comment}"
+IFS= read -r release_comment
+release_comment="${release_comment:-${default_comment}}"
+export DEPLOY_COMMENT="${release_comment}"
+echo
 echo "Where would you like to deploy?"
 echo "  1) Production  — https://${PROJECT_NAME}.pages.dev"
 echo "  2) Dev         — https://dev.${PROJECT_NAME}.pages.dev"
@@ -33,13 +39,13 @@ export SKIP_VOICE_DEPLOY=1
 cloudflare_deployed=1
 
 deploy_production() {
-  echo "Deploying production..."
+  echo "Deploying production with comment: ${release_comment}"
   PROJECT_NAME="${PROJECT_NAME}" PAGES_ENV=production "${DEPLOY_SCRIPT}"
 }
 
 deploy_preview() {
   branch="$1"
-  echo "Deploying ${branch}..."
+  echo "Deploying ${branch} with comment: ${release_comment}"
   PROJECT_NAME="${PROJECT_NAME}" PAGES_ENV=preview BRANCH="${branch}" "${DEPLOY_SCRIPT}"
 }
 
@@ -105,9 +111,7 @@ case "${github_answer}" in
       esac
     fi
 
-    printf "Commit comment [pushed by nova deploy cmd]: "
-    IFS= read -r commit_comment
-    commit_comment="${commit_comment:-pushed by nova deploy cmd}"
+    commit_comment="${release_comment}"
 
     first_connection=0
     if [ ! -d "${PROJECT_ROOT}/.git" ]; then
@@ -151,15 +155,16 @@ case "${github_answer}" in
 
     if [ "${first_connection}" = "1" ]; then
       echo "First connection: including the complete reorganized NOVA project."
-      git add -A
-    else
-      git add README.md website/assets/readme/nova-nexus-header.png
     fi
+
+    # Include the complete current Nova update so the tree is clean before
+    # rebasing and the shared release comment describes the whole release.
+    git add -A
 
     if ! git diff --cached --quiet; then
       git commit -m "${commit_comment}"
     else
-      echo "README and Nova header have no new changes to commit."
+      echo "Nova has no new changes to commit."
     fi
 
     git pull --rebase origin main
