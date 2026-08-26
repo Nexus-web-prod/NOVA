@@ -6,37 +6,11 @@
 // shell instead of capturing the setup-pending background by itself.
 window.__NOVA_ADS_PREVIEW = location.protocol === "about:" || location.href === "about:srcdoc" || /(?:^|[?&])google_preview(?:_hash)?=/i.test(location.search) || /adsense\.google\./i.test(document.referrer) || /AdsBot-Google|Mediapartners-Google/i.test(navigator.userAgent);
 </script>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6082584609878503"
-     crossorigin="anonymous"></script>
 <script>
 // Nova's account, presence, and social APIs require the Cloudflare origin.
 if(location.protocol === 'file:') location.replace('https://dev.nova-7.pages.dev/');
 </script>
-<script>
-// Register SW message listener FIRST — before any other script — so we never
-// miss the nova_sw_updated message even if the SW activates immediately.
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.addEventListener('message', function(e){
-    if(e.data && e.data.type === 'nova_sw_updated'){
-      // Show a non-intrusive update banner instead of hard reloading
-      if(document.readyState === 'loading'){
-        document.addEventListener('DOMContentLoaded', _showNovaUpdateBanner);
-      } else {
-        _showNovaUpdateBanner();
-      }
-    }
-  });
-}
-function _showNovaUpdateBanner(){
-  if(document.getElementById('nova-update-banner'))return;
-  var b=document.createElement('div');
-  b.id='nova-update-banner';
-  b.style.cssText='position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:99999;background:#0c0c1a;border:1px solid rgba(139,143,255,0.45);border-radius:12px;padding:.65rem .9rem;font-family:Space Mono,monospace;font-size:.48rem;color:#eeeef6;box-shadow:0 8px 32px rgba(0,0,0,.6);white-space:nowrap;';
-  b.innerHTML='<span style="color:#8b8fff;">✦</span><span>Updating Nova…</span>';
-  if(document.body)document.body.appendChild(b);
-  setTimeout(function(){location.reload();},500);
-}
-</script>
+
 <style id="fg">html,body{background:#04040a;margin:0}html[data-theme=light],html[data-theme=light] body{background:#f2f2f8}</style>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -44,23 +18,23 @@ function _showNovaUpdateBanner(){
 <title>Nova 7.0</title>
 <link rel="icon" id="favicon-link" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' ry='22' fill='%230a0a14'/><path d='M50,24 C51.5,35 62,47.5 76,50 C62,52.5 51.5,65 50,76 C48.5,65 38,52.5 24,50 C38,47.5 48.5,35 50,24Z' fill='%23ffffff' opacity='0.92'/><circle cx='50' cy='50' r='3' fill='%23ffffff'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-<link rel="stylesheet" href="/website/css/nova.css?v=739">
-<link rel="stylesheet" href="/website/css/nova-ads.css?v=20260824-ads1">
+<link rel="stylesheet" href="/website/css/nova.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-ads.css?v=20260825-stability-r1">
 <style id="nova-account-modal-fix">.acct-modal-box{background:#0d0d1d!important;color:#eeeef6!important;z-index:1;border-color:rgba(139,143,255,.34)!important;box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(139,143,255,.12),0 0 70px rgba(107,92,255,.14)!important}</style>
-<link rel="stylesheet" href="/website/css/nova-game-detail.css?v=730">
-<link rel="stylesheet" href="/website/css/nova-vc.css?v=822">
-<link rel="stylesheet" href="/website/css/nova-supernova-hub.css?v=726">
-<link rel="stylesheet" href="/website/css/nova-holiday-themes.css?v=727">
-    <link rel="stylesheet" href="/website/css/nova-v7.css?v=724">
-    <link rel="stylesheet" href="/website/css/nova-tickets.css?v=702">
-    <link rel="stylesheet" href="/website/css/nova-settings-v7.css?v=707">
-    <link rel="stylesheet" href="/website/css/nova-browser-devtools.css?v=703">
-    <link rel="stylesheet" href="/website/css/nova-setup-v7.css?v=721">
-    <link rel="stylesheet" href="/website/css/nova-theme-global.css?v=731">
+<link rel="stylesheet" href="/website/css/nova-game-detail.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-vc.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-supernova-hub.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-holiday-themes.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-v7.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-tickets.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-settings-v7.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-browser-devtools.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-setup-v7.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-theme-global.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;900&family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
 <meta name="nova-version" content="7.0">
 <script src="/proxy/config.js?v=20260822-sj2067-r8.19"></script>
-<script src="/website/js/nova-security-ui.js?v=712"></script>
+<script src="/website/js/nova-security-ui.js?v=20260825-stability-r1"></script>
 <script>
 /* Legacy Supabase names are intentionally blank. Nova data uses the authenticated Nova API backed by Turso. */
 (function(){
@@ -70,9 +44,9 @@ function _showNovaUpdateBanner(){
   window.__NOVA_BACKEND_DISABLED = false;
 })();
 </script>
-<script src="/website/js/nova-storage-shim.js?v=704"></script>
-<script src="/website/js/nova-update.js?v=711"></script>
-<script src="/website/js/nova-preferences-boot.js?v=719"></script>
+<script src="/website/js/nova-storage-shim.js?v=20260825-stability-r1"></script>
+<script src="/website/js/nova-update.js?v=20260825-stability-r1"></script>
+<script src="/website/js/nova-preferences-boot.js?v=20260825-stability-r1"></script>
 <script>(function(){
   var t=localStorage.getItem('nova_theme')||'dark';
   var root=document.documentElement;
@@ -784,12 +758,12 @@ html[data-island-close-button="off"] #nova-island-content > .ni-tabs .ni-tab-ind
 /* page-area adjustment base */
 .page-area { transition: margin-right .35s cubic-bezier(.34,1.2,.64,1); }
   </style>
-<link rel="stylesheet" href="/website/css/nova-games-social-native.css?v=20260825-guestlock4">
-<link rel="stylesheet" href="/website/css/nova-checkers.css?v=2">
-<link rel="stylesheet" href="/website/css/nova-chess.css?v=2">
-<link rel="stylesheet" href="/website/css/nova-connect4.css?v=1">
+<link rel="stylesheet" href="/website/css/nova-games-social-native.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-checkers.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-chess.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-connect4.css?v=20260825-stability-r1">
 <style>.checkers-surface,.chess-surface,.connect4-surface,.social-game-picker{background-color:var(--bg)!important;background-image:radial-gradient(circle at 72% 18%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 42%)!important}@media(max-width:700px){#page-social.social-game-open .social-sidebar{display:none!important}#page-social.social-game-open .social-layout,#page-social.social-game-open .social-chat-area{width:100%!important;max-width:none!important;flex:1 1 100%!important}.social-game-open .social-game-shell{inset:0!important}}</style>
-<link rel="stylesheet" href="/website/css/nova-motion-v2.css?v=800">
+<link rel="stylesheet" href="/website/css/nova-motion-v2.css?v=20260825-stability-r1">
 <style id="nova-v44-ui-polish">
 /* v4.4 UI polish */
 html[data-theme="light"]{
@@ -3282,39 +3256,39 @@ General
     }tick();
   })();
   </script>
-<script src="/website/js/nova-stars.js?v=714" defer></script>
-<script src="/website/js/nova-ip-guard.js?v=716" defer></script>
-<script src="/website/js/nova-v7-api.js?v=825-health-views-nav" defer></script>
-<script src="/website/js/nova-v7-account.js?v=719" defer></script>
-<script src="/website/js/nova-activity.js?v=900" defer></script>
-<script src="/website/js/nova.js?v=20260825-navfix1" defer></script>
-<script src="/website/js/nova-settings-v7-ui.js?v=719" defer></script>
-<script src="/website/js/nova-settings-control.js?v=718" defer></script>
-<script src="/website/js/nova-developer-options.js?v=702" defer></script>
-<script src="/website/js/nova-browser-devtools.js?v=703" defer></script>
-<script src="/website/js/nova-sound.js?v=714" defer></script>
-<script src="/website/js/nova-v7-profile.js?v=714" defer></script>
-<script src="/website/js/nova-v7-profile-account-bridge.js?v=744" defer></script>
-<script src="/website/js/nova-setup-v7.js?v=725" defer></script>
-<script src="/website/js/nova-message-island.js?v=595" defer></script>
+<script src="/website/js/nova-stars.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-ip-guard.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-v7-api.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-v7-account.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-activity.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-settings-v7-ui.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-settings-control.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-developer-options.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-browser-devtools.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-sound.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-v7-profile.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-v7-profile-account-bridge.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-setup-v7.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-message-island.js?v=20260825-stability-r1" defer></script>
 <script src="/proxy/js/nova-proxy.js?v=20260822-sj2067-r8.19" defer></script>
-<script src="/website/js/nova-supernova-tier.js?v=721"></script>
-<script src="/website/js/nova-supernova-referrals.js?v=730" defer></script>
-<script src="/website/js/nova-ads.js?v=20260825-ads2" defer></script>
-<script src="/website/js/nova-holiday-themes.js?v=725" defer></script>
-<script src="/website/js/nova-supernova-hub.js?v=724" defer></script>
-<script src="/website/js/nova-supernova-themes.js?v=722" defer></script>
-<script src="/website/js/nova-ai.js?v=722" defer></script>
-<script src="/website/js/social-uno-native.js?v=3"></script>
-<script src="/website/js/social-checkers-native.js?v=2"></script>
-<script src="/website/js/social-chess-native.js?v=2"></script>
-<script src="/website/js/social-connect4-native.js?v=1"></script>
-<script src="/website/js/social.js?v=20260825-guestlock4" defer></script>
-<script src="/website/js/nova-realtime-voice.js?v=818" defer></script>
-<script src="/website/js/nova-social-vc.js?v=20260823-staff-r8.22" defer></script>
-<script src="/website/js/nova-tickets.js?v=716" defer></script>
-<script src="/website/js/nova-profile-hover.js?v=702" defer></script>
-<script src="/website/js/nova-ecosystem-6.js?v=588" defer></script>
+<script src="/website/js/nova-supernova-tier.js?v=20260825-stability-r1"></script>
+<script src="/website/js/nova-supernova-referrals.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-ads.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-holiday-themes.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-supernova-hub.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-supernova-themes.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-ai.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/social-uno-native.js?v=20260825-stability-r1"></script>
+<script src="/website/js/social-checkers-native.js?v=20260825-stability-r1"></script>
+<script src="/website/js/social-chess-native.js?v=20260825-stability-r1"></script>
+<script src="/website/js/social-connect4-native.js?v=20260825-stability-r1"></script>
+<script src="/website/js/social.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-realtime-voice.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-social-vc.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-tickets.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-profile-hover.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-ecosystem-6.js?v=20260825-stability-r1" defer></script>
 <script>
 /* Gate Supernova page to Pro users only */
 (function() {
@@ -3724,9 +3698,9 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 </script>
-<script src="/website/js/nova-v7-admin.js?v=825-health-views-nav" defer></script>
-<script src="/website/js/nova-badges.js?v=561"></script>
-<script src="/website/js/nova-shop.js?v=561"></script>
+<script src="/website/js/nova-v7-admin.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-badges.js?v=20260825-stability-r1"></script>
+<script src="/website/js/nova-shop.js?v=20260825-stability-r1"></script>
 <script>
 /* Nova Shop — PAGE_ORDER patch so page transitions animate correctly */
 (function() {
@@ -3962,9 +3936,9 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(updateRequestBtn, 800);
 })();
 </script>
-<script src="/website/js/nova-movies.js?v=1000"></script>
-<script src="/website/js/nova-game-copy.js?v=725"></script>
-<script src="/website/js/nova-game-detail.js?v=20260825-navfix1"></script>
+<script src="/website/js/nova-movies.js?v=20260825-stability-r1"></script>
+<script src="/website/js/nova-game-copy.js?v=20260825-stability-r1"></script>
+<script src="/website/js/nova-game-detail.js?v=20260825-stability-r1"></script>
 <div id="nova-orbit-panel" style="display:none;position:fixed;top:2.6rem;right:.7rem;z-index:9990;background:var(--bg);border:1px solid rgba(139,143,255,.22);border-radius:16px;padding:1.2rem 1.3rem 1.1rem;min-width:230px;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.5);backdrop-filter:blur(16px);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
     <div style="display:flex;align-items:center;gap:.4rem;">
@@ -3997,5 +3971,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <!-- Status line -->
   <div id="nova-orbit-status" style="font-family:Space Mono,monospace;font-size:.36rem;color:var(--muted);text-align:center;line-height:1.5;"></div>
 </div>
+<script src="/website/js/nova-stability.js?v=20260825-stability-r1"></script>
 </body>
 </html>

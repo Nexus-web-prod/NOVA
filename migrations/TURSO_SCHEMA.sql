@@ -43,3 +43,11 @@ CREATE TABLE IF NOT EXISTS nova_view_daily (
   views INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER NOT NULL
 );
+
+
+-- Privacy-preserving page-view dedupe. Hashed scopes expire opportunistically.
+CREATE TABLE IF NOT EXISTS nova_view_recent (
+  scope_key TEXT PRIMARY KEY,
+  last_view_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS nova_view_recent_time_idx ON nova_view_recent(last_view_at);

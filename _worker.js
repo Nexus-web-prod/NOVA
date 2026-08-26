@@ -345,7 +345,12 @@ async function ensureTursoSchema(db) {
           day TEXT PRIMARY KEY,
           views INTEGER NOT NULL DEFAULT 0,
           updated_at INTEGER NOT NULL
-        )`)
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS nova_view_recent(
+          scope_key TEXT PRIMARY KEY,
+          last_view_at INTEGER NOT NULL
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS nova_view_recent_time_idx ON nova_view_recent(last_view_at)")
       ]);
       return true;
     })().catch(error => { tursoSchemaReady = null; throw error; });
@@ -513,6 +518,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/settings" && method === "GET") return getSettings(request, getDb(env));
   if (pathname === "/api/settings" && method === "PATCH") return updateSettings(request, getDb(env));
   if (pathname === "/api/profiles" && method === "GET") return publicProfiles(url, getDb(env));
+  if (pathname === "/api/profiles/search" && method === "GET") return searchPublicProfiles(request, url, getDb(env));
   if (pathname.startsWith("/api/profiles/") && method === "GET") {
     return publicProfile(decodeURIComponent(pathname.slice("/api/profiles/".length)), getDb(env));
   }
@@ -980,6 +986,15 @@ async function recordGameView(request, db) {
     ON CONFLICT(slug) DO UPDATE SET views = game_stats.views + 1, updated_at = excluded.updated_at`).bind(slug, now).run();
   const row = await db.prepare("SELECT views, rating_sum, rating_count FROM game_stats WHERE slug = ?").bind(slug).first();
   return apiJson({ slug, stats: exposeGameStats(row, 0) });
+}
+
+async function searchPublicProfiles(request, url, db) {
+  const auth = await requireUser(request, db);
+  const query = cleanText(url.searchParams.get("q"), 20).trim().toLowerCase();
+  if (!/^[a-z0-9_]{2,20}$/.test(query)) return apiJson({ profiles: [] });
+  const result = await db.prepare(`${profileQuery()} WHERE lower(u.username) LIKE ? AND u.account_status='active' AND u.id<>? ORDER BY lower(u.username) LIMIT 20`)
+    .bind(query.toLowerCase() + "%", auth.id).all();
+  return apiJson({ profiles: (result.results || []).map(row => exposeProfile(row, false)) });
 }
 
 async function publicProfile(username, db) {
@@ -4320,17 +4335,30 @@ function novaAnalyticsDayKey(value = Date.now()) {
 }
 
 async function recordNovaView(request, db) {
-  // Only the first-party Nova client should record views. This is deliberately
-  // a single aggregated write: no per-visitor row, IP, account or device data
-  // is stored by the analytics counter.
+  requireSameOrigin(request);
   if (request.headers.get("X-Nova-Request") !== "1") return apiError("INVALID_REQUEST", "Invalid analytics request", 400);
-  const fetchSite = String(request.headers.get("Sec-Fetch-Site") || "");
-  if (fetchSite && !["same-origin", "none"].includes(fetchSite)) return apiError("INVALID_ORIGIN", "Analytics requests must come from Nova", 403);
   const now = Date.now();
   const day = novaAnalyticsDayKey(now);
+  const deviceId = deviceIdFrom(request);
+  const ipAddress = cleanText(request.headers.get("CF-Connecting-IP"), 128);
+  const userAgent = cleanText(request.headers.get("User-Agent"), 256);
+  // Privacy-preserving scope: only a one-way hash is retained, and stale scopes
+  // are regularly deleted. One browser/network combination can count at most
+  // once per 30 minutes, blocking DevTools loops from inflating Nova views.
+  const scopeMaterial = deviceId || (ipAddress + "|" + userAgent) || "unknown";
+  const scopeKey = await sha256("view:" + scopeMaterial);
+  const cutoff = now - 30 * 60 * 1000;
+  const gate = await db.prepare(`INSERT INTO nova_view_recent(scope_key,last_view_at) VALUES(?,?)
+    ON CONFLICT(scope_key) DO UPDATE SET last_view_at=excluded.last_view_at
+    WHERE nova_view_recent.last_view_at<=?`).bind(scopeKey, now, cutoff).run();
+  if (Number(gate?.meta?.changes || 0) < 1) return apiJson({ ok: true, counted: false });
   await db.prepare(`INSERT INTO nova_view_daily(day,views,updated_at) VALUES(?,1,?)
     ON CONFLICT(day) DO UPDATE SET views=views+1,updated_at=excluded.updated_at`).bind(day, now).run();
-  return apiJson({ ok: true });
+  // Opportunistic cleanup, roughly one request in 64, keeps the dedupe table bounded.
+  if ((now & 63) === 0) {
+    try { await db.prepare("DELETE FROM nova_view_recent WHERE last_view_at<?").bind(now - 48 * 60 * 60 * 1000).run(); } catch {}
+  }
+  return apiJson({ ok: true, counted: true });
 }
 
 async function adminViews(request, db) {
@@ -4377,6 +4405,39 @@ async function healthProbe(name, category, url, options = {}) {
   } finally { clearTimeout(timer); }
 }
 
+async function healthGeminiProbe(env) {
+  const started = Date.now();
+  const keys = geminiKeys(env);
+  if (!keys.length) return { name: "Google Gemini API", category: "AI", status: "degraded", detail: "No Gemini API key configured", latencyMs: 0 };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+  try {
+    const sep = GEMINI_MODELS_URL.includes("?") ? "&" : "?";
+    const response = await fetch(GEMINI_MODELS_URL + sep + "key=" + encodeURIComponent(keys[0]), { signal: controller.signal });
+    const latencyMs = Date.now() - started;
+    if (response.ok) return { name: "Google Gemini API", category: "AI", status: "healthy", detail: "API key validated", latencyMs };
+    if (response.status === 429) return { name: "Google Gemini API", category: "AI", status: "degraded", detail: "Reachable but rate limited", latencyMs };
+    return { name: "Google Gemini API", category: "AI", status: "down", detail: `API key check failed · HTTP ${response.status}`, latencyMs };
+  } catch (error) {
+    return { name: "Google Gemini API", category: "AI", status: "down", detail: error?.name === "AbortError" ? "Timed out" : "Unreachable", latencyMs: Date.now() - started };
+  } finally { clearTimeout(timer); }
+}
+
+async function healthAssetProbe(name, category, request, env, path) {
+  const started = Date.now();
+  if (!env.ASSETS) return { name, category, status: "degraded", detail: "Assets binding unavailable", latencyMs: 0 };
+  try {
+    const target = new URL(path, request.url);
+    const response = await env.ASSETS.fetch(new Request(target.toString(), { method: "GET" }));
+    const latencyMs = Date.now() - started;
+    return response.ok
+      ? { name, category, status: "healthy", detail: `Loaded ${path}`, latencyMs }
+      : { name, category, status: "degraded", detail: `${path} returned HTTP ${response.status}`, latencyMs };
+  } catch (error) {
+    return { name, category, status: "down", detail: `Could not load ${path}`, latencyMs: Date.now() - started };
+  }
+}
+
 async function adminHealth(request, env) {
   const db = getDb(env);
   await requireRole(request, db, STAFF_ROLES);
@@ -4411,15 +4472,18 @@ async function adminHealth(request, env) {
     { name: "Voice Rooms", category: "Voice", status: dbStatus === "down" ? "down" : (env.VOICE_ROOMS && hasAll(["voice_rooms","voice_room_members"]) ? "healthy" : "degraded"), detail: env.VOICE_ROOMS ? "Voice binding configured" : "VOICE_ROOMS binding missing", latencyMs: 0 },
     { name: "Cloudflare Realtime", category: "Voice", status: env.REALTIME_APP_ID && env.REALTIME_APP_SECRET ? "healthy" : "degraded", detail: env.REALTIME_APP_ID && env.REALTIME_APP_SECRET ? "Credentials configured" : "Realtime credentials missing", latencyMs: 0 },
     { name: "Nova AI", category: "AI", status: configuredGemini ? "healthy" : "degraded", detail: configuredGemini ? `${geminiKeys(env).length} Gemini key${geminiKeys(env).length === 1 ? "" : "s"} configured` : "No Gemini API key configured", latencyMs: 0 },
-    { name: "Static Assets", category: "Core", status: env.ASSETS ? "healthy" : "degraded", detail: env.ASSETS ? "Cloudflare Assets binding ready" : "Assets binding unavailable", latencyMs: 0 },
-    { name: "Modern Proxy Runtime", category: "Proxy", status: "healthy", detail: "Scramjet/libcurl/Epoxy assets bundled", latencyMs: 0 },
-    { name: "Legacy Proxy Runtime", category: "Proxy", status: "healthy", detail: "BareMux/Vortex assets bundled", latencyMs: 0 }
+    { name: "Static Assets Binding", category: "Core", status: env.ASSETS ? "healthy" : "degraded", detail: env.ASSETS ? "Cloudflare Assets binding configured" : "Assets binding unavailable", latencyMs: 0 }
   ];
 
   const externalChecks = [
-    healthProbe("Wisp Gateway", "Proxy", "https://unified-wisp-epoxy.fly.dev/", { timeout: 4000 }),
-    healthProbe("Cloudflare Realtime Edge", "Voice", "https://rtc.live.cloudflare.com/", { timeout: 3500 }),
-    healthProbe("Google Gemini API", "AI", "https://generativelanguage.googleapis.com/", { timeout: 3500 })
+    healthAssetProbe("Static Assets", "Core", request, env, "/website/js/nova-v7-api.js"),
+    healthAssetProbe("Modern Proxy Runtime", "Proxy", request, env, "/proxy/scramjet/scramjet.js"),
+    healthAssetProbe("Modern Proxy Transport", "Proxy", request, env, "/proxy/transports/libcurl/index.mjs"),
+    healthAssetProbe("Legacy Proxy Runtime", "Proxy", request, env, "/proxy/vortex.all.js"),
+    healthAssetProbe("Legacy BareMux Runtime", "Proxy", request, env, "/proxy/baremux/index.js"),
+    healthProbe("Wisp Gateway", "Proxy", "https://unified-wisp-epoxy.fly.dev/", { timeout: 4000, accept: status => status >= 200 && status < 500 }),
+    healthProbe("Cloudflare Realtime Edge", "Voice", "https://rtc.live.cloudflare.com/", { timeout: 3500, accept: status => status === 405 || (status >= 200 && status < 300) }),
+    healthGeminiProbe(env)
   ];
   const external = await Promise.all(externalChecks);
   const services = internal.concat(external);

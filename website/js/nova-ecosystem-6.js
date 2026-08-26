@@ -14,8 +14,7 @@
     });
   }
   function acct(){
-    try { return JSON.parse(localStorage.getItem('nova_account') || 'null'); }
-    catch(e){ return null; }
+    return window.__novaV7User || null;
   }
   function toast(msg){
     if (window.toast) { try { window.toast(msg); return; } catch(e){} }
@@ -28,19 +27,9 @@
     setTimeout(function(){ el.classList.add('out'); setTimeout(function(){ el.remove(); }, 350); }, 2400);
   }
   async function rest(path){
-    if (!window.__NOVA_SUPABASE_URL || !window.__NOVA_SUPABASE_KEY) return null;
-    try {
-      var res = await fetch(window.__NOVA_SUPABASE_URL + '/rest/v1/' + path, {
-        headers: {
-          apikey: window.__NOVA_SUPABASE_KEY,
-          Authorization: 'Bearer ' + window.__NOVA_SUPABASE_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!res.ok) return null;
-      var text = await res.text();
-      return text ? JSON.parse(text) : null;
-    } catch(e){ return null; }
+    // Retired Supabase REST backend. Keep this compatibility hook fail-closed
+    // so stale ecosystem code cannot accidentally revive a second data source.
+    return null;
   }
   async function kvGet(key){
     try {

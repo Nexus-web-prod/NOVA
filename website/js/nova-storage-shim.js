@@ -10,7 +10,7 @@
   const SB_URL = location.origin;
   const SB_KEY = "nova-local";
   const _orig = window.fetch.bind(window);
-  const LOCAL_ONLY = false;
+  const LOCAL_ONLY = true;
   const LEGACY_REMOTE_DISABLED = true;
 
   // ── localStorage helpers (guaranteed to work, always) ────────────────────────
@@ -529,12 +529,9 @@
 
   // ── Stream ───────────────────────────────────────────────────────────────────
   async function streamAdd(stream, fields) {
-    let data = {};
-    if (Array.isArray(fields)) { for (let i = 0; i < fields.length - 1; i += 2) data[fields[i]] = fields[i + 1]; }
-    else if (fields && typeof fields === "object") { data = fields; }
-    const r = await fetch("/rest/v1/nova_stream", { method: "POST", headers: _h({ "Prefer": "return=representation" }), body: JSON.stringify({ stream, data, ts: Date.now() }) });
-    if (!r.ok) return null;
-    const a = await r.json(); return (a && a[0]) ? String(a[0].id) : null;
+    // Legacy Supabase stream storage was removed in Nova 7. Persistent social
+    // messaging now goes through NovaAPI/Turso; never call the retired REST path.
+    return null;
   }
   async function streamRange(stream, start, end, count) {
     count = Math.min(count || 200, 500);

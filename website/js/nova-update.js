@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var BUILD_STAMP = "nova-7-security-711-20260718";
+  var BUILD_STAMP = "nova-7-20260825-stability-r1";
   var STAMP_KEY = "nova_build_stamp";
   var RELOAD_DONE_KEY = "nova_build_reload_done";
 
@@ -43,11 +43,6 @@
 
   if (runBuildStampUpdate()) return;
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.addEventListener("message", function (e) {
-      if (e.data && e.data.type === "nova_sw_updated") {
-        setTimeout(function () { location.reload(); }, 400);
-      }
-    });
-  }
+  // Proxy/service-worker updates are intentionally tied to BUILD_STAMP. Keeping
+  // one update authority prevents duplicate reload listeners and reload loops.
 })();

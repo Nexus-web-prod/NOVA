@@ -147,9 +147,9 @@ async function enterRoom(room,host){
 }
 async function startTimers(){
   stopTimers(false);
-  S.poll=setInterval(function(){if(!document.hidden)pollState(false)},3000);
-  S.signalTimer=setInterval(function(){if(!document.hidden)pollSignals()},1200);
-  S.chatTimer=setInterval(function(){if(!document.hidden)pollChat()},3000);
+  S.poll=setInterval(function(){if(!document.hidden)pollState(false)},5000);
+  S.signalTimer=setInterval(function(){if(!document.hidden)pollSignals()},2500);
+  S.chatTimer=setInterval(function(){if(!document.hidden)pollChat()},5000);
 }
 function stopTimers(closeAudio){
   clearInterval(S.poll);clearInterval(S.signalTimer);clearInterval(S.chatTimer);

@@ -38,6 +38,7 @@
     if (path.indexOf("/api/social/reactions") === 0) return 6000;
     if (path.indexOf("/api/social/typing") === 0) return 4500;
     if (path.indexOf("/api/social/messages") === 0) return 1800;
+    if (path.indexOf("/api/profiles/search") === 0) return 15000;
     if (path.indexOf("/api/profiles") === 0) return 60000;
     if (path.indexOf("/api/voice/v2/rooms") === 0 || path.indexOf("/api/voice/rooms") === 0) return 15000;
     if (path.indexOf("/api/voice/v2/state") === 0 || path.indexOf("/api/voice/room") === 0) return 1800;
@@ -198,6 +199,7 @@
     recordGameView: function (slug) { return request("/api/games/view", { method: "POST", body: { slug: slug } }); },
     publicProfile: function (username) { return request("/api/profiles/" + encodeURIComponent(username)); },
     publicProfiles: function (usernames) { return request("/api/profiles?usernames=" + encodeURIComponent(usernames.join(","))); },
+    searchProfiles: function (query) { return request("/api/profiles/search?q=" + encodeURIComponent(String(query || ""))); },
     social: function () { return request("/api/social"); },
     friendPresence: function () { return request("/api/social/presence"); },
     socialRequests: function () { return request("/api/social/requests"); },

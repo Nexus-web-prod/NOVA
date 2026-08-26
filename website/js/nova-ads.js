@@ -46,12 +46,11 @@
   }
 
   function hasSignedInAccount() {
-    try {
-      var account = JSON.parse(localStorage.getItem("nova_account") || "null");
-      return !!(account && account.username);
-    } catch (_) {
-      return false;
-    }
+    return !!(window.__novaV7User && window.__novaV7User.username);
+  }
+
+  function hasAdConsent() {
+    return localStorage.getItem("nova_consent") === "accepted";
   }
 
   function isEntitlementReady() {
@@ -78,6 +77,7 @@
 
   function isEligible(page) {
     page = page || getCurrentPage();
+    if (!hasAdConsent()) return false;
     if (!isEntitlementReady()) return false;
     if (userHasSupernova()) return false;
     if (!ALLOWED_PAGES.has(page)) return false;
@@ -266,6 +266,15 @@
     else refreshForNavigation(getCurrentPage());
   });
 
+
+  window.addEventListener("storage", function (event) {
+    if (event.key === "nova_consent") refreshForNavigation(getCurrentPage());
+  });
+  document.addEventListener("click", function (event) {
+    if (event.target && (event.target.id === "consent-accept" || event.target.id === "consent-decline")) {
+      setTimeout(function () { refreshForNavigation(getCurrentPage()); }, 0);
+    }
+  }, true);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
 
