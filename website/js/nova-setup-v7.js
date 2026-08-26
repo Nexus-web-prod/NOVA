@@ -761,6 +761,8 @@
       root = null;
       started = false;
       document.documentElement.classList.remove("nova-setup-active", "nova-setup-pending");
+      window.__novaSetupV7Active = false;
+      window.dispatchEvent(new CustomEvent("nova:setup-complete", { detail: { mode: state.mode } }));
       if (shell) {
         shell.classList.remove("nova-setup-home-reveal");
         void shell.offsetWidth;
@@ -856,6 +858,8 @@
         avatarUrl: user().avatarUrl || ""
       });
     }
+    window.__novaSetupV7Active = true;
+    window.dispatchEvent(new CustomEvent("nova:setup-started"));
     document.documentElement.classList.add("nova-setup-active", "nova-setup-pending");
     build();
     if (restart && user()) loadAccountProfile();
@@ -895,6 +899,9 @@
       return;
     }
     if (!hasCompletedSetup()) start(false);
-    else document.documentElement.classList.remove("nova-setup-pending");
+    else {
+      window.__novaSetupV7Active = false;
+      document.documentElement.classList.remove("nova-setup-pending");
+    }
   });
 })();
