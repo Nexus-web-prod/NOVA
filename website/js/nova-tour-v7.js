@@ -51,6 +51,7 @@
   function cleanupTarget(){if(state.target){state.target.classList.remove('nova-tour-target');state.target.style.removeProperty('--nova-tour-radius');state.target=null}if(spotlight)spotlight.hidden=true}
   function finish(){clearTimeout(waitTimer);cleanupTarget();state.running=false;markComplete();document.documentElement.classList.remove('nova-tour-active','nova-tour-visible','nova-tour-running');if(blocker)blocker.hidden=true;if(card)card.hidden=true;if(welcome){welcome.classList.remove('show');welcome.hidden=true}returnHome()}
   function returnHome(){var h=$('.ni-page-item[data-page="home"]')||$('.nav-tab[data-page="home"]');if(h)h.click()}
+  function page(name){return $('#page-'+name)?.classList.contains('active')}
   function clickPage(name){var b=$('.ni-page-item[data-page="'+name+'"]')||$('.nav-tab[data-page="'+name+'"]');if(b)b.click()}
   function openIsland(){var island=$('#nova-island');if(island&&!island.classList.contains('open')){$('#nova-island-star')?.click();if(!island.classList.contains('open'))island.click()}}
   function closeIsland(){var island=$('#nova-island');if(island?.classList.contains('open'))$('#nova-island-close')?.click()}
