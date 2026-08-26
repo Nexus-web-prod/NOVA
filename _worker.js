@@ -1018,10 +1018,32 @@ function unoCode() {
   return Array.from(bytes, byte => alphabet[byte % alphabet.length]).join("");
 }
 
+const SOCIAL_GAME_TTL_MS = 2 * 60 * 60 * 1000;
+
+function socialGameExpired(row, now = Date.now()) {
+  const updatedAt = Number(row?.updated_at ?? row?.updatedAt ?? 0);
+  return updatedAt > 0 && updatedAt <= now - SOCIAL_GAME_TTL_MS;
+}
+
+async function removeExpiredSocialGame(db, table, row) {
+  if (!row || !socialGameExpired(row)) return false;
+  const allowed = new Set(["uno_lobbies", "checkers_matches", "chess_matches", "connect4_matches"]);
+  if (!allowed.has(table)) throw new Error("Invalid social game table");
+  await db.prepare(`DELETE FROM ${table} WHERE id=? AND updated_at<=?`).bind(row.id, Date.now() - SOCIAL_GAME_TTL_MS).run();
+  return true;
+}
+
+async function cleanupExpiredSocialGames(db, table) {
+  const allowed = new Set(["uno_lobbies", "checkers_matches", "chess_matches", "connect4_matches"]);
+  if (!allowed.has(table)) throw new Error("Invalid social game table");
+  await db.prepare(`DELETE FROM ${table} WHERE updated_at<=?`).bind(Date.now() - SOCIAL_GAME_TTL_MS).run();
+}
+
 async function ensureUnoSchema(db) {
   if (!unoSchemaReady) unoSchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS uno_lobbies (id TEXT PRIMARY KEY,code TEXT NOT NULL UNIQUE,owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'lobby' CHECK(status IN ('lobby','playing','finished')),state_json TEXT NOT NULL DEFAULT '{}',version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS uno_lobbies_code_idx ON uno_lobbies(code,updated_at DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS uno_lobbies_updated_idx ON uno_lobbies(updated_at)"),
     db.prepare("CREATE TABLE IF NOT EXISTS uno_lobby_members (lobby_id TEXT NOT NULL REFERENCES uno_lobbies(id) ON DELETE CASCADE,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,seat INTEGER NOT NULL,joined_at INTEGER NOT NULL,PRIMARY KEY(lobby_id,user_id),UNIQUE(lobby_id,seat))"),
     db.prepare("CREATE TABLE IF NOT EXISTS uno_lobby_invites (lobby_id TEXT NOT NULL REFERENCES uno_lobbies(id) ON DELETE CASCADE,invited_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,invited_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,created_at INTEGER NOT NULL,PRIMARY KEY(lobby_id,invited_user_id))"),
     db.prepare("CREATE INDEX IF NOT EXISTS uno_invites_user_idx ON uno_lobby_invites(invited_user_id,created_at DESC)")
@@ -1033,7 +1055,8 @@ async function ensureCheckersSchema(db) {
   if (!checkersSchemaReady) checkersSchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS checkers_matches (id TEXT PRIMARY KEY,red_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,black_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS checkers_red_updated_idx ON checkers_matches(red_user_id,updated_at DESC)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS checkers_black_updated_idx ON checkers_matches(black_user_id,updated_at DESC)")
+    db.prepare("CREATE INDEX IF NOT EXISTS checkers_black_updated_idx ON checkers_matches(black_user_id,updated_at DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS checkers_updated_idx ON checkers_matches(updated_at)")
   ]).catch(error => { checkersSchemaReady = null; throw error; });
   return checkersSchemaReady;
 }
@@ -1082,6 +1105,7 @@ function exposeCheckersMatch(row, userId) {
 async function createCheckersSocialInvite(request, db) {
   requireSameOrigin(request);
   const auth = await requireSocialUser(request, db);
+  await cleanupExpiredSocialGames(db, "checkers_matches");
   await enforceUserRateLimit(db, auth.id, "checkers-create", 20, 10 * 60 * 1000, 10 * 60 * 1000);
   const body = await readJson(request), username = normalizeUsername(body.username);
   const target = await loadUserByUsername(db, username);
@@ -1097,7 +1121,7 @@ async function createCheckersSocialInvite(request, db) {
 async function getCheckersMatch(request, url, db) {
   const auth = await requireSocialUser(request, db), id = cleanText(url.searchParams.get("id"), 80);
   const row = await checkersRow(db, id);
-  if (!row) return apiError("MATCH_NOT_FOUND", "That Checkers match is no longer available", 404);
+  if (!row || await removeExpiredSocialGame(db, "checkers_matches", row)) return apiError("MATCH_NOT_FOUND", "That Checkers match is no longer available", 404);
   if (![row.red_user_id,row.black_user_id].includes(auth.id)) return apiError("MATCH_ACCESS", "This is a private Checkers match", 403);
   return apiJson({ match: exposeCheckersMatch(row, auth.id) });
 }
@@ -1107,7 +1131,7 @@ async function checkersAction(request, db) {
   const auth = await requireSocialUser(request, db), body = await readJson(request), matchId = cleanText(body.matchId, 80);
   const action = enumValue(body.action, ["move","resign","replay"], "move");
   const row = await checkersRow(db, matchId);
-  if (!row) return apiError("MATCH_NOT_FOUND", "That Checkers match no longer exists", 404);
+  if (!row || await removeExpiredSocialGame(db, "checkers_matches", row)) return apiError("MATCH_NOT_FOUND", "That Checkers match no longer exists", 404);
   if (![row.red_user_id,row.black_user_id].includes(auth.id)) return apiError("MATCH_ACCESS", "This is a private Checkers match", 403);
   let state = parseJson(row.state_json, {}), status = row.status, winnerId = row.winner_id || null;
   if (action === "replay") {
@@ -1147,7 +1171,8 @@ async function ensureChessSchema(db) {
   if (!chessSchemaReady) chessSchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS chess_matches (id TEXT PRIMARY KEY,white_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,black_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS chess_white_updated_idx ON chess_matches(white_user_id,updated_at DESC)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS chess_black_updated_idx ON chess_matches(black_user_id,updated_at DESC)")
+    db.prepare("CREATE INDEX IF NOT EXISTS chess_black_updated_idx ON chess_matches(black_user_id,updated_at DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS chess_updated_idx ON chess_matches(updated_at)")
   ]).catch(error => { chessSchemaReady = null; throw error; });
   return chessSchemaReady;
 }
@@ -1222,9 +1247,9 @@ function chessPositionKey(state){return state.board.join("")+"|"+state.turn+"|"+
 function chessInsufficient(board){const material=[];board.forEach((piece,square)=>{if(piece!=="."&&piece.toLowerCase()!=="k")material.push({type:piece.toLowerCase(),square})});if(material.some(item=>["p","q","r"].includes(item.type)))return false;if(material.length<=1)return true;return material.every(item=>item.type==="b")&&new Set(material.map(item=>(Math.floor(item.square/8)+item.square%8)%2)).size===1;}
 function chessRow(db,id){return db.prepare("SELECT c.*,wu.username AS white_username,COALESCE(wp.display_name,wu.username) AS white_display_name,COALESCE(wp.avatar_url,'') AS white_avatar_url,bu.username AS black_username,COALESCE(bp.display_name,bu.username) AS black_display_name,COALESCE(bp.avatar_url,'') AS black_avatar_url FROM chess_matches c JOIN users wu ON wu.id=c.white_user_id JOIN users bu ON bu.id=c.black_user_id LEFT JOIN user_profiles wp ON wp.user_id=wu.id LEFT JOIN user_profiles bp ON bp.user_id=bu.id WHERE c.id=? LIMIT 1").bind(id).first();}
 function exposeChessMatch(row,userId){const state=parseJson(row.state_json,{}),players=[{userId:row.white_user_id,username:row.white_username,displayName:row.white_display_name,avatarUrl:row.white_avatar_url,color:"white"},{userId:row.black_user_id,username:row.black_username,displayName:row.black_display_name,avatarUrl:row.black_avatar_url,color:"black"}];return{id:row.id,status:row.status,version:Number(row.version),winnerId:row.winner_id||"",whiteUserId:row.white_user_id,blackUserId:row.black_user_id,currentUserId:state.turn==="white"?row.white_user_id:row.black_user_id,turn:state.turn||"white",board:Array.isArray(state.board)?state.board:chessInitialState().board,castling:state.castling||"",enPassant:Number.isInteger(state.enPassant)?state.enPassant:-1,lastMove:state.lastMove||null,result:state.result||"",inCheck:chessInCheck(Array.isArray(state.board)?state.board:chessInitialState().board,state.turn||"white"),players,viewerId:userId,updatedAt:Number(row.updated_at)}}
-async function createChessSocialInvite(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db);await enforceUserRateLimit(db,auth.id,"chess-create",20,10*60*1000,10*60*1000);const body=await readJson(request),target=await loadUserByUsername(db,normalizeUsername(body.username));if(!target||target.id===auth.id)return apiError("USER_NOT_FOUND","Choose a Nova friend to play",404);const friend=await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();if(!friend||await isBlockedBetween(db,auth.id,target.id))return apiError("FRIENDS_ONLY","Chess can only be started with an accepted friend",403);const id="chs_"+randomId(),now=Date.now(),state=chessInitialState(),key=chessPositionKey(state);state.positions[key]=1;await db.prepare("INSERT INTO chess_matches(id,white_user_id,black_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();const row=await chessRow(db,id);return apiJson({match:exposeChessMatch(row,auth.id)},201)}
-async function getChessMatch(request,url,db){const auth=await requireSocialUser(request,db),id=cleanText(url.searchParams.get("id"),80),row=await chessRow(db,id);if(!row)return apiError("MATCH_NOT_FOUND","That Chess match is no longer available",404);if(![row.white_user_id,row.black_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Chess match",403);return apiJson({match:exposeChessMatch(row,auth.id)})}
-async function chessAction(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db),body=await readJson(request),matchId=cleanText(body.matchId,80),action=enumValue(body.action,["move","resign","replay"],"move"),row=await chessRow(db,matchId);if(!row)return apiError("MATCH_NOT_FOUND","That Chess match no longer exists",404);if(![row.white_user_id,row.black_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Chess match",403);let state=parseJson(row.state_json,{}),status=row.status,winnerId=row.winner_id||null;
+async function createChessSocialInvite(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db);await cleanupExpiredSocialGames(db,"chess_matches");await enforceUserRateLimit(db,auth.id,"chess-create",20,10*60*1000,10*60*1000);const body=await readJson(request),target=await loadUserByUsername(db,normalizeUsername(body.username));if(!target||target.id===auth.id)return apiError("USER_NOT_FOUND","Choose a Nova friend to play",404);const friend=await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();if(!friend||await isBlockedBetween(db,auth.id,target.id))return apiError("FRIENDS_ONLY","Chess can only be started with an accepted friend",403);const id="chs_"+randomId(),now=Date.now(),state=chessInitialState(),key=chessPositionKey(state);state.positions[key]=1;await db.prepare("INSERT INTO chess_matches(id,white_user_id,black_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();const row=await chessRow(db,id);return apiJson({match:exposeChessMatch(row,auth.id)},201)}
+async function getChessMatch(request,url,db){const auth=await requireSocialUser(request,db),id=cleanText(url.searchParams.get("id"),80),row=await chessRow(db,id);if(!row||await removeExpiredSocialGame(db,"chess_matches",row))return apiError("MATCH_NOT_FOUND","That Chess match is no longer available",404);if(![row.white_user_id,row.black_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Chess match",403);return apiJson({match:exposeChessMatch(row,auth.id)})}
+async function chessAction(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db),body=await readJson(request),matchId=cleanText(body.matchId,80),action=enumValue(body.action,["move","resign","replay"],"move"),row=await chessRow(db,matchId);if(!row||await removeExpiredSocialGame(db,"chess_matches",row))return apiError("MATCH_NOT_FOUND","That Chess match no longer exists",404);if(![row.white_user_id,row.black_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Chess match",403);let state=parseJson(row.state_json,{}),status=row.status,winnerId=row.winner_id||null;
   if(action==="replay"){if(status!=="finished")return apiError("MATCH_ACTIVE","Finish this match first",409);state=chessInitialState();state.positions[chessPositionKey(state)]=1;status="playing";winnerId=null;}
   else if(action==="resign"){if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);winnerId=auth.id===row.white_user_id?row.black_user_id:row.white_user_id;status="finished";state.result="resignation";}
   else{if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);const color=auth.id===row.white_user_id?"white":"black";if(state.turn!==color)return apiError("NOT_YOUR_TURN","Wait for your friend to move",409);const from=Number(body.from),to=Number(body.to),legal=chessLegalMoves(state,color),move=legal.find(item=>item.from===from&&item.to===to);if(!move)return apiError("INVALID_MOVE","That piece cannot move there",409);state=chessApply(state,move,enumValue(body.promotion,["q","r","b","n"],"q"));const key=chessPositionKey(state);state.positions[key]=Number(state.positions[key]||0)+1;const replies=chessLegalMoves(state,state.turn);if(!replies.length){status="finished";if(chessInCheck(state.board,state.turn)){winnerId=auth.id;state.result="checkmate"}else{winnerId=null;state.result="stalemate"}}else if(state.halfmove>=100){status="finished";winnerId=null;state.result="fifty-move"}else if(state.positions[key]>=3){status="finished";winnerId=null;state.result="repetition"}else if(chessInsufficient(state.board)){status="finished";winnerId=null;state.result="insufficient-material"}}
@@ -1234,7 +1259,8 @@ async function ensureConnect4Schema(db) {
   if (!connect4SchemaReady) connect4SchemaReady = db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS connect4_matches (id TEXT PRIMARY KEY,red_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,yellow_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'playing' CHECK(status IN ('playing','finished')),winner_id TEXT,state_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS connect4_red_updated_idx ON connect4_matches(red_user_id,updated_at DESC)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS connect4_yellow_updated_idx ON connect4_matches(yellow_user_id,updated_at DESC)")
+    db.prepare("CREATE INDEX IF NOT EXISTS connect4_yellow_updated_idx ON connect4_matches(yellow_user_id,updated_at DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS connect4_updated_idx ON connect4_matches(updated_at)")
   ]).catch(error => { connect4SchemaReady = null; throw error; });
   return connect4SchemaReady;
 }
@@ -1251,9 +1277,9 @@ function connect4Win(board, index, color) {
 }
 function connect4Row(db,id){return db.prepare("SELECT c.*,ru.username AS red_username,COALESCE(rp.display_name,ru.username) AS red_display_name,COALESCE(rp.avatar_url,'') AS red_avatar_url,yu.username AS yellow_username,COALESCE(yp.display_name,yu.username) AS yellow_display_name,COALESCE(yp.avatar_url,'') AS yellow_avatar_url FROM connect4_matches c JOIN users ru ON ru.id=c.red_user_id JOIN users yu ON yu.id=c.yellow_user_id LEFT JOIN user_profiles rp ON rp.user_id=ru.id LEFT JOIN user_profiles yp ON yp.user_id=yu.id WHERE c.id=? LIMIT 1").bind(id).first();}
 function exposeConnect4Match(row,userId){const state=parseJson(row.state_json,{}),players=[{userId:row.red_user_id,username:row.red_username,displayName:row.red_display_name,avatarUrl:row.red_avatar_url,color:"red"},{userId:row.yellow_user_id,username:row.yellow_username,displayName:row.yellow_display_name,avatarUrl:row.yellow_avatar_url,color:"yellow"}];return{id:row.id,status:row.status,version:Number(row.version),winnerId:row.winner_id||"",redUserId:row.red_user_id,yellowUserId:row.yellow_user_id,currentUserId:state.turn==="red"?row.red_user_id:row.yellow_user_id,turn:state.turn||"red",board:Array.isArray(state.board)?state.board:connect4InitialState().board,lastMove:state.lastMove||null,winning:Array.isArray(state.winning)?state.winning:[],result:state.result||"",players,viewerId:userId,updatedAt:Number(row.updated_at)}}
-async function createConnect4SocialInvite(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db);await enforceUserRateLimit(db,auth.id,"connect4-create",20,10*60*1000,10*60*1000);const body=await readJson(request),target=await loadUserByUsername(db,normalizeUsername(body.username));if(!target||target.id===auth.id)return apiError("USER_NOT_FOUND","Choose a Nova friend to play",404);const friend=await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();if(!friend||await isBlockedBetween(db,auth.id,target.id))return apiError("FRIENDS_ONLY","Connect Four can only be started with an accepted friend",403);const id="c4_"+randomId(),now=Date.now(),state=connect4InitialState();await db.prepare("INSERT INTO connect4_matches(id,red_user_id,yellow_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();const row=await connect4Row(db,id);return apiJson({match:exposeConnect4Match(row,auth.id)},201)}
-async function getConnect4Match(request,url,db){const auth=await requireSocialUser(request,db),id=cleanText(url.searchParams.get("id"),80),row=await connect4Row(db,id);if(!row)return apiError("MATCH_NOT_FOUND","That Connect Four match is no longer available",404);if(![row.red_user_id,row.yellow_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Connect Four match",403);return apiJson({match:exposeConnect4Match(row,auth.id)})}
-async function connect4Action(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db),body=await readJson(request),matchId=cleanText(body.matchId,80),action=enumValue(body.action,["drop","resign","replay"],"drop"),row=await connect4Row(db,matchId);if(!row)return apiError("MATCH_NOT_FOUND","That Connect Four match no longer exists",404);if(![row.red_user_id,row.yellow_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Connect Four match",403);let state=parseJson(row.state_json,{}),status=row.status,winnerId=row.winner_id||null;
+async function createConnect4SocialInvite(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db);await cleanupExpiredSocialGames(db,"connect4_matches");await enforceUserRateLimit(db,auth.id,"connect4-create",20,10*60*1000,10*60*1000);const body=await readJson(request),target=await loadUserByUsername(db,normalizeUsername(body.username));if(!target||target.id===auth.id)return apiError("USER_NOT_FOUND","Choose a Nova friend to play",404);const friend=await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)) LIMIT 1").bind(auth.id,target.id,target.id,auth.id).first();if(!friend||await isBlockedBetween(db,auth.id,target.id))return apiError("FRIENDS_ONLY","Connect Four can only be started with an accepted friend",403);const id="c4_"+randomId(),now=Date.now(),state=connect4InitialState();await db.prepare("INSERT INTO connect4_matches(id,red_user_id,yellow_user_id,status,winner_id,state_json,version,created_at,updated_at) VALUES(?,?,?,'playing',NULL,?,1,?,?)").bind(id,auth.id,target.id,JSON.stringify(state),now,now).run();const row=await connect4Row(db,id);return apiJson({match:exposeConnect4Match(row,auth.id)},201)}
+async function getConnect4Match(request,url,db){const auth=await requireSocialUser(request,db),id=cleanText(url.searchParams.get("id"),80),row=await connect4Row(db,id);if(!row||await removeExpiredSocialGame(db,"connect4_matches",row))return apiError("MATCH_NOT_FOUND","That Connect Four match is no longer available",404);if(![row.red_user_id,row.yellow_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Connect Four match",403);return apiJson({match:exposeConnect4Match(row,auth.id)})}
+async function connect4Action(request,db){requireSameOrigin(request);const auth=await requireSocialUser(request,db),body=await readJson(request),matchId=cleanText(body.matchId,80),action=enumValue(body.action,["drop","resign","replay"],"drop"),row=await connect4Row(db,matchId);if(!row||await removeExpiredSocialGame(db,"connect4_matches",row))return apiError("MATCH_NOT_FOUND","That Connect Four match no longer exists",404);if(![row.red_user_id,row.yellow_user_id].includes(auth.id))return apiError("MATCH_ACCESS","This is a private Connect Four match",403);let state=parseJson(row.state_json,{}),status=row.status,winnerId=row.winner_id||null;
   if(action==="replay"){if(status!=="finished")return apiError("MATCH_ACTIVE","Finish this match first",409);state=connect4InitialState();state.turn=row.winner_id===row.red_user_id?"yellow":"red";status="playing";winnerId=null;}
   else if(action==="resign"){if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);winnerId=auth.id===row.red_user_id?row.yellow_user_id:row.red_user_id;status="finished";state.result="resignation";}
   else{if(status!=="playing")return apiError("MATCH_FINISHED","This match is already finished",409);const color=auth.id===row.red_user_id?"red":"yellow";if(state.turn!==color)return apiError("NOT_YOUR_TURN","Wait for your friend to move",409);const column=Number(body.column);if(!Number.isInteger(column)||column<0||column>6)return apiError("INVALID_COLUMN","Choose a column",409);const board=Array.isArray(state.board)?state.board.slice(0,42):connect4InitialState().board;let index=-1;for(let rowIndex=5;rowIndex>=0;rowIndex--){const candidate=rowIndex*7+column;if(!board[candidate]){index=candidate;break}}if(index<0)return apiError("COLUMN_FULL","That column is full",409);board[index]=color;state.board=board;state.lastMove={column,index};state.winning=connect4Win(board,index,color);if(state.winning.length){status="finished";winnerId=auth.id;state.result="connect-four"}else if(board.every(Boolean)){status="finished";winnerId=null;state.result="draw"}else state.turn=color==="red"?"yellow":"red";}
@@ -1325,7 +1351,7 @@ async function getUnoLobby(request, url, db) {
   const row = id
     ? await db.prepare("SELECT l.*,EXISTS(SELECT 1 FROM uno_lobby_members mine WHERE mine.lobby_id=l.id AND mine.user_id=?) AS is_member FROM uno_lobbies l WHERE l.id=?").bind(auth.id,id).first()
     : await db.prepare("SELECT l.*,EXISTS(SELECT 1 FROM uno_lobby_members mine WHERE mine.lobby_id=l.id AND mine.user_id=?) AS is_member FROM uno_lobbies l WHERE l.code=?").bind(auth.id,code).first();
-  if (!row) return apiError("LOBBY_NOT_FOUND", "That lobby could not be found", 404);
+  if (!row || await removeExpiredSocialGame(db, "uno_lobbies", row)) return apiError("LOBBY_NOT_FOUND", "That lobby could not be found", 404);
   if (!row.is_member) return apiError("LOBBY_ACCESS", "Join this lobby before viewing it", 403);
   if (Number.isFinite(knownVersion) && knownVersion === Number(row.version)) return apiJson({ unchanged: true, version: Number(row.version) });
   return apiJson({ lobby: await exposeUnoLobby(db, row, auth.id) });
@@ -1334,6 +1360,7 @@ async function getUnoLobby(request, url, db) {
 async function createUnoLobby(request, db) {
   requireSameOrigin(request);
   const auth = await requireSocialUser(request, db);
+  await cleanupExpiredSocialGames(db, "uno_lobbies");
   await enforceUserRateLimit(db, auth.id, "uno-create", 12, 10 * 60 * 1000, 10 * 60 * 1000);
   const id = "uno_" + randomId();
   let code = unoCode();
@@ -1368,6 +1395,7 @@ async function createUnoLobbyRecord(db, ownerId) {
 async function createUnoSocialInvite(request, db) {
   requireSameOrigin(request);
   const auth = await requireSocialUser(request, db);
+  await cleanupExpiredSocialGames(db, "uno_lobbies");
   await enforceUserRateLimit(db, auth.id, "uno-social-create", 12, 10 * 60 * 1000, 10 * 60 * 1000);
   const body = await readJson(request);
   const kind = cleanText(body.kind, 12);
@@ -1401,7 +1429,7 @@ async function joinUnoLobby(request, db) {
   const code = cleanText(body.code, 6).toUpperCase();
   const lobbyId = cleanText(body.lobbyId, 80);
   const row = lobbyId ? await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first() : await db.prepare("SELECT * FROM uno_lobbies WHERE code=?").bind(code).first();
-  if (!row) return apiError("LOBBY_NOT_FOUND", lobbyId ? "That UNO invite is no longer available" : "Check the six-character lobby code", 404);
+  if (!row || await removeExpiredSocialGame(db, "uno_lobbies", row)) return apiError("LOBBY_NOT_FOUND", lobbyId ? "That UNO invite is no longer available" : "Check the six-character lobby code", 404);
   if (row.status !== "lobby") return apiError("GAME_STARTED", "This game has already started", 409);
   const current = await db.prepare("SELECT seat FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(row.id, auth.id).first();
   if (!current) {
@@ -1427,7 +1455,7 @@ async function leaveUnoLobby(request, db) {
   const body = await readJson(request);
   const lobbyId = cleanText(body.lobbyId, 80);
   const lobby = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
-  if (!lobby) return apiJson({ ok: true });
+  if (!lobby || await removeExpiredSocialGame(db, "uno_lobbies", lobby)) return apiJson({ ok: true });
   const member = await db.prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(lobbyId, auth.id).first();
   if (!member) return apiJson({ ok: true });
   if (lobby.status !== "lobby") return apiError("GAME_ACTIVE", "Finish the current game before leaving", 409);
@@ -1449,7 +1477,7 @@ async function inviteUnoFriend(request, db) {
   const lobbyId = cleanText(body.lobbyId, 80);
   const username = normalizeUsername(body.username);
   const lobby = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
-  if (!lobby || lobby.owner_id !== auth.id || lobby.status !== "lobby") return apiError("LOBBY_ACCESS", "Only the lobby host can invite friends", 403);
+  if (!lobby || await removeExpiredSocialGame(db, "uno_lobbies", lobby) || lobby.owner_id !== auth.id || lobby.status !== "lobby") return apiError("LOBBY_ACCESS", "Only the lobby host can invite friends", 403);
   const target = await db.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND account_status='active'").bind(username).first();
   if (!target) return apiError("USER_NOT_FOUND", "That account was not found", 404);
   const friend = await db.prepare("SELECT 1 FROM friendships WHERE status='accepted' AND ((requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?))").bind(auth.id,target.id,target.id,auth.id).first();
@@ -1462,7 +1490,7 @@ async function getUnoInvites(request, db) {
   const auth = await requireSocialUser(request, db);
   const rows = await db.prepare(`SELECT l.id AS lobbyId,l.code,u.username AS fromUsername,i.created_at AS createdAt
     FROM uno_lobby_invites i JOIN uno_lobbies l ON l.id=i.lobby_id JOIN users u ON u.id=i.invited_by
-    WHERE i.invited_user_id=? AND l.status='lobby' ORDER BY i.created_at DESC LIMIT 12`).bind(auth.id).all();
+    WHERE i.invited_user_id=? AND l.status='lobby' AND l.updated_at>? ORDER BY i.created_at DESC LIMIT 12`).bind(auth.id, Date.now() - SOCIAL_GAME_TTL_MS).all();
   return apiJson({ invites: rows.results || [] });
 }
 
@@ -1473,7 +1501,7 @@ async function joinUnoCall(request, env) {
   const body = await readJson(request);
   const lobbyId = cleanText(body.lobbyId, 80);
   const lobby = await getDb(env).prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
-  if (!lobby) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
+  if (!lobby || await removeExpiredSocialGame(getDb(env), "uno_lobbies", lobby)) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
   const membership = await getDb(env).prepare("SELECT 1 FROM uno_lobby_members WHERE lobby_id=? AND user_id=?").bind(lobbyId, auth.id).first();
   if (!membership) return apiError("LOBBY_ACCESS", "Only lobby players can join its call", 403);
   const restriction = await activeVoiceRestriction(getDb(env), auth.id);
@@ -1500,7 +1528,7 @@ async function unoAction(request, db) {
   const lobbyId = cleanText(body.lobbyId, 80);
   const action = enumValue(body.action, ["start","play","draw","uno","replay"], "draw");
   const row = await db.prepare("SELECT * FROM uno_lobbies WHERE id=?").bind(lobbyId).first();
-  if (!row) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
+  if (!row || await removeExpiredSocialGame(db, "uno_lobbies", row)) return apiError("LOBBY_NOT_FOUND", "That lobby no longer exists", 404);
   const members = await unoMembers(db, lobbyId);
   if (!members.some(member => member.userId === auth.id)) return apiError("LOBBY_ACCESS", "You are not in this lobby", 403);
   let state = parseJson(row.state_json, {});

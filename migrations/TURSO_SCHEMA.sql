@@ -30,3 +30,8 @@ CREATE TABLE IF NOT EXISTS supernova_referrals (
 
 CREATE INDEX IF NOT EXISTS supernova_referrals_inviter_idx ON supernova_referrals(inviter_id,status,created_at DESC);
 CREATE INDEX IF NOT EXISTS supernova_referrals_invited_idx ON supernova_referrals(invited_user_id,status,created_at DESC);
+
+CREATE INDEX IF NOT EXISTS uno_lobbies_updated_idx ON uno_lobbies(updated_at);
+CREATE INDEX IF NOT EXISTS checkers_updated_idx ON checkers_matches(updated_at);
+CREATE INDEX IF NOT EXISTS chess_updated_idx ON chess_matches(updated_at);
+CREATE INDEX IF NOT EXISTS connect4_updated_idx ON connect4_matches(updated_at);

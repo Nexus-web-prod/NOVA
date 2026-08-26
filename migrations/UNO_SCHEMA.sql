@@ -26,3 +26,5 @@ CREATE TABLE IF NOT EXISTS uno_lobby_invites (
   PRIMARY KEY(lobby_id,invited_user_id)
 );
 CREATE INDEX IF NOT EXISTS uno_invites_user_idx ON uno_lobby_invites(invited_user_id,created_at DESC);
+
+CREATE INDEX IF NOT EXISTS uno_lobbies_updated_idx ON uno_lobbies(updated_at);

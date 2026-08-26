@@ -433,7 +433,18 @@ window._novaSyncMyNameplate=async function(){
   _nameplateCache[acct.username.toLowerCase()]=eq.nameplate||null;
 };
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function getAccount(){try{const a=JSON.parse(localStorage.getItem("nova_account")||"null");if(a&&!a.username){localStorage.removeItem("nova_account");return null;}return a;}catch{return null;}}
+function getAccount(){
+  // The v7 server session is authoritative. localStorage can be stale after logout,
+  // so Social must never unlock from nova_account alone. While /api/me is still
+  // resolving, fail closed and show the logged-out gate.
+  if(window.NovaAPI){
+    if(!Object.prototype.hasOwnProperty.call(window,"__novaV7User"))return null;
+    const user=window.__novaV7User;
+    if(!user){try{localStorage.removeItem("nova_account");}catch{}return null;}
+    return user;
+  }
+  try{const a=JSON.parse(localStorage.getItem("nova_account")||"null");if(a&&!a.username){localStorage.removeItem("nova_account");return null;}return a;}catch{return null;}
+}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function setReply(msg){
   replyTarget=msg;const bar=document.getElementById("nova-reply-bar");if(!bar)return;
@@ -1441,10 +1452,20 @@ async function openBlockedUsersModal(){
 function showLoginOverlay(){
   const pg=document.getElementById("page-social"),gate=document.getElementById("social-guest-gate");
   teardownSocial();
-  // Remove the old absolute overlay if a cached/older Social init created one.
+  // If Social was mounted into Nova Island, restore it before locking the page.
+  // Otherwise the moved sidebar/chat live outside #page-social and escape the gate.
+  try{window._novaLockIslandSocialGuest?.();}catch(_){}
   document.getElementById("nova-social-login-ov")?.remove();
-  if(pg)pg.classList.add("social-guest");
-  if(gate)gate.hidden=false;
+  if(pg){
+    pg.classList.add("social-guest");
+    pg.setAttribute("data-auth-state","logged-out");
+    pg.querySelectorAll(":scope > :not(.social-guest-gate)").forEach(el=>{
+      el.setAttribute("aria-hidden","true");
+      el.style.setProperty("display","none","important");
+      try{el.inert=true;}catch(_){}
+    });
+  }
+  if(gate){gate.hidden=false;gate.removeAttribute("aria-hidden");gate.style.setProperty("display","flex","important");}
   const btn=document.getElementById("social-guest-signin-btn");
   if(btn&&!btn.dataset.wired){btn.dataset.wired="1";btn.addEventListener("click",()=>{
     if(window.NovaAccount&&typeof window.NovaAccount.open==="function")window.NovaAccount.open("login");
@@ -1454,8 +1475,17 @@ function showLoginOverlay(){
 function removeLoginOverlay(){
   document.getElementById("nova-social-login-ov")?.remove();
   const pg=document.getElementById("page-social"),gate=document.getElementById("social-guest-gate");
-  if(pg)pg.classList.remove("social-guest");
-  if(gate)gate.hidden=true;
+  if(pg){
+    pg.classList.remove("social-guest");
+    pg.setAttribute("data-auth-state","signed-in");
+    pg.querySelectorAll(":scope > :not(.social-guest-gate)").forEach(el=>{
+      el.removeAttribute("aria-hidden");
+      el.style.removeProperty("display");
+      try{el.inert=false;}catch(_){}
+    });
+  }
+  if(gate){gate.hidden=true;gate.setAttribute("aria-hidden","true");gate.style.removeProperty("display");}
+  try{window._novaUnlockIslandSocialGuest?.();}catch(_){}
 }
 
 // ── Init / teardown ───────────────────────────────────────────────────────────
