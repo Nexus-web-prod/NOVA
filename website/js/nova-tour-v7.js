@@ -13,6 +13,15 @@
   function displayName(){var u=user();if(u)return u.displayName||u.username||'there';return localStorage.getItem('nova_guest_display_name')||'Guest'}
   function completed(){return localStorage.getItem(COMPLETE_KEY)===VERSION}
   function setupDone(){return localStorage.getItem(SETUP_KEY)===SETUP_VERSION}
+  function setupStillActive(){
+    if(document.documentElement.classList.contains('nova-setup-active')||document.documentElement.classList.contains('nova-setup-pending'))return true;
+    var setup=$('#nova-setup');
+    if(!setup)return false;
+    if(setup.hidden)return false;
+    var styles=window.getComputedStyle?getComputedStyle(setup):null;
+    if(styles&&(styles.display==='none'||styles.visibility==='hidden'))return false;
+    return setup.getClientRects().length>0;
+  }
   function icon(){return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'}
   function buildUI(){
     if($('#nova-tour-blocker')) return;
@@ -77,8 +86,8 @@
   function activate(s,target){state.target=target;target.classList.add('nova-tour-target');target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});title.textContent=typeof s.title==='function'?s.title():s.title;copy.innerHTML=typeof s.copy==='function'?s.copy():s.copy;$('#nova-tour-hint span').textContent=s.hint||'Continue when you are ready.';nextBtn.textContent=s.next||'Continue';nextBtn.hidden=!!s.action;renderProgress();setTimeout(positionCard,80);if(s.action&&s.event){var doneOnce=false;var done=function(){if(doneOnce||!state.running)return;doneOnce=true;advance()};try{s.event(target,done)}catch(_){nextBtn.hidden=false}}}
   function renderProgress(){progress.innerHTML='';var total=state.steps.length;var compact=Math.min(total,8);for(var i=0;i<compact;i++){var dot=document.createElement('span');var mapped=Math.floor(state.index/(Math.max(1,total-1))*(compact-1));if(i<mapped)dot.className='done';if(i===mapped)dot.className='active';progress.appendChild(dot)}}
   function positionCard(){if(!state.running||!state.target||card.hidden)return;var r=state.target.getBoundingClientRect();var cw=card.offsetWidth||390,ch=card.offsetHeight||190,gap=16,vw=innerWidth,vh=innerHeight;var left=Math.min(Math.max(10,r.left+r.width/2-cw/2),vw-cw-10);var below=r.bottom+gap;var above=r.top-ch-gap;var top=below+ch<vh-10?below:(above>10?above:Math.max(10,vh-ch-10));if(r.width>vw*.72&&r.height>vh*.55){top=Math.max(12,vh-ch-18);left=Math.max(10,(vw-cw)/2)}card.style.left=Math.round(left)+'px';card.style.top=Math.round(top)+'px'}
-  function offer(){if(completed()||isPreview()||!setupDone())return;buildUI();welcome.hidden=false;$('#nova-tour-user').textContent=displayName();blocker.hidden=false;document.documentElement.classList.add('nova-tour-active','nova-tour-visible');welcome.classList.add('show')}
-  function boot(){if(isPreview()||completed())return;buildUI();loadCount();var tries=0;(function waitSetup(){if(setupDone()&&!document.documentElement.classList.contains('nova-setup-active')&&!$('.nova-setup')){setTimeout(offer,850);return}if(tries++<160)setTimeout(waitSetup,250)})()}
+  function offer(){if(completed()||isPreview()||!setupDone()||setupStillActive())return;buildUI();welcome.hidden=false;$('#nova-tour-user').textContent=displayName();blocker.hidden=false;document.documentElement.classList.add('nova-tour-active','nova-tour-visible');welcome.classList.add('show')}
+  function boot(){if(isPreview()||completed())return;buildUI();loadCount();var tries=0;(function waitSetup(){if(setupDone()&&!setupStillActive()){setTimeout(function(){if(!completed()&&!setupStillActive())offer()},850);return}if(tries++<160)setTimeout(waitSetup,250)})()}
   window.NovaTour={start:function(){buildUI();localStorage.removeItem(COMPLETE_KEY);welcome.hidden=true;startSteps()},reset:function(){localStorage.removeItem(COMPLETE_KEY)},finish:finish};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
