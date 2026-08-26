@@ -4387,7 +4387,7 @@ async function adminHealth(request, env) {
     const [ping, schema, tableRows] = await db.batch([
       db.prepare("SELECT 1 AS ok"),
       db.prepare("SELECT version FROM nova_schema_meta WHERE id=1"),
-      db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users','user_sessions','user_profiles','user_settings','user_presence','social_messages','social_channel_members','social_message_reactions','social_typing','reports','support_tickets','admin_tasks','uno_lobbies','checkers_matches','chess_matches','connect4_matches','voice_rooms','voice_room_members','voice_sfu_tracks','supernova_referrals')")
+      db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users','auth_sessions','user_profiles','user_settings','user_presence','social_messages','social_channel_members','social_message_reactions','social_typing','reports','support_tickets','admin_tasks','uno_lobbies','checkers_matches','chess_matches','connect4_matches','voice_rooms','voice_room_members','voice_sfu_tracks','supernova_referrals')")
     ]);
     dbLatency = Date.now() - dbStarted;
     schemaVersion = Number(schema.results?.[0]?.version || 0);
@@ -4403,7 +4403,7 @@ async function adminHealth(request, env) {
   const internal = [
     { name: "Pages Worker", category: "Core", status: "healthy", detail: "Request handler running", latencyMs: 0 },
     { name: "Turso Database", category: "Core", status: dbStatus, detail: dbDetail, latencyMs: dbLatency },
-    { name: "Authentication", category: "Core", status: dbStatus === "down" ? "down" : (hasAll(["users","user_sessions","user_profiles"]) ? "healthy" : "degraded"), detail: hasAll(["users","user_sessions","user_profiles"]) ? "Session and account tables ready" : "Required auth table missing", latencyMs: dbLatency },
+    { name: "Authentication", category: "Core", status: dbStatus === "down" ? "down" : (hasAll(["users","auth_sessions"]) ? "healthy" : "degraded"), detail: hasAll(["users","auth_sessions"]) ? "Authenticated admin session validated" : "Authentication schema incomplete", latencyMs: dbLatency },
     { name: "Settings & Profiles", category: "Core", status: dbStatus === "down" ? "down" : (hasAll(["user_profiles","user_settings"]) ? "healthy" : "degraded"), detail: hasAll(["user_profiles","user_settings"]) ? "Profile storage ready" : "Required table missing", latencyMs: dbLatency },
     { name: "Nova Social", category: "Social", status: dbStatus === "down" ? "down" : (hasAll(["social_messages","social_channel_members","social_message_reactions","social_typing","user_presence"]) ? "healthy" : "degraded"), detail: hasAll(["social_messages","social_channel_members","social_message_reactions","social_typing","user_presence"]) ? "Messaging, reactions, typing and presence ready" : "Social schema incomplete", latencyMs: dbLatency },
     { name: "Moderation & Support", category: "Admin", status: dbStatus === "down" ? "down" : (hasAll(["reports","support_tickets","admin_tasks"]) ? "healthy" : "degraded"), detail: hasAll(["reports","support_tickets","admin_tasks"]) ? "Reports, tickets and tasks ready" : "Admin schema incomplete", latencyMs: dbLatency },
@@ -4419,7 +4419,6 @@ async function adminHealth(request, env) {
   const externalChecks = [
     healthProbe("Wisp Gateway", "Proxy", "https://unified-wisp-epoxy.fly.dev/", { timeout: 4000 }),
     healthProbe("Cloudflare Realtime Edge", "Voice", "https://rtc.live.cloudflare.com/", { timeout: 3500 }),
-    healthProbe("Open Relay", "Voice", `https://${OPEN_RELAY_HOST}/`, { timeout: 3500 }),
     healthProbe("Google Gemini API", "AI", "https://generativelanguage.googleapis.com/", { timeout: 3500 })
   ];
   const external = await Promise.all(externalChecks);
