@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var POLL_MS = 30000;
+  var POLL_MS = 300000;
   var FREE_NAV_DELAY_MS = 1800;
 
   window._novaIsSupernovaUser = false;

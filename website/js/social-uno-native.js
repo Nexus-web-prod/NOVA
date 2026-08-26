@@ -46,6 +46,7 @@
   async function poll(){
     if(!lobby){pollBusy=false;return}
     if(pollBusy)return;
+    if(document.hidden){pollTimer=setTimeout(poll,15000);return;}
     pollBusy=true;
     try{
       var data=await call("/api/boardgames/uno/lobbies?id="+encodeURIComponent(lobby.id)+"&version="+encodeURIComponent(lobby.version));

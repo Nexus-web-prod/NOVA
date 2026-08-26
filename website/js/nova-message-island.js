@@ -436,7 +436,7 @@
     state.peerCache = [];
     state.peerCacheAt = 0;
     poll(true);
-    state.poll = setInterval(poll, 3000);
+    state.poll = setInterval(poll, 12000);
     if (state.demoScheduled) return;
     if (location.hash === '#test-message-island') {
       state.demoScheduled = true;

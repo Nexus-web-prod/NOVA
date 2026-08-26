@@ -79,6 +79,17 @@ function startEveryoneCooldown(duration){
 let _chatPollTimer=null,_socialPollTimer=null,_friendsPollTimer=null,_reactionPollTimer=null;
 let _friendsPollBusy=false,_socialPollBusy=false,_reactionPollBusy=false;
 const _pollLocks={everyone:false,dm:false,group:false};
+const _socialPollTabId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
+const _socialLeaderKey="nova_social_poll_leader_v1";
+function _isSocialPollLeader(){
+  const now=Date.now();let lease=null;
+  try{lease=JSON.parse(localStorage.getItem(_socialLeaderKey)||"null");}catch{}
+  if(!lease||Number(lease.expiresAt||0)<now||lease.id===_socialPollTabId){
+    try{localStorage.setItem(_socialLeaderKey,JSON.stringify({id:_socialPollTabId,expiresAt:now+45000}));}catch{}
+    return true;
+  }
+  return false;
+}
 
 // ── Visibility-aware poll guard ─────────────────────────────────────────────────
 // Stops ALL network polling the moment the tab is hidden (user switched tabs,
@@ -105,7 +116,7 @@ function _bindVisibility(){
 
 // ── Exponential backoff for chat (saves egress on idle convos) ─────────────────
 let _chatEmptyStreak=0;
-const CHAT_BASE_MS=5000, CHAT_MAX_MS=20000;
+const CHAT_BASE_MS=6500, CHAT_MAX_MS=30000;
 let _chatCurrentMs=CHAT_BASE_MS;
 function _chatBackoff(hadMessages){
   if(hadMessages){_chatEmptyStreak=0;_chatCurrentMs=CHAT_BASE_MS;}
@@ -134,9 +145,9 @@ function startFriendsPolling(){
   stopFriendsPolling();
   _bindVisibility();
   _friendsPollTimer=setInterval(async()=>{
-    if(document.hidden||!getAccount())return;
+    if(document.hidden||!getAccount()||!_isSocialPollLeader())return;
     await _pollFriendsList();
-  },15000);
+  },30000);
 }
 function stopFriendsPolling(){clearInterval(_friendsPollTimer);_friendsPollTimer=null;}
 
@@ -178,7 +189,7 @@ async function _pollReactions(){
 function startReactionPolling(){
   stopReactionPolling();
   _pollReactions();
-  _reactionPollTimer=setInterval(_pollReactions,3000);
+  _reactionPollTimer=setInterval(_pollReactions,7000);
 }
 function stopReactionPolling(){clearInterval(_reactionPollTimer);_reactionPollTimer=null;}
 
@@ -206,7 +217,7 @@ async function pollTyping(){
 }
 function startTypingPolling(){
   stopTypingPolling();if(!typingChannel())return;
-  pollTyping();_typingPollTimer=setInterval(pollTyping,3000);
+  pollTyping();_typingPollTimer=setInterval(pollTyping,5000);
 }
 function stopTypingPolling(){
   clearInterval(_typingPollTimer);_typingPollTimer=null;clearTimeout(_typingStopTimer);_typingStopTimer=null;
@@ -215,8 +226,8 @@ function stopTypingPolling(){
 function signalTyping(){
   const channel=typingChannel();if(!channel)return;
   const now=Date.now();
-  if(now-_typingLastSent>1800){_typingLastSent=now;NovaAPI.setTyping(channel,true).catch(()=>{});}
-  clearTimeout(_typingStopTimer);_typingStopTimer=setTimeout(()=>NovaAPI.setTyping(channel,false).catch(()=>{}),2800);
+  if(now-_typingLastSent>3500){_typingLastSent=now;NovaAPI.setTyping(channel,true).catch(()=>{});}
+  clearTimeout(_typingStopTimer);_typingStopTimer=setTimeout(()=>NovaAPI.setTyping(channel,false).catch(()=>{}),5500);
 }
 function clearMyTyping(){
   const channel=typingChannel();clearTimeout(_typingStopTimer);_typingStopTimer=null;
@@ -228,9 +239,9 @@ function startSocialPolling(){
   stopSocialPolling();
   _bindVisibility();
   _socialPollTimer=setInterval(async()=>{
-    if(document.hidden||!getAccount())return;
+    if(document.hidden||!getAccount()||!_isSocialPollLeader())return;
     await _pollSocialData();
-  },15000);
+  },30000);
 }
 function stopSocialPolling(){clearInterval(_socialPollTimer);_socialPollTimer=null;}
 

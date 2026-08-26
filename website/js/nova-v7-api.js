@@ -23,8 +23,76 @@
     localStorage.setItem("nova_device_id", deviceId);
   }
 
-  async function request(path, options) {
+  var _getCache = new Map();
+  var _getInflight = new Map();
+  var _cacheChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("nova-api-cache-v1") : null;
+
+  function _cacheTtl(path) {
+    path = String(path || "");
+    if (path === "/api/me") return 30000;
+    if (path.indexOf("/api/settings") === 0 || path.indexOf("/api/profile") === 0) return 60000;
+    if (path.indexOf("/api/games/stats") === 0) return 60000;
+    if (path.indexOf("/api/social/presence") === 0) return 15000;
+    if (path.indexOf("/api/social/requests") === 0) return 20000;
+    if (path === "/api/social") return 15000;
+    if (path.indexOf("/api/social/reactions") === 0) return 6000;
+    if (path.indexOf("/api/social/typing") === 0) return 4500;
+    if (path.indexOf("/api/social/messages") === 0) return 1800;
+    if (path.indexOf("/api/profiles") === 0) return 60000;
+    if (path.indexOf("/api/voice/v2/rooms") === 0 || path.indexOf("/api/voice/rooms") === 0) return 15000;
+    if (path.indexOf("/api/voice/v2/state") === 0 || path.indexOf("/api/voice/room") === 0) return 1800;
+    if (path.indexOf("/api/boardgames/") === 0) return 1200;
+    if (path.indexOf("/api/supernova/") === 0) return 30000;
+    return 0;
+  }
+
+  function _clonePayload(value) {
+    if (typeof structuredClone === "function") { try { return structuredClone(value); } catch (error) {} }
+    try { return JSON.parse(JSON.stringify(value)); } catch (error) { return value; }
+  }
+
+  function _dropCachePrefix(prefix) {
+    Array.from(_getCache.keys()).forEach(function (key) { if (String(key).indexOf(prefix) === 0) _getCache.delete(key); });
+  }
+
+  function _invalidateGetCache(path) {
+    path = String(path || "");
+    if (path.indexOf("/api/social/typing") === 0 || path === "/api/presence" || path.indexOf("/api/proxy/navigation") === 0) return;
+    if (path.indexOf("/api/social/reactions") === 0) { _dropCachePrefix("/api/social/reactions"); _dropCachePrefix("/api/social/messages"); }
+    else if (path.indexOf("/api/social/messages") === 0) { _dropCachePrefix("/api/social/messages"); _dropCachePrefix("/api/social/reactions"); }
+    else if (path.indexOf("/api/voice/v2/") === 0) { _dropCachePrefix("/api/voice/v2/"); }
+    else if (path.indexOf("/api/boardgames/") === 0) { _dropCachePrefix("/api/boardgames/"); }
+    else _getCache.clear();
+    if (_cacheChannel) try { _cacheChannel.postMessage({ type: "invalidate", path: path }); } catch (error) {}
+  }
+
+  if (_cacheChannel) _cacheChannel.onmessage = function (event) {
+    var data = event.data || {};
+    if (data.type === "invalidate") {
+      var ip = String(data.path || "");
+      if (ip.indexOf("/api/social/typing") === 0 || ip === "/api/presence" || ip.indexOf("/api/proxy/navigation") === 0) return;
+      if (ip.indexOf("/api/social/reactions") === 0) { _dropCachePrefix("/api/social/reactions"); _dropCachePrefix("/api/social/messages"); }
+      else if (ip.indexOf("/api/social/messages") === 0) { _dropCachePrefix("/api/social/messages"); _dropCachePrefix("/api/social/reactions"); }
+      else if (ip.indexOf("/api/voice/v2/") === 0) _dropCachePrefix("/api/voice/v2/");
+      else if (ip.indexOf("/api/boardgames/") === 0) _dropCachePrefix("/api/boardgames/");
+      else _getCache.clear();
+      return;
+    }
+    if (data.type === "put" && data.key && data.expiresAt > Date.now()) {
+      _getCache.set(data.key, { value: data.value, expiresAt: data.expiresAt });
+    }
+  };
+
+  async function _requestCore(path, options) {
     options = Object.assign({}, options || {});
+    var method = String(options.method || "GET").toUpperCase();
+    var cacheTtl = method === "GET" && !options.noCache ? _cacheTtl(path) : 0;
+    delete options.noCache;
+    if (cacheTtl > 0) {
+      var cached = _getCache.get(path);
+      if (cached && cached.expiresAt > Date.now()) return _clonePayload(cached.value);
+      if (_getInflight.has(path)) return _getInflight.get(path).then(_clonePayload);
+    }
     var timeoutMs = Math.max(1000, Number(options.timeoutMs || 20000));
     delete options.timeoutMs;
     var headers = new Headers(options.headers || {});
@@ -59,7 +127,29 @@
       if (payload.error) Object.keys(payload.error).forEach(function (key) { if (!(key in error)) error[key] = payload.error[key]; });
       throw error;
     }
+    if (cacheTtl > 0) {
+      var entry = { value: _clonePayload(payload), expiresAt: Date.now() + cacheTtl };
+      _getCache.set(path, entry);
+      if (_cacheChannel) try { _cacheChannel.postMessage({ type: "put", key: path, value: entry.value, expiresAt: entry.expiresAt }); } catch (error) {}
+    } else if (method !== "GET") {
+      _invalidateGetCache(path);
+    }
     return payload;
+  }
+
+  function request(path, options) {
+    options = Object.assign({}, options || {});
+    var method = String(options.method || "GET").toUpperCase();
+    var ttl = method === "GET" && !options.noCache ? _cacheTtl(path) : 0;
+    if (ttl > 0) {
+      var cached = _getCache.get(path);
+      if (cached && cached.expiresAt > Date.now()) return Promise.resolve(_clonePayload(cached.value));
+      if (_getInflight.has(path)) return _getInflight.get(path).then(_clonePayload);
+      var pending = _requestCore(path, options);
+      _getInflight.set(path, pending);
+      return pending.finally(function () { _getInflight.delete(path); });
+    }
+    return _requestCore(path, options);
   }
 
   function cacheUser(user) {
@@ -195,6 +285,17 @@
   var lastActivityStoredAt = 0;
   var lastPresenceAt = 0;
   var currentPresenceState = "";
+  var PRESENCE_LEADER_KEY = "nova_presence_leader_v1";
+  var presenceTabId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+  function isPresenceLeader() {
+    var now = Date.now(), lease = null;
+    try { lease = JSON.parse(localStorage.getItem(PRESENCE_LEADER_KEY) || "null"); } catch (error) {}
+    if (!lease || Number(lease.expiresAt || 0) < now || lease.id === presenceTabId) {
+      try { localStorage.setItem(PRESENCE_LEADER_KEY, JSON.stringify({ id: presenceTabId, expiresAt: now + 20000 })); } catch (error) {}
+      return true;
+    }
+    return false;
+  }
 
   function sharedActivityAt() {
     var shared = Number(localStorage.getItem(PRESENCE_ACTIVITY_KEY) || 0);
@@ -202,7 +303,7 @@
   }
 
   function sendPresence(state, force) {
-    if (!window.__novaV7User) return;
+    if (!window.__novaV7User || !isPresenceLeader()) return;
     var now = Date.now();
     if (!force && state === currentPresenceState && now - lastPresenceAt < 55000) return;
     currentPresenceState = state;
@@ -213,7 +314,7 @@
   }
 
   function syncPresence() {
-    if (!window.__novaV7User) return;
+    if (!window.__novaV7User || !isPresenceLeader()) return;
     var inactiveFor = Date.now() - sharedActivityAt();
     var state = inactiveFor >= OFFLINE_AFTER_MS ? "offline" : (inactiveFor >= IDLE_AFTER_MS ? "idle" : "online");
     var heartbeatDue = state !== "offline" && Date.now() - lastPresenceAt >= 60000;
@@ -248,7 +349,7 @@
     document.addEventListener(type, recordActivity, { passive: true, capture: true });
   });
 
-  setInterval(syncPresence, 5000);
+  setInterval(syncPresence, 10000);
 
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) recordActivity();

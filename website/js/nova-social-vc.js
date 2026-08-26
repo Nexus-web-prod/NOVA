@@ -147,9 +147,9 @@ async function enterRoom(room,host){
 }
 async function startTimers(){
   stopTimers(false);
-  S.poll=setInterval(function(){pollState(false)},1200);
-  S.signalTimer=setInterval(pollSignals,650);
-  S.chatTimer=setInterval(pollChat,900);
+  S.poll=setInterval(function(){if(!document.hidden)pollState(false)},3000);
+  S.signalTimer=setInterval(function(){if(!document.hidden)pollSignals()},1200);
+  S.chatTimer=setInterval(function(){if(!document.hidden)pollChat()},3000);
 }
 function stopTimers(closeAudio){
   clearInterval(S.poll);clearInterval(S.signalTimer);clearInterval(S.chatTimer);
@@ -383,7 +383,8 @@ window.addEventListener("beforeunload",function(){
 
 document.addEventListener("pointerdown",resumeRemoteAudio,{passive:true});
 document.addEventListener("keydown",resumeRemoteAudio);
-document.addEventListener("DOMContentLoaded",function(){ensureUI();refreshRooms();setInterval(function(){if(window.__novaV7User)refreshRooms()},10000)});
+document.addEventListener("DOMContentLoaded",function(){ensureUI();refreshRooms();setInterval(function(){if(window.__novaV7User&&!document.hidden)refreshRooms()},20000)});
+document.addEventListener("visibilitychange",function(){if(!document.hidden){refreshRooms();if(S.room){pollState(true);pollSignals();pollChat()}}});
 document.addEventListener("nova:social-open",function(){ensureUI();refreshRooms()});
 window.addEventListener("nova:session-changed",function(){refreshRooms()});
 window.NovaVoiceRoomsV2={refresh:refreshRooms,leave:leaveRoom};
