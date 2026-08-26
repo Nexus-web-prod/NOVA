@@ -5,7 +5,7 @@
   var SETUP_KEY='nova_setup_v7_complete';
   var SETUP_VERSION='7.0-launch';
   var state={running:false,index:0,target:null,steps:[],loggedIn:false,gameCount:89,firstMessageSeen:false};
-  var blocker,card,title,copy,nextBtn,progress,welcome,toast;
+  var blocker,spotlight,card,title,copy,nextBtn,progress,welcome,toast;
   var waitTimer=0;
   function $(s){return document.querySelector(s)}
   function isPreview(){return window.__NOVA_ADS_PREVIEW===true||window.top!==window||location.protocol==='about:'}
@@ -23,24 +23,34 @@
     return setup.getClientRects().length>0;
   }
   function icon(){return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'}
+  function guardTourClick(e){
+    if(!state.running)return;
+    var node=e.target;
+    if(card&&card.contains(node))return;
+    if(state.target&&state.target.contains(node))return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+  }
   function buildUI(){
     if($('#nova-tour-blocker')) return;
     blocker=document.createElement('div');blocker.id='nova-tour-blocker';blocker.hidden=true;
+    spotlight=document.createElement('div');spotlight.id='nova-tour-spotlight';spotlight.hidden=true;
     card=document.createElement('section');card.id='nova-tour-card';card.hidden=true;card.setAttribute('role','dialog');card.setAttribute('aria-live','polite');
     card.innerHTML='<div class="nova-tour-card-top"><div class="nova-tour-brand"><span class="nova-tour-brand-dot"></span>Nova 7 Tour</div><button id="nova-tour-skip" type="button">Skip tour</button></div><h2 id="nova-tour-title"></h2><p id="nova-tour-copy"></p><div class="nova-tour-hint" id="nova-tour-hint">'+icon()+'<span></span></div><div class="nova-tour-footer"><div class="nova-tour-progress" id="nova-tour-progress"></div><button id="nova-tour-next" type="button">Continue</button></div>';
     welcome=document.createElement('div');welcome.id='nova-tour-welcome';welcome.innerHTML='<div class="nova-tour-welcome-card"><div class="nova-tour-welcome-mark">✦</div><h1>Welcome to Nova v7, <span id="nova-tour-user"></span>!</h1><p>Nova has changed. This short interactive tour will show you the parts that matter by letting you use them for real.</p><div class="nova-tour-welcome-actions"><button class="nova-tour-start" type="button">Show me around</button><button class="nova-tour-skip-welcome" type="button">Skip tour</button></div></div>';
     toast=document.createElement('div');toast.className='nova-tour-toast';toast.textContent='Nice — your first Everyone message is sent.';
-    document.body.append(blocker,card,welcome,toast);
+    document.body.append(blocker,spotlight,card,welcome,toast);
     title=$('#nova-tour-title');copy=$('#nova-tour-copy');nextBtn=$('#nova-tour-next');progress=$('#nova-tour-progress');
     $('#nova-tour-skip').onclick=finish;$('.nova-tour-skip-welcome').onclick=finish;$('.nova-tour-start').onclick=function(){welcome.classList.remove('show');setTimeout(function(){welcome.hidden=true;startSteps()},180)};
     nextBtn.onclick=function(){advance()};
-    window.addEventListener('resize',positionCard,{passive:true});window.addEventListener('scroll',positionCard,true);
+    document.addEventListener('click',guardTourClick,true);
+    window.addEventListener('resize',positionTour,{passive:true});window.addEventListener('scroll',positionTour,true);
   }
   function markComplete(){try{localStorage.setItem(COMPLETE_KEY,VERSION)}catch(_){}}
-  function cleanupTarget(){if(state.target){state.target.classList.remove('nova-tour-target');state.target.style.removeProperty('--nova-tour-radius');state.target=null}}
-  function finish(){clearTimeout(waitTimer);cleanupTarget();state.running=false;markComplete();document.documentElement.classList.remove('nova-tour-active','nova-tour-visible');if(blocker)blocker.hidden=true;if(card)card.hidden=true;if(welcome){welcome.classList.remove('show');welcome.hidden=true}returnHome()}
+  function cleanupTarget(){if(state.target){state.target.classList.remove('nova-tour-target');state.target.style.removeProperty('--nova-tour-radius');state.target=null}if(spotlight)spotlight.hidden=true}
+  function finish(){clearTimeout(waitTimer);cleanupTarget();state.running=false;markComplete();document.documentElement.classList.remove('nova-tour-active','nova-tour-visible','nova-tour-running');if(blocker)blocker.hidden=true;if(card)card.hidden=true;if(welcome){welcome.classList.remove('show');welcome.hidden=true}returnHome()}
   function returnHome(){var h=$('.ni-page-item[data-page="home"]')||$('.nav-tab[data-page="home"]');if(h)h.click()}
-  function page(name){return $('#page-'+name)?.classList.contains('active')}
   function clickPage(name){var b=$('.ni-page-item[data-page="'+name+'"]')||$('.nav-tab[data-page="'+name+'"]');if(b)b.click()}
   function openIsland(){var island=$('#nova-island');if(island&&!island.classList.contains('open')){$('#nova-island-star')?.click();if(!island.classList.contains('open'))island.click()}}
   function closeIsland(){var island=$('#nova-island');if(island?.classList.contains('open'))$('#nova-island-close')?.click()}
@@ -79,13 +89,15 @@
     return common;
   }
   function showToast(){toast?.classList.add('show');setTimeout(function(){toast?.classList.remove('show')},2200)}
-  function startSteps(){state.running=true;state.index=0;state.steps=makeSteps();blocker.hidden=false;card.hidden=false;document.documentElement.classList.add('nova-tour-active');requestAnimationFrame(function(){document.documentElement.classList.add('nova-tour-visible');showCurrent()})}
+  function startSteps(){state.running=true;state.index=0;state.steps=makeSteps();blocker.hidden=false;spotlight.hidden=false;card.hidden=false;document.documentElement.classList.add('nova-tour-active','nova-tour-running');requestAnimationFrame(function(){document.documentElement.classList.add('nova-tour-visible');showCurrent()})}
   function advance(){if(state.index>=state.steps.length-1){finish();return}state.index++;showCurrent()}
   function showCurrent(){clearTimeout(waitTimer);cleanupTarget();var s=state.steps[state.index];if(!s)return finish();if(s.before)try{s.before()}catch(_){};resolveTarget(s,0)}
   function resolveTarget(s,tries){var target=$(s.target);var valid=target&&target.getClientRects().length;if((!valid||s.waitFor&&!$(s.waitFor))&&tries<35){waitTimer=setTimeout(function(){resolveTarget(s,tries+1)},120);return}if(!target&&s.fallback)target=$(s.fallback);if(!target){if(tries>=35)advance();return}activate(s,target)}
-  function activate(s,target){state.target=target;target.classList.add('nova-tour-target');target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});title.textContent=typeof s.title==='function'?s.title():s.title;copy.innerHTML=typeof s.copy==='function'?s.copy():s.copy;$('#nova-tour-hint span').textContent=s.hint||'Continue when you are ready.';nextBtn.textContent=s.next||'Continue';nextBtn.hidden=!!s.action;renderProgress();setTimeout(positionCard,80);if(s.action&&s.event){var doneOnce=false;var done=function(){if(doneOnce||!state.running)return;doneOnce=true;advance()};try{s.event(target,done)}catch(_){nextBtn.hidden=false}}}
+  function activate(s,target){state.target=target;target.classList.add('nova-tour-target');target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});title.textContent=typeof s.title==='function'?s.title():s.title;copy.innerHTML=typeof s.copy==='function'?s.copy():s.copy;$('#nova-tour-hint span').textContent=s.hint||'Continue when you are ready.';nextBtn.textContent=s.next||'Continue';nextBtn.hidden=!!s.action;renderProgress();spotlight.hidden=false;setTimeout(positionTour,70);if(s.action&&s.event){var doneOnce=false;var done=function(){if(doneOnce||!state.running)return;doneOnce=true;advance()};try{s.event(target,done)}catch(_){nextBtn.hidden=false}}}
   function renderProgress(){progress.innerHTML='';var total=state.steps.length;var compact=Math.min(total,8);for(var i=0;i<compact;i++){var dot=document.createElement('span');var mapped=Math.floor(state.index/(Math.max(1,total-1))*(compact-1));if(i<mapped)dot.className='done';if(i===mapped)dot.className='active';progress.appendChild(dot)}}
-  function positionCard(){if(!state.running||!state.target||card.hidden)return;var r=state.target.getBoundingClientRect();var cw=card.offsetWidth||390,ch=card.offsetHeight||190,gap=16,vw=innerWidth,vh=innerHeight;var left=Math.min(Math.max(10,r.left+r.width/2-cw/2),vw-cw-10);var below=r.bottom+gap;var above=r.top-ch-gap;var top=below+ch<vh-10?below:(above>10?above:Math.max(10,vh-ch-10));if(r.width>vw*.72&&r.height>vh*.55){top=Math.max(12,vh-ch-18);left=Math.max(10,(vw-cw)/2)}card.style.left=Math.round(left)+'px';card.style.top=Math.round(top)+'px'}
+  function positionSpotlight(){if(!state.running||!state.target||!spotlight||spotlight.hidden)return;var r=state.target.getBoundingClientRect();var pad=10;var left=Math.max(6,r.left-pad),top=Math.max(6,r.top-pad),right=Math.min(innerWidth-6,r.right+pad),bottom=Math.min(innerHeight-6,r.bottom+pad);spotlight.style.left=Math.round(left)+'px';spotlight.style.top=Math.round(top)+'px';spotlight.style.width=Math.max(0,Math.round(right-left))+'px';spotlight.style.height=Math.max(0,Math.round(bottom-top))+'px';var radius=getComputedStyle(state.target).borderRadius||'14px';spotlight.style.borderRadius=radius}
+  function positionCard(){if(!state.running||!state.target||card.hidden)return;var r=state.target.getBoundingClientRect();var cw=card.offsetWidth||370,ch=card.offsetHeight||180,gap=20,vw=innerWidth,vh=innerHeight,margin=12;var spaces={right:vw-r.right,left:r.left,bottom:vh-r.bottom,top:r.top};var side='bottom';if(spaces.right>=cw+gap)side='right';else if(spaces.left>=cw+gap)side='left';else if(spaces.bottom>=ch+gap)side='bottom';else if(spaces.top>=ch+gap)side='top';var left,top;if(side==='right'){left=r.right+gap;top=r.top+r.height/2-ch/2}else if(side==='left'){left=r.left-cw-gap;top=r.top+r.height/2-ch/2}else if(side==='top'){left=r.left+r.width/2-cw/2;top=r.top-ch-gap}else{left=r.left+r.width/2-cw/2;top=r.bottom+gap}left=Math.min(Math.max(margin,left),vw-cw-margin);top=Math.min(Math.max(margin,top),vh-ch-margin);card.style.left=Math.round(left)+'px';card.style.top=Math.round(top)+'px'}
+  function positionTour(){positionSpotlight();positionCard()}
   function offer(){if(completed()||isPreview()||!setupDone()||setupStillActive())return;buildUI();welcome.hidden=false;$('#nova-tour-user').textContent=displayName();blocker.hidden=false;document.documentElement.classList.add('nova-tour-active','nova-tour-visible');welcome.classList.add('show')}
   function boot(){if(isPreview()||completed())return;buildUI();loadCount();var tries=0;(function waitSetup(){if(setupDone()&&!setupStillActive()){setTimeout(function(){if(!completed()&&!setupStillActive())offer()},850);return}if(tries++<160)setTimeout(waitSetup,250)})()}
   window.NovaTour={start:function(){buildUI();localStorage.removeItem(COMPLETE_KEY);welcome.hidden=true;startSteps()},reset:function(){localStorage.removeItem(COMPLETE_KEY)},finish:finish};
