@@ -6,6 +6,7 @@
   var activeGame = null;
   var catalogPromise = null;
   var previousGameScroll = 0;
+  var returnPage = 'games';
 
   function slug(value) {
     return String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -223,11 +224,46 @@
     var games = document.getElementById('page-games');
     var detail = document.getElementById('page-game-detail');
     if (!detail) return;
+    var source = Array.from(document.querySelectorAll('.page.active')).find(function (page) { return page !== detail; });
+    if (source && /^page-/.test(source.id || '')) returnPage = source.id.slice(5) || 'games';
+    else if (typeof window.novaGetCurrentPage === 'function') returnPage = window.novaGetCurrentPage() || returnPage;
     if (games && games.classList.contains('active')) previousGameScroll = games.scrollTop;
     document.querySelectorAll('.page.active').forEach(function (page) { page.classList.remove('active'); });
     detail.classList.add('active');
     detail.scrollTop = 0;
     document.querySelectorAll('.nav-tab').forEach(function (tab) { tab.classList.toggle('active', tab.dataset.page === 'games'); });
+  }
+
+  function clearGameParam(replace) {
+    var nextUrl = new URL(location.href);
+    nextUrl.searchParams.delete('game');
+    var state = Object.assign({}, history.state || {});
+    delete state.novaGameDetail;
+    if (replace) history.replaceState(state, '', nextUrl);
+    else history.pushState(state, '', nextUrl);
+  }
+
+  function restorePage(pageName) {
+    pageName = pageName || 'games';
+    var target = document.getElementById('page-' + pageName);
+    var current = typeof window.novaGetCurrentPage === 'function' ? window.novaGetCurrentPage() : null;
+    if (current && current !== pageName && typeof window.novaSwitchPage === 'function') {
+      window.novaSwitchPage(pageName);
+      return;
+    }
+    document.querySelectorAll('.page.active').forEach(function (page) { page.classList.remove('active'); });
+    target?.classList.add('active');
+    document.querySelectorAll('.nav-tab').forEach(function (tab) { tab.classList.toggle('active', tab.dataset.page === pageName); });
+  }
+
+  function dismissDetailForNavigation() {
+    var detail = document.getElementById('page-game-detail');
+    if (!detail?.classList.contains('active')) return false;
+    detail.classList.remove('active');
+    activeGame = null;
+    document.title = 'Nova 7.0';
+    clearGameParam(true);
+    return true;
   }
 
   function open(game, options) {
@@ -289,20 +325,16 @@
 
   function close(options) {
     options = options || {};
+    var destination = options.destination || returnPage || 'games';
     var detail = document.getElementById('page-game-detail');
     var games = document.getElementById('page-games');
     detail?.classList.remove('active');
-    games?.classList.add('active');
-    if (games) games.scrollTop = previousGameScroll;
-    document.querySelectorAll('.nav-tab').forEach(function (tab) { tab.classList.toggle('active', tab.dataset.page === 'games'); });
     activeGame = null;
     document.title = 'Nova 7.0';
-    if (options.history !== false) {
-      var nextUrl = new URL(location.href);
-      nextUrl.searchParams.delete('game');
-      history.pushState({}, '', nextUrl);
-    }
-    setTimeout(function () { document.querySelector('.nav-tab[data-page="games"]')?.focus(); }, 40);
+    if (options.history !== false) clearGameParam(false);
+    restorePage(destination);
+    if (destination === 'games' && games) games.scrollTop = previousGameScroll;
+    setTimeout(function () { document.querySelector('.nav-tab[data-page="' + destination + '"]')?.focus(); }, 40);
   }
 
   function launch() {
@@ -368,17 +400,10 @@
     var detail = document.getElementById('page-game-detail');
     var nav = event.target.closest('.nav-tab');
     if (nav && detail?.classList.contains('active')) {
-      detail.classList.remove('active');
-      var url = new URL(location.href);
-      url.searchParams.delete('game');
-      history.replaceState({}, '', url);
-      activeGame = null;
-      document.title = 'Nova 7.0';
-      if (nav.dataset.page === 'games') {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        close({ history: false });
-      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      dismissDetailForNavigation();
+      restorePage(nav.dataset.page || returnPage || 'games');
       return;
     }
     var card = event.target.closest('#page-games .game-card, #games-recents-row .recent-card, #recents-row .recent-card');
@@ -400,6 +425,11 @@
     loadCatalog().then(function () { open(findByName(name), { history: true }); }).catch(function () {});
   }, true);
 
+  document.addEventListener('nova:page-change', function (event) {
+    var page = event.detail && event.detail.page;
+    if (page && page !== 'games') dismissDetailForNavigation();
+  });
+
   window.addEventListener('popstate', function () {
     var requested = new URL(location.href).searchParams.get('game');
     if (requested) {
@@ -412,7 +442,7 @@
     document.getElementById('game-detail-back')?.addEventListener('click', function () {
       if (history.state?.novaGameDetail) history.back(); else close();
     });
-    document.getElementById('game-detail-see-all')?.addEventListener('click', function () { close(); });
+    document.getElementById('game-detail-see-all')?.addEventListener('click', function () { close({ destination: 'games' }); });
     document.getElementById('game-detail-play')?.addEventListener('click', launch);
     document.getElementById('game-detail-art')?.addEventListener('click', launch);
     document.getElementById('game-detail-favorite')?.addEventListener('click', toggleFavorite);

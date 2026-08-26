@@ -1439,14 +1439,24 @@ async function openBlockedUsersModal(){
 
 // ── Login overlay ─────────────────────────────────────────────────────────────
 function showLoginOverlay(){
-  if(document.getElementById("nova-social-login-ov"))return;
-  const ov=document.createElement("div");ov.id="nova-social-login-ov";
-  ov.style.cssText="position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:var(--bg,#04040a)";
-  ov.innerHTML='<div class="social-must-login"><div class="social-must-login-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="social-must-login-text">Sign in to use Social</div><button class="social-must-login-btn" id="nova-social-sign-in-btn">Sign In / Sign Up</button></div>';
-  const pg=document.getElementById("page-social");if(pg){pg.style.position="relative";pg.appendChild(ov);}
-  document.getElementById("nova-social-sign-in-btn")?.addEventListener("click",()=>document.getElementById("account-btn")?.click());
+  const pg=document.getElementById("page-social"),gate=document.getElementById("social-guest-gate");
+  teardownSocial();
+  // Remove the old absolute overlay if a cached/older Social init created one.
+  document.getElementById("nova-social-login-ov")?.remove();
+  if(pg)pg.classList.add("social-guest");
+  if(gate)gate.hidden=false;
+  const btn=document.getElementById("social-guest-signin-btn");
+  if(btn&&!btn.dataset.wired){btn.dataset.wired="1";btn.addEventListener("click",()=>{
+    if(window.NovaAccount&&typeof window.NovaAccount.open==="function")window.NovaAccount.open("login");
+    else document.getElementById("account-btn")?.click();
+  });}
 }
-function removeLoginOverlay(){document.getElementById("nova-social-login-ov")?.remove();}
+function removeLoginOverlay(){
+  document.getElementById("nova-social-login-ov")?.remove();
+  const pg=document.getElementById("page-social"),gate=document.getElementById("social-guest-gate");
+  if(pg)pg.classList.remove("social-guest");
+  if(gate)gate.hidden=true;
+}
 
 // ── Init / teardown ───────────────────────────────────────────────────────────
 function initSocial(){
@@ -1694,6 +1704,11 @@ document.addEventListener("nova:social-open-everyone",()=>{wireDom();initSocial(
 document.addEventListener("nova:page-change",e=>{if(e.detail?.page==="social"){wireDom();initSocial();}else if(e.detail?.page==="browser"){wireNtShortcuts();}else if(!document.body.classList.contains("ni-social-sidebar-open")){teardownSocial();}});
 document.addEventListener("nova:social-dock-closed",()=>{if(!document.getElementById("page-social")?.classList.contains("active"))teardownSocial();});
 document.addEventListener("nova:login",()=>{if(document.getElementById("page-social")?.classList.contains("active"))initSocial();});
+document.addEventListener("nova:logout",()=>{if(document.getElementById("page-social")?.classList.contains("active"))showLoginOverlay();else teardownSocial();});
+window.addEventListener("nova:session-changed",event=>{
+  if(!document.getElementById("page-social")?.classList.contains("active"))return;
+  if(event.detail?.user)initSocial();else showLoginOverlay();
+});
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden)return;if(!getAccount())return;
   if(typeof window.__novaCheckHardRefresh==="function")window.__novaCheckHardRefresh();
