@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   var COMPLETE_KEY='nova_tour_v7_complete';
-  var VERSION='7.0-launch-tour-2';
+  var VERSION='7.0-launch-tour-3';
   var SETUP_KEY='nova_setup_v7_complete';
   var SETUP_VERSION='7.0-launch';
   var state={running:false,index:0,target:null,steps:[],loggedIn:false,gameCount:89,firstMessageSeen:false,waitCleanup:null};
@@ -13,12 +13,17 @@
   function completed(){return localStorage.getItem(COMPLETE_KEY)===VERSION}
   function setupDone(){return localStorage.getItem(SETUP_KEY)===SETUP_VERSION}
   function setupStillActive(){
+    if(window.__novaSetupV7Active===true)return true;
     if(document.documentElement.classList.contains('nova-setup-active')||document.documentElement.classList.contains('nova-setup-pending'))return true;
-    var setup=$('#nova-setup'); if(!setup||setup.hidden)return false;
+    var setup=$('#nova-setup');
+    if(!setup||setup.hidden)return false;
     var st=window.getComputedStyle?getComputedStyle(setup):null;
-    if(st&&(st.display==='none'||st.visibility==='hidden'||Number(st.opacity)===0))return false;
-    return setup.getClientRects().length>0;
+    if(st&&(st.display==='none'||st.visibility==='hidden'))return false;
+    if(setup.getClientRects().length>0)return true;
+    var visibleChild=setup.querySelector('.nova-setup-stage,.nova-setup-page.active');
+    return !!(visibleChild&&visibleChild.getClientRects().length>0);
   }
+  function setupReady(){return setupDone()&&!setupStillActive()}
   function icon(){return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'}
   function buildUI(){
     if($('#nova-tour-card'))return;
@@ -46,13 +51,14 @@
   function step(o){return o}
   function waitForCondition(test,done,timeout){var start=Date.now(),stopped=false;function tick(){if(stopped)return;try{if(test()){done();return}}catch(_){}if(Date.now()-start>(timeout||5000)){done();return}waitTimer=setTimeout(tick,80)}tick();return function(){stopped=true;clearTimeout(waitTimer)}}
   function waitForPage(name,done){var finished=false;function complete(){if(finished)return;finished=true;document.removeEventListener('nova:page-change',onPage);done()}function onPage(e){if(e.detail&&e.detail.page===name)complete()}document.addEventListener('nova:page-change',onPage);var stop=waitForCondition(function(){return !!$('#page-'+name+'.active')},complete,4500);return function(){document.removeEventListener('nova:page-change',onPage);stop()}}
+  function waitForVisible(selector,done){return waitForCondition(function(){var el=$(selector);return !!(el&&el.getClientRects().length)},done,4500)}
   function makeSteps(){
     state.loggedIn=isLogged();
     var s=[
       step({id:'island',target:'#nova-island',title:'This is Nova Island',copy:'Nova Island is the <strong>control center of Nova</strong>. Pages, Social, recent activity, your account, and quick controls live here.',hint:'Next, we’ll open Games.',before:function(){clickPage('home');openIsland()}}),
-      step({id:'games-nav',target:'.ni-page-item[data-page="games"]',title:'Games',copy:'This takes you to Nova Games.',hint:'Click Games to open the Games page.',before:openIsland,action:true,event:function(t,done){return waitForPage('games',done)}}),
+      step({id:'games-nav',target:'.ni-page-item[data-page="games"]',title:'Games',copy:'This takes you to Nova Games.',hint:'Click Games to open the Games page.',before:openIsland,action:true,event:function(t,done){var cleanup=waitForPage('games',done);return cleanup}}),
       step({id:'games',target:'#page-games .content-page',title:'Nova Games',copy:function(){return 'Nova currently has <strong>'+state.gameCount+' games</strong>. Search, sort, favorite, or just pick something and play.'},hint:'Now choose a game.',before:closeIsland,waitFor:'#page-games.active'}),
-      step({id:'first-game',target:'#game-grid .game-card',title:'Pick a game',copy:'Click a game to open its overview page before launching it.',hint:'Click the highlighted game.',action:true,event:function(t,done){return waitForPage('game-detail',done)}}),
+      step({id:'first-game',target:'#game-grid .game-card',title:'Pick a game',copy:'Click a game to open its overview page before launching it.',hint:'Click the highlighted game.',action:true,event:function(t,done){var cleanup=waitForPage('game-detail',done);return cleanup}}),
       step({id:'overview',target:'#game-detail-hero',title:'Game overview',copy:'This page gives you the description, artwork, launch controls, and community information before you play.',hint:'Here are the important parts.',waitFor:'#page-game-detail.active'}),
       step({id:'rate',target:'.game-detail-rate',title:'Rate the game',copy:'Use the rating section to tell the Nova community what you think.',hint:'You can rate now or continue.'}),
       step({id:'stats',target:'.game-detail-info',title:'Game stats',copy:'See the community rating, Nova play count, and how the game launches.',hint:'When you’re ready, launch it.'}),
@@ -79,7 +85,7 @@
     return s;
   }
   function showToast(){toast?.classList.add('show');setTimeout(function(){toast?.classList.remove('show')},1800)}
-  function startSteps(){state.running=true;state.index=0;state.steps=makeSteps();card.hidden=false;focus.hidden=false;shades.forEach(function(x){x.hidden=false});document.documentElement.classList.add('nova-tour-active');requestAnimationFrame(function(){document.documentElement.classList.add('nova-tour-visible');showCurrent()})}
+  function startSteps(){if(!setupReady()){suspendForSetup();return}state.running=true;state.index=0;state.steps=makeSteps();card.hidden=false;focus.hidden=false;shades.forEach(function(x){x.hidden=false});document.documentElement.classList.add('nova-tour-active');requestAnimationFrame(function(){document.documentElement.classList.add('nova-tour-visible');showCurrent()})}
   function advance(){if(!state.running)return;if(state.index>=state.steps.length-1){finish();return}state.index++;showCurrent()}
   function showCurrent(){cleanupTarget();var s=state.steps[state.index];if(!s)return finish();if(s.before)try{s.before()}catch(_){};resolveTarget(s,0)}
   function resolveTarget(s,tries){var target=$(s.target),valid=target&&target.getClientRects().length,waitOK=!s.waitFor||!!$(s.waitFor);if((!valid||!waitOK)&&tries<50){waitTimer=setTimeout(function(){resolveTarget(s,tries+1)},80);return}if(!target||!target.getClientRects().length){title.textContent=s.title||'Keep going';copy.textContent='This part of Nova is still loading. You can continue or skip the tour.';nextBtn.hidden=false;nextBtn.textContent='Continue';renderProgress();return}activate(s,target)}
@@ -92,8 +98,44 @@
     leftShade.style.left='0px';leftShade.style.top=t+'px';leftShade.style.width=l+'px';leftShade.style.height=h+'px';
     rightShade.style.left=rr+'px';rightShade.style.top=t+'px';rightShade.style.width=Math.max(0,vw-rr)+'px';rightShade.style.height=h+'px';positionCard(r)}
   function positionCard(r){if(card.hidden)return;var cw=card.offsetWidth||356,ch=card.offsetHeight||178,g=16,m=12,vw=innerWidth,vh=innerHeight,left,top;if(vw-r.right>=cw+g){left=r.right+g;top=r.top+r.height/2-ch/2}else if(r.left>=cw+g){left=r.left-cw-g;top=r.top+r.height/2-ch/2}else if(vh-r.bottom>=ch+g){left=r.left+r.width/2-cw/2;top=r.bottom+g}else{left=r.left+r.width/2-cw/2;top=r.top-ch-g}left=Math.max(m,Math.min(left,vw-cw-m));top=Math.max(m,Math.min(top,vh-ch-m));card.style.left=Math.round(left)+'px';card.style.top=Math.round(top)+'px'}
-  function offer(){if(completed()||isPreview()||!setupDone()||setupStillActive())return;buildUI();welcome.hidden=false;$('#nova-tour-user').textContent=displayName();welcome.classList.add('show')}
-  function boot(){if(isPreview()||completed())return;buildUI();loadCount();var tries=0;(function waitSetup(){if(setupDone()&&!setupStillActive()){setTimeout(function(){if(!completed()&&!setupStillActive())offer()},650);return}if(tries++<180)setTimeout(waitSetup,200)})()}
+  function hideTourUi(){
+    cleanupTarget();
+    state.running=false;
+    document.documentElement.classList.remove('nova-tour-active','nova-tour-visible');
+    shades.forEach(function(x){x.hidden=true});
+    if(focus)focus.hidden=true;
+    if(card)card.hidden=true;
+    if(welcome){welcome.classList.remove('show');welcome.hidden=true}
+  }
+  function suspendForSetup(){hideTourUi();waitForSetupStable()}
+  function offer(){
+    if(completed()||isPreview()||!setupReady())return;
+    buildUI();
+    welcome.hidden=false;
+    $('#nova-tour-user').textContent=displayName();
+    document.documentElement.classList.add('nova-tour-active','nova-tour-visible');
+    welcome.classList.add('show');
+  }
+  function waitForSetupStable(){
+    clearTimeout(waitTimer);
+    var stableSince=0;
+    (function tick(){
+      if(completed()||isPreview())return;
+      if(setupReady()){
+        if(!stableSince)stableSince=Date.now();
+        if(Date.now()-stableSince>=1100){offer();return}
+      }else stableSince=0;
+      waitTimer=setTimeout(tick,120);
+    })();
+  }
+  function boot(){
+    if(isPreview()||completed())return;
+    buildUI();
+    loadCount();
+    window.addEventListener('nova:setup-started',function(){if(!completed())hideTourUi()});
+    window.addEventListener('nova:setup-complete',function(){if(!completed())waitForSetupStable()});
+    waitForSetupStable();
+  }
   window.NovaTour={start:function(){buildUI();localStorage.removeItem(COMPLETE_KEY);if(welcome){welcome.classList.remove('show');welcome.hidden=true}startSteps()},reset:function(){localStorage.removeItem(COMPLETE_KEY)},finish:finish};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
