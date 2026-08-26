@@ -241,6 +241,8 @@
     reportVoice: function (body) { return request("/api/voice/report", { method: "POST", body: body }); },
     voiceIce: function (roomId) { return request("/api/voice/ice?room=" + encodeURIComponent(roomId)); },
     adminOverview: function () { return request("/api/admin/overview"); },
+    adminViews: function () { return request("/api/admin/views", { noCache: true }); },
+    adminHealth: function () { return request("/api/admin/health", { noCache: true, timeoutMs: 12000 }); },
     adminTasks: function (status, scope) { return request("/api/admin/tasks?status=" + encodeURIComponent(status || "") + "&scope=" + encodeURIComponent(scope || "")); },
     adminCreateTask: function (body) { return request("/api/admin/tasks", { method: "POST", body: body }); },
     adminUpdateTask: function (body) { return request("/api/admin/tasks", { method: "PATCH", body: body }); },
@@ -339,6 +341,10 @@
       currentPresenceState = "";
     }
   });
+
+  // Count one Nova view per full document load. Internal SPA navigation is not
+  // counted, keeping the metric useful and the database cost to one tiny write.
+  request("/api/analytics/view", { method: "POST", body: {} }).catch(function () {});
 
   api.me().then(function (data) {
     window.__novaV7User = data.user || null;

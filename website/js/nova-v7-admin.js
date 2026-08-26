@@ -6,6 +6,8 @@
   var state = { view: "overview", users: [], reports: [], tickets: [], supernova: { members: [], requests: [] }, voice: { rooms: [], reports: [], restrictions: [] }, deviceBans: [], banners: [], reportStatus: "", refreshTimer: 0 };
   var icons = {
     overview: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+    health: '<svg viewBox="0 0 24 24"><path d="M3 12h4l2.2-5 4.2 10 2.1-5H21"/><circle cx="12" cy="12" r="10"/></svg>',
+    views: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/></svg>',
     users: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     staff: '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
     reports: '<svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
@@ -87,7 +89,7 @@
     return '<div class="nova-v7-admin" data-admin-role="' + esc(user.role) + '">' +
       '<header class="nova-admin-topbar"><div class="nova-admin-brand"><span class="nova-admin-mark">✦</span><div><strong>Nova Control</strong><small>Administration</small></div></div>' +
       '<div class="nova-admin-top-actions"><span class="nova-admin-environment"><i></i>Turso connected</span><button type="button" class="nova-admin-icon-btn" id="nova-admin-refresh" title="Refresh current view" aria-label="Refresh current view">' + icons.refresh + '</button><span class="nova-admin-role is-' + esc(user.role) + '">' + esc(user.role) + "</span></div></header>" +
-      '<div class="nova-admin-body"><aside class="nova-admin-sidebar"><div class="nova-admin-nav-group"><label>Workspace</label>' + navButton("overview", "Overview") + navButton("tasks", "Tasks") + '</div><div class="nova-admin-nav-group"><label>Manage</label>' + navButton("users", "People") + (isDeveloperUp() ? navButton("staff", "Staff access") : "") + navButton("tickets", "Support tickets") + (canManageAccounts() ? navButton("chat", "Chat moderation") + navButton("voice", "Voice safety") : "") + navButton("reports", "Reports") + navButton("supernova", "Supernova") + '</div>' +
+      '<div class="nova-admin-body"><aside class="nova-admin-sidebar"><div class="nova-admin-nav-group"><label>Workspace</label>' + navButton("overview", "Overview") + navButton("health", "Health") + navButton("views", "Views") + navButton("tasks", "Tasks") + '</div><div class="nova-admin-nav-group"><label>Manage</label>' + navButton("users", "People") + (isDeveloperUp() ? navButton("staff", "Staff access") : "") + navButton("tickets", "Support tickets") + (canManageAccounts() ? navButton("chat", "Chat moderation") + navButton("voice", "Voice safety") : "") + navButton("reports", "Reports") + navButton("supernova", "Supernova") + '</div>' +
       (isDeveloperUp() ? '<div class="nova-admin-nav-group"><label>Publish</label>' + navButton("banners", "Banners") + navButton("maintenance", "Maintenance") + '</div>' : '') +
       (canManageAccounts() ? '<div class="nova-admin-nav-group"><label>Security</label>' + navButton("devices", "Device bans") + (isDeveloperUp() ? navButton("proxy", "Proxy activity") + navButton("audit", "Audit log") : "") + "</div>" : "") +
       '<div class="nova-admin-sidebar-user">' + avatar(user) + '<div><strong>' + esc(user.displayName || user.username) + '</strong><span>@' + esc(user.username) + "</span></div></div></aside>" +
@@ -123,6 +125,7 @@
       if (!document.hidden && document.getElementById("page-dev").classList.contains("active")) {
         refreshTaskBadge();
         if (state.view === "overview") load("overview", true, true);
+        if (state.view === "health") { var hv = document.getElementById("nova-admin-health-view"); var last = Number((hv && hv.dataset.lastHealthRefresh) || 0); if (!last || Date.now() - last >= 60000) { if (hv) hv.dataset.lastHealthRefresh = String(Date.now()); refreshHealthView(false); } }
       }
     }, 30000);
   }
@@ -150,6 +153,8 @@
     if (!quiet) content.innerHTML = loadingView();
     try {
       if (view === "overview") await loadOverview(content, quiet);
+      else if (view === "health") await loadHealthView(content);
+      else if (view === "views") await loadViewsView(content);
       else if (view === "tasks") await loadTasksView(content);
       else if (view === "users") await loadUsersView(content);
       else if (view === "staff") await loadStaffView(content);
@@ -194,7 +199,7 @@
     content.querySelectorAll("[data-quick]").forEach(function (button) { button.onclick = function () { load(button.dataset.quick); }; });
     content.querySelectorAll("[data-report-open]").forEach(function (button) { button.onclick = function () { load("reports"); }; });
     var healthButton = document.getElementById("nova-admin-health");
-    if (healthButton) healthButton.onclick = runHealthCheck;
+    if (healthButton) healthButton.onclick = function () { load("health"); };
   }
 
   function reportPreview(report) {
@@ -213,6 +218,94 @@
       toast("System check passed", "success");
     } catch (error) { result.innerHTML = '<span>Backend</span><strong class="is-unhealthy">Unavailable</strong>'; toast(error.message, "error"); }
     setBusy(button, false);
+  }
+
+  function analyticsNumber(value) {
+    return Number(value || 0).toLocaleString("en-US");
+  }
+
+  function analyticsDateLabel(day) {
+    if (!day) return "—";
+    var parts = String(day).split("-");
+    var date = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2] || 1)));
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  }
+
+  function analyticsMonthLabel(month) {
+    if (!month) return "—";
+    var parts = String(month).split("-");
+    var date = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, 1));
+    return date.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+  }
+
+  function analyticsBars(rows, labelFn) {
+    if (!rows || !rows.length) return '<div class="nova-admin-views-empty">No view data yet.</div>';
+    var max = Math.max.apply(null, rows.map(function (row) { return Number(row.views || 0); }).concat([1]));
+    return '<div class="nova-admin-views-bars">' + rows.map(function (row) {
+      var key = row.day || row.month;
+      var width = Math.max(2, Math.round((Number(row.views || 0) / max) * 100));
+      return '<div class="nova-admin-views-bar-row"><span>' + esc(labelFn(key)) + '</span><div><i style="width:' + width + '%"></i></div><strong>' + esc(analyticsNumber(row.views)) + '</strong></div>';
+    }).join('') + '</div>';
+  }
+
+  async function loadViewsView(content) {
+    content.innerHTML = viewHeading("Analytics", "Views", "Nova page views by day, month, and all time.") + loadingView();
+    var data = await NovaAPI.adminViews();
+    if (state.view !== "views") return;
+    var daily = data.daily || [];
+    var monthly = data.monthly || [];
+    content.innerHTML = viewHeading("Analytics", "Views", "Nova page views by day, month, and all time.") +
+      '<div class="nova-admin-metrics nova-admin-view-metrics">' +
+        metric("All-time views", analyticsNumber(data.allTime), data.trackedFrom ? "Since " + analyticsDateLabel(data.trackedFrom) : "Tracking starts after deployment", "violet") +
+        metric("Today", analyticsNumber(data.today), "UTC day", "green") +
+        metric("This month", analyticsNumber(data.thisMonth), "UTC month", "blue") +
+      '</div>' +
+      '<section class="nova-admin-panel nova-admin-views-panel"><header><div><h2>Day by day</h2><p>Last 31 tracked days</p></div></header>' + analyticsBars(daily, analyticsDateLabel) + '</section>' +
+      '<section class="nova-admin-panel nova-admin-views-panel"><header><div><h2>Month by month</h2><p>Last 24 tracked months</p></div></header>' + analyticsBars(monthly, analyticsMonthLabel) + '</section>' +
+      '<div class="nova-admin-health-note"><strong>Privacy-friendly counting</strong><span>Nova stores only one aggregated counter per UTC day. No IP address, account, device ID, or per-visitor analytics history is saved.</span></div>';
+  }
+
+  function healthStatusLabel(status) {
+    if (status === "healthy") return "Operational";
+    if (status === "degraded") return "Degraded";
+    return "Down";
+  }
+
+  function healthServiceCard(service) {
+    var latency = Number(service.latencyMs || 0);
+    return '<article class="nova-admin-health-service is-' + esc(service.status) + '">' +
+      '<div class="nova-admin-health-dot"></div><div class="nova-admin-health-copy"><span>' + esc(service.category || "System") + '</span><strong>' + esc(service.name) + '</strong><small>' + esc(service.detail || "No details") + '</small></div>' +
+      '<div class="nova-admin-health-meta"><b>' + esc(healthStatusLabel(service.status)) + '</b><time>' + (latency ? esc(latency + " ms") : "—") + '</time></div></article>';
+  }
+
+  async function loadHealthView(content) {
+    content.innerHTML = viewHeading("Monitoring", "Health", "Live status for Nova's internal systems and external dependencies.", '<button type="button" class="nova-admin-primary" id="nova-admin-health-refresh">' + icons.refresh + '<span>Run checks</span></button>') +
+      '<div id="nova-admin-health-view">' + loadingView() + '</div>';
+    var button = document.getElementById("nova-admin-health-refresh");
+    if (button) button.onclick = function () { refreshHealthView(true); };
+    await refreshHealthView(false);
+  }
+
+  async function refreshHealthView(manual) {
+    var target = document.getElementById("nova-admin-health-view");
+    var button = document.getElementById("nova-admin-health-refresh");
+    if (!target || state.view !== "health") return;
+    if (manual) setBusy(button, true, "Checking");
+    try {
+      var data = await NovaAPI.adminHealth();
+      if (state.view !== "health" || !target.isConnected) return;
+      target.dataset.lastHealthRefresh = String(Date.now());
+      var counts = data.counts || {};
+      var groups = {};
+      (data.services || []).forEach(function (service) { (groups[service.category || "Other"] ||= []).push(service); });
+      var overallLabel = data.overall === "healthy" ? "All systems operational" : (data.overall === "degraded" ? "Some systems degraded" : "Service disruption detected");
+      target.innerHTML = '<section class="nova-admin-health-hero is-' + esc(data.overall) + '"><div><span>Overall status</span><h2>' + esc(overallLabel) + '</h2><p>Last checked ' + esc(fmtTime(data.checkedAt)) + ' · Turso schema ' + esc(data.schemaVersion || "—") + '</p></div><div class="nova-admin-health-counts"><span><i class="is-healthy"></i><b>' + esc(counts.healthy || 0) + '</b> operational</span><span><i class="is-degraded"></i><b>' + esc(counts.degraded || 0) + '</b> degraded</span><span><i class="is-down"></i><b>' + esc(counts.down || 0) + '</b> down</span></div></section>' +
+        Object.keys(groups).map(function (group) { return '<section class="nova-admin-panel nova-admin-health-group"><header><div><h2>' + esc(group) + '</h2><p>' + esc(groups[group].length + ' monitored service' + (groups[group].length === 1 ? '' : 's')) + '</p></div></header><div class="nova-admin-health-list">' + groups[group].map(healthServiceCard).join('') + '</div></section>'; }).join('') +
+        '<div class="nova-admin-health-note"><strong>Low-impact monitoring</strong><span>Checks only run while this Health page is open. Automatic refresh is once per minute and does not poll Social/game data.</span></div>';
+      if (manual) toast("Health checks complete", data.overall === "healthy" ? "success" : "");
+    } catch (error) {
+      target.innerHTML = errorView(error.message);
+    } finally { if (manual) setBusy(button, false); }
   }
 
   async function loadTasksView(content) {

@@ -340,7 +340,12 @@ async function ensureTursoSchema(db) {
           UNIQUE(inviter_id,invited_user_id)
         )`),
         db.prepare("CREATE INDEX IF NOT EXISTS supernova_referrals_inviter_idx ON supernova_referrals(inviter_id,status,created_at DESC)"),
-        db.prepare("CREATE INDEX IF NOT EXISTS supernova_referrals_invited_idx ON supernova_referrals(invited_user_id,status,created_at DESC)")
+        db.prepare("CREATE INDEX IF NOT EXISTS supernova_referrals_invited_idx ON supernova_referrals(invited_user_id,status,created_at DESC)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS nova_view_daily(
+          day TEXT PRIMARY KEY,
+          views INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL
+        )`)
       ]);
       return true;
     })().catch(error => { tursoSchemaReady = null; throw error; });
@@ -598,6 +603,9 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/proxy/navigation" && method === "POST") return logProxyNavigation(request, getDb(env));
   if (pathname === "/api/browser-download" && method === "POST") return browserDownload(request, getDb(env));
   if (pathname === "/api/announcements" && method === "GET") return activeAnnouncements(getDb(env));
+  if (pathname === "/api/analytics/view" && method === "POST") return recordNovaView(request, getDb(env));
+  if (pathname === "/api/admin/views" && method === "GET") return adminViews(request, getDb(env));
+  if (pathname === "/api/admin/health" && method === "GET") return adminHealth(request, env);
   if (pathname === "/api/admin/overview" && method === "GET") return adminOverview(request, getDb(env));
   if (pathname === "/api/admin/tasks" && method === "GET") return adminTasks(request, url, getDb(env));
   if (pathname === "/api/admin/tasks" && method === "POST") return adminCreateTask(request, getDb(env));
@@ -4305,6 +4313,120 @@ function exposeBanner(row) {
     createdAt: Number(row.createdAt || 0),
     updatedAt: Number(row.updatedAt || 0)
   };
+}
+
+function novaAnalyticsDayKey(value = Date.now()) {
+  return new Date(Number(value || Date.now())).toISOString().slice(0, 10);
+}
+
+async function recordNovaView(request, db) {
+  // Only the first-party Nova client should record views. This is deliberately
+  // a single aggregated write: no per-visitor row, IP, account or device data
+  // is stored by the analytics counter.
+  if (request.headers.get("X-Nova-Request") !== "1") return apiError("INVALID_REQUEST", "Invalid analytics request", 400);
+  const fetchSite = String(request.headers.get("Sec-Fetch-Site") || "");
+  if (fetchSite && !["same-origin", "none"].includes(fetchSite)) return apiError("INVALID_ORIGIN", "Analytics requests must come from Nova", 403);
+  const now = Date.now();
+  const day = novaAnalyticsDayKey(now);
+  await db.prepare(`INSERT INTO nova_view_daily(day,views,updated_at) VALUES(?,1,?)
+    ON CONFLICT(day) DO UPDATE SET views=views+1,updated_at=excluded.updated_at`).bind(day, now).run();
+  return apiJson({ ok: true });
+}
+
+async function adminViews(request, db) {
+  await requireRole(request, db, STAFF_ROLES);
+  const now = Date.now();
+  const today = novaAnalyticsDayKey(now);
+  const currentMonth = today.slice(0, 7);
+  const [allTimeRow, todayRow, dailyRows, monthlyRows] = await Promise.all([
+    db.prepare("SELECT COALESCE(SUM(views),0) AS views FROM nova_view_daily").first(),
+    db.prepare("SELECT views FROM nova_view_daily WHERE day=?").bind(today).first(),
+    db.prepare("SELECT day,views FROM nova_view_daily ORDER BY day DESC LIMIT 31").all(),
+    db.prepare("SELECT substr(day,1,7) AS month,SUM(views) AS views FROM nova_view_daily GROUP BY substr(day,1,7) ORDER BY month DESC LIMIT 24").all()
+  ]);
+  const monthly = (monthlyRows.results || []).map(row => ({ month: row.month, views: Number(row.views || 0) }));
+  const current = monthly.find(row => row.month === currentMonth);
+  return apiJson({
+    ok: true,
+    trackedFrom: (await db.prepare("SELECT MIN(day) AS day FROM nova_view_daily").first())?.day || null,
+    allTime: Number(allTimeRow?.views || 0),
+    today: Number(todayRow?.views || 0),
+    thisMonth: Number(current?.views || 0),
+    daily: (dailyRows.results || []).map(row => ({ day: row.day, views: Number(row.views || 0) })).reverse(),
+    monthly: monthly.reverse()
+  });
+}
+
+async function healthProbe(name, category, url, options = {}) {
+  const started = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Number(options.timeout || 3500));
+  try {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      redirect: "manual",
+      headers: options.headers || { "User-Agent": "Nova-Health/7.0" },
+      signal: controller.signal
+    });
+    const latencyMs = Date.now() - started;
+    const acceptable = options.accept || ((status) => status >= 200 && status < 500);
+    const ok = acceptable(response.status);
+    return { name, category, status: ok ? "healthy" : "degraded", detail: ok ? `Reachable · HTTP ${response.status}` : `HTTP ${response.status}`, latencyMs };
+  } catch (error) {
+    return { name, category, status: "down", detail: error && error.name === "AbortError" ? "Timed out" : "Unreachable", latencyMs: Date.now() - started };
+  } finally { clearTimeout(timer); }
+}
+
+async function adminHealth(request, env) {
+  const db = getDb(env);
+  await requireRole(request, db, STAFF_ROLES);
+  const checkedAt = Date.now();
+  const dbStarted = Date.now();
+  let dbStatus = "healthy", dbDetail = "Connected", dbLatency = 0, schemaVersion = 0, tables = new Set();
+  try {
+    const [ping, schema, tableRows] = await db.batch([
+      db.prepare("SELECT 1 AS ok"),
+      db.prepare("SELECT version FROM nova_schema_meta WHERE id=1"),
+      db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users','user_sessions','user_profiles','user_settings','user_presence','social_messages','social_channel_members','social_message_reactions','social_typing','reports','support_tickets','admin_tasks','uno_lobbies','checkers_matches','chess_matches','connect4_matches','voice_rooms','voice_room_members','voice_sfu_tracks','supernova_referrals')")
+    ]);
+    dbLatency = Date.now() - dbStarted;
+    schemaVersion = Number(schema.results?.[0]?.version || 0);
+    tables = new Set((tableRows.results || []).map(row => row.name));
+    if (!ping.results?.length || schemaVersion < 717) { dbStatus = "degraded"; dbDetail = `Schema ${schemaVersion || "missing"}`; }
+    else dbDetail = `Turso · schema ${schemaVersion}`;
+  } catch (error) {
+    dbLatency = Date.now() - dbStarted; dbStatus = "down"; dbDetail = "Database query failed";
+  }
+
+  const hasAll = (names) => names.every(name => tables.has(name));
+  const configuredGemini = geminiKeys(env).length > 0;
+  const internal = [
+    { name: "Pages Worker", category: "Core", status: "healthy", detail: "Request handler running", latencyMs: 0 },
+    { name: "Turso Database", category: "Core", status: dbStatus, detail: dbDetail, latencyMs: dbLatency },
+    { name: "Authentication", category: "Core", status: dbStatus === "down" ? "down" : (hasAll(["users","user_sessions","user_profiles"]) ? "healthy" : "degraded"), detail: hasAll(["users","user_sessions","user_profiles"]) ? "Session and account tables ready" : "Required auth table missing", latencyMs: dbLatency },
+    { name: "Settings & Profiles", category: "Core", status: dbStatus === "down" ? "down" : (hasAll(["user_profiles","user_settings"]) ? "healthy" : "degraded"), detail: hasAll(["user_profiles","user_settings"]) ? "Profile storage ready" : "Required table missing", latencyMs: dbLatency },
+    { name: "Nova Social", category: "Social", status: dbStatus === "down" ? "down" : (hasAll(["social_messages","social_channel_members","social_message_reactions","social_typing","user_presence"]) ? "healthy" : "degraded"), detail: hasAll(["social_messages","social_channel_members","social_message_reactions","social_typing","user_presence"]) ? "Messaging, reactions, typing and presence ready" : "Social schema incomplete", latencyMs: dbLatency },
+    { name: "Moderation & Support", category: "Admin", status: dbStatus === "down" ? "down" : (hasAll(["reports","support_tickets","admin_tasks"]) ? "healthy" : "degraded"), detail: hasAll(["reports","support_tickets","admin_tasks"]) ? "Reports, tickets and tasks ready" : "Admin schema incomplete", latencyMs: dbLatency },
+    { name: "Social Games", category: "Games", status: dbStatus === "down" ? "down" : (hasAll(["uno_lobbies","checkers_matches","chess_matches","connect4_matches"]) ? "healthy" : "degraded"), detail: hasAll(["uno_lobbies","checkers_matches","chess_matches","connect4_matches"]) ? "UNO, Checkers, Chess and Connect Four ready" : "One or more game tables missing", latencyMs: dbLatency },
+    { name: "Voice Rooms", category: "Voice", status: dbStatus === "down" ? "down" : (env.VOICE_ROOMS && hasAll(["voice_rooms","voice_room_members"]) ? "healthy" : "degraded"), detail: env.VOICE_ROOMS ? "Voice binding configured" : "VOICE_ROOMS binding missing", latencyMs: 0 },
+    { name: "Cloudflare Realtime", category: "Voice", status: env.REALTIME_APP_ID && env.REALTIME_APP_SECRET ? "healthy" : "degraded", detail: env.REALTIME_APP_ID && env.REALTIME_APP_SECRET ? "Credentials configured" : "Realtime credentials missing", latencyMs: 0 },
+    { name: "Nova AI", category: "AI", status: configuredGemini ? "healthy" : "degraded", detail: configuredGemini ? `${geminiKeys(env).length} Gemini key${geminiKeys(env).length === 1 ? "" : "s"} configured` : "No Gemini API key configured", latencyMs: 0 },
+    { name: "Static Assets", category: "Core", status: env.ASSETS ? "healthy" : "degraded", detail: env.ASSETS ? "Cloudflare Assets binding ready" : "Assets binding unavailable", latencyMs: 0 },
+    { name: "Modern Proxy Runtime", category: "Proxy", status: "healthy", detail: "Scramjet/libcurl/Epoxy assets bundled", latencyMs: 0 },
+    { name: "Legacy Proxy Runtime", category: "Proxy", status: "healthy", detail: "BareMux/Vortex assets bundled", latencyMs: 0 }
+  ];
+
+  const externalChecks = [
+    healthProbe("Wisp Gateway", "Proxy", "https://unified-wisp-epoxy.fly.dev/", { timeout: 4000 }),
+    healthProbe("Cloudflare Realtime Edge", "Voice", "https://rtc.live.cloudflare.com/", { timeout: 3500 }),
+    healthProbe("Open Relay", "Voice", `https://${OPEN_RELAY_HOST}/`, { timeout: 3500 }),
+    healthProbe("Google Gemini API", "AI", "https://generativelanguage.googleapis.com/", { timeout: 3500 })
+  ];
+  const external = await Promise.all(externalChecks);
+  const services = internal.concat(external);
+  const counts = services.reduce((out, item) => { out[item.status] = (out[item.status] || 0) + 1; return out; }, { healthy: 0, degraded: 0, down: 0 });
+  const overall = counts.down ? "down" : (counts.degraded ? "degraded" : "healthy");
+  return apiJson({ ok: true, checkedAt, overall, counts, schemaVersion, services });
 }
 
 async function adminOverview(request, db) {

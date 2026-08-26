@@ -35,3 +35,11 @@ CREATE INDEX IF NOT EXISTS uno_lobbies_updated_idx ON uno_lobbies(updated_at);
 CREATE INDEX IF NOT EXISTS checkers_updated_idx ON checkers_matches(updated_at);
 CREATE INDEX IF NOT EXISTS chess_updated_idx ON chess_matches(updated_at);
 CREATE INDEX IF NOT EXISTS connect4_updated_idx ON connect4_matches(updated_at);
+
+
+-- Aggregated Nova page-view analytics. One row per UTC day; no visitor data is stored.
+CREATE TABLE IF NOT EXISTS nova_view_daily (
+  day TEXT PRIMARY KEY,
+  views INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
