@@ -75,4 +75,5 @@ test('cookie consent lives in Setup beside the legal links', () => {
 test('Recent observes the actual tab state and advances after its real click', () => {
   assert.match(tour, /id:'recent'[\s\S]*observe:'\.ni-tab\[data-ni-tab="recent"\]'/);
   assert.match(tour, /completeWhen:function\(\)\{return!!q\('\.ni-tab\.active\[data-ni-tab="recent"\]'\)\}/);
+  assert.match(tour, /s\.addEventListener\(type,function\(event\)\{event\.stopPropagation\(\)\}\)/);
 });
