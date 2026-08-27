@@ -79,3 +79,10 @@ test('Recent observes the actual tab state and advances after its real click', (
   assert.match(tour, /function settlePosition\(\)/);
   assert.match(tour, /\[80,180,340\]/);
 });
+
+test('Nova Island closes on outside clicks including the Browser iframe', () => {
+  const index = fs.readFileSync(indexPath, 'utf8');
+  assert.match(index, /if\(star\.classList\.contains\('open'\)[\s\S]*?\)\{\s*closeIsland\(\);/);
+  assert.match(index, /focused\.matches\('#frame-container iframe\.tab-iframe\.active'\)/);
+  assert.doesNotMatch(index, /if\(!islandShouldStayOpen\(\)\) closeIsland\(\);/);
+});

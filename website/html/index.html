@@ -1243,12 +1243,21 @@ document.addEventListener('click', function(e){
   var socialOverlay = e.target.closest && e.target.closest('.social-attachment-menu,.social-camera-overlay,.social-reaction-picker');
   var attachmentActive = document.body.classList.contains('social-attachment-active') || document.body.classList.contains('social-reaction-active');
   if(star.classList.contains('open') && !attachmentActive && !socialOverlay && !island.contains(e.target) && !star.contains(e.target) && !(socialDock && socialDock.contains(e.target))){
-    if(!islandShouldStayOpen()) closeIsland();
+    closeIsland();
   }
+});
+// Browser pages render inside an iframe, so clicks in the browsing workspace
+// do not bubble into this document. Focusing an active browser frame is the
+// iframe equivalent of clicking outside Nova Island.
+window.addEventListener('blur', function(){
+  setTimeout(function(){
+    var focused = document.activeElement;
+    if(island.classList.contains('open') && focused && focused.matches && focused.matches('#frame-container iframe.tab-iframe.active')) closeIsland();
+  }, 0);
 });
 // Escape key also closes
 document.addEventListener('keydown', function(e){
-  if(e.key === 'Escape' && island.classList.contains('open') && !islandShouldStayOpen() && !document.body.classList.contains('social-attachment-active') && !document.body.classList.contains('social-reaction-active')) closeIsland();
+  if(e.key === 'Escape' && island.classList.contains('open') && !document.body.classList.contains('social-attachment-active') && !document.body.classList.contains('social-reaction-active')) closeIsland();
 });
 document.addEventListener('nova:focused-content-open', function(e){
   if(!e.detail || e.detail.type === 'movie') islandMovieActive = true;
