@@ -38,8 +38,15 @@ html.nova-setup-active:has(.nova-setup) #nova-island-hint {
   pointer-events: none !important;
 }
 
+html.nova-setup-pending #nova-shell,
 html.nova-setup-active:has(.nova-setup) #nova-shell {
+  visibility: hidden !important;
   pointer-events: none !important;
+}
+
+html.nova-setup-pending #nova-adsense-real-home,
+html.nova-setup-active:has(.nova-setup) #nova-adsense-real-home {
+  visibility: hidden !important;
 }
 
 html.nova-setup-active #consent-banner,
@@ -74,7 +81,7 @@ html.nova-setup-active #star-layer-2 {
   z-index: 8400;
   overflow: hidden;
   color: var(--text);
-  background: color-mix(in srgb, var(--bg) 54%, transparent);
+  background: #05050c;
   font-family: "Space Mono", monospace;
   opacity: 0;
   animation: novaSetupReveal 420ms cubic-bezier(.22, 1, .36, 1) forwards;
@@ -1002,6 +1009,68 @@ html.nova-setup-active #star-layer-2 {
   display: flex;
   gap: 22px;
   margin-top: 22px;
+}
+
+.nova-setup-privacy-footer {
+  display: grid;
+  gap: 16px;
+}
+
+.nova-setup-consent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--s1) 55%, transparent);
+}
+
+.nova-setup-consent legend {
+  padding: 0 6px;
+  color: var(--white);
+  font: 700 11px/1.4 "Space Mono", monospace;
+}
+
+.nova-setup-consent p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.nova-setup-consent-options {
+  display: flex;
+  gap: 8px;
+}
+
+.nova-setup-consent-options button {
+  min-width: 78px;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: 700 9px/1 "Space Mono", monospace;
+  cursor: pointer;
+}
+
+.nova-setup-consent-options button.active {
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--white);
+}
+
+.nova-setup-consent-options button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 72%, white);
+  outline-offset: 2px;
+}
+
+@media (max-width: 620px) {
+  .nova-setup-consent { grid-template-columns: 1fr; }
+  .nova-setup-consent-options button { flex: 1; }
 }
 
 .nova-setup-text-link {

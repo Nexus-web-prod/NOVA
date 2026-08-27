@@ -51,6 +51,7 @@
     starDensity: 70,
     soundEffects: false,
     privacyReviewed: false,
+    consent: localStorage.getItem("nova_consent") === "minimal" ? "minimal" : "accepted",
     profileLoaded: false,
     profileTouched: { displayName: false, bio: false, avatarUrl: false },
     profile: {
@@ -254,7 +255,17 @@
                 <div class="nova-setup-privacy-row"><span class="nova-setup-privacy-number">04</span><strong>What Nova never records</strong><p>Nova does not store your account password in readable form, sell personal data, or record the contents of pages you visit through the proxy.</p></div>
                 <div class="nova-setup-privacy-row"><span class="nova-setup-privacy-number">05</span><strong>Account-based Social access</strong><p>Browsing works for guests. Sending messages, friend requests, and group invitations requires a signed-in Nova account.</p></div>
               </div>
-              <div class="nova-setup-privacy-links"><a class="nova-setup-text-link" href="#nova-privacy" data-legal="privacy">Privacy Policy</a><a class="nova-setup-text-link" href="#nova-terms" data-legal="terms">Terms of Service</a></div>
+              <div class="nova-setup-privacy-footer">
+                <div class="nova-setup-privacy-links"><a class="nova-setup-text-link" href="#nova-privacy" data-legal="privacy">Privacy Policy</a><a class="nova-setup-text-link" href="#nova-terms" data-legal="terms">Terms of Service</a></div>
+                <fieldset class="nova-setup-consent" aria-labelledby="nova-setup-consent-label">
+                  <legend id="nova-setup-consent-label">Local storage and cookies</legend>
+                  <p>Nova uses local storage for preferences. Signed-in accounts, profiles, Social messages, and safety records are stored securely to run Nova. Nova does not sell personal data.</p>
+                  <div class="nova-setup-consent-options">
+                    <button type="button" data-setup-consent="minimal">Minimal</button>
+                    <button type="button" data-setup-consent="accepted">Accept</button>
+                  </div>
+                </fieldset>
+              </div>
             </div>
           </section>
 
@@ -711,7 +722,7 @@
     localStorage.setItem("nova_control_center", JSON.stringify(settings));
     localStorage.setItem("nova_theme", state.theme);
     localStorage.setItem(MODE_KEY, state.mode);
-    localStorage.setItem("nova_consent", "accepted");
+    localStorage.setItem("nova_consent", state.consent);
     await suppressInitialWhatsNew();
   }
 
@@ -787,6 +798,18 @@
       if (state.step === 4) state.privacyReviewed = true;
       if (state.step === 5) { finish(false); return; }
       goTo(state.step + 1);
+    });
+    all("[data-setup-consent]").forEach(function (button) {
+      button.classList.toggle("active", button.dataset.setupConsent === state.consent);
+      button.setAttribute("aria-pressed", button.dataset.setupConsent === state.consent ? "true" : "false");
+      button.addEventListener("click", function () {
+        state.consent = button.dataset.setupConsent === "minimal" ? "minimal" : "accepted";
+        all("[data-setup-consent]").forEach(function (item) {
+          var active = item.dataset.setupConsent === state.consent;
+          item.classList.toggle("active", active);
+          item.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+      });
     });
 
     byId("nova-setup-display-name")?.addEventListener("input", function (event) { state.profile.displayName = event.target.value.slice(0, 40); state.profileTouched.displayName = true; renderIdentity(); });

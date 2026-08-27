@@ -1319,7 +1319,10 @@ async function sendEveryone(text,type){
   try{
     const fields={from:me,text,ts:String(msg.ts),type,cid,...(rt?{replyToId:rt._id||null,replyFrom:rt.from,replyText:rt.text.substring(0,200),replyType:rt.type}:{})};
     const sid=await streamAdd("nova:stream:everyone",fields);
-    if(sid){setCursor("everyone",sid);seenIds.add(sid);if(optEl)optEl.dataset.streamId=sid;startEveryoneCooldown(5000);}else{if(optEl)optEl.remove();seenIds.delete(cid);toast("Send failed");}
+    if(sid){
+      setCursor("everyone",sid);seenIds.add(sid);if(optEl)optEl.dataset.streamId=sid;startEveryoneCooldown(5000);
+      document.dispatchEvent(new CustomEvent("nova:social-message-sent",{detail:{pane:"everyone",messageId:sid,type:type}}));
+    }else{if(optEl)optEl.remove();seenIds.delete(cid);toast("Send failed");}
   }catch(error){if(optEl)optEl.remove();seenIds.delete(cid);const input=document.getElementById("social-everyone-input");if(type==="text"&&input&&!input.value)input.value=text;showSendError(error);}
   finally{sendLock=false;}
 }

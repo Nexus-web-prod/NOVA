@@ -115,7 +115,7 @@
   function statsFor(game) {
     try {
       var cache = JSON.parse(localStorage.getItem('nova_stats_cache') || '{}');
-      return cache.data && cache.data[slug(game.name)] || { views: 0, avg: 0, count: 0 };
+      return cache.schema === 2 && cache.data && cache.data[slug(game.name)] || { views: 0, avg: 0, count: 0 };
     } catch (error) {
       return { views: 0, avg: 0, count: 0 };
     }
@@ -131,6 +131,8 @@
   function cacheCommunityStats(gameSlug, stats) {
     var cache = {};
     try { cache = JSON.parse(localStorage.getItem('nova_stats_cache') || '{}'); } catch (error) {}
+    if (cache.schema !== 2) cache = {};
+    cache.schema = 2;
     cache.data = cache.data || {};
     cache.data[gameSlug] = stats;
     cache.ts = Date.now();

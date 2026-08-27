@@ -5,6 +5,15 @@
 // AdSense's site preview has no Nova setup state. Let it render the public
 // shell instead of capturing the setup-pending background by itself.
 window.__NOVA_ADS_PREVIEW = location.protocol === "about:" || location.href === "about:srcdoc" || /(?:^|[?&])google_preview(?:_hash)?=/i.test(location.search) || /adsense\.google\./i.test(document.referrer) || /AdsBot-Google|Mediapartners-Google/i.test(navigator.userAgent);
+if (!window.__NOVA_ADS_PREVIEW) {
+  try {
+    if (localStorage.getItem("nova_setup_v7_complete") !== "7.0-launch") {
+      document.documentElement.classList.add("nova-setup-pending");
+    }
+  } catch (_) {
+    document.documentElement.classList.add("nova-setup-pending");
+  }
+}
 </script>
 <script>
 // Nova's account, presence, and social APIs require the Cloudflare origin.
@@ -22,7 +31,6 @@ if(location.protocol === 'file:') location.replace('https://dev.nova-7.pages.dev
 <link rel="stylesheet" href="/website/css/nova-ads.css?v=20260825-stability-r1">
 <style id="nova-account-modal-fix">.acct-modal-box{background:#0d0d1d!important;color:#eeeef6!important;z-index:1;border-color:rgba(139,143,255,.34)!important;box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(139,143,255,.12),0 0 70px rgba(107,92,255,.14)!important}</style>
 <link rel="stylesheet" href="/website/css/nova-game-detail.css?v=20260825-stability-r1">
-<link rel="stylesheet" href="/website/css/nova-tour-v7.css?v=20260826-tour-r3">
 <link rel="stylesheet" href="/website/css/nova-vc.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="/website/css/nova-supernova-hub.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="/website/css/nova-holiday-themes.css?v=20260825-stability-r1">
@@ -30,7 +38,7 @@ if(location.protocol === 'file:') location.replace('https://dev.nova-7.pages.dev
     <link rel="stylesheet" href="/website/css/nova-tickets.css?v=20260825-stability-r1">
     <link rel="stylesheet" href="/website/css/nova-settings-v7.css?v=20260825-stability-r1">
     <link rel="stylesheet" href="/website/css/nova-browser-devtools.css?v=20260825-stability-r1">
-    <link rel="stylesheet" href="/website/css/nova-setup-v7.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-setup-v7.css?v=20260827-opaque-r3">
     <link rel="stylesheet" href="/website/css/nova-theme-global.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;900&family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
 <meta name="nova-version" content="7.0">
@@ -1838,15 +1846,6 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 <div class="amb a1"></div>
 <div class="amb a2"></div>
 <div id="toast-container"></div>
-<div id="consent-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;background:rgba(4,4,14,.97);border-top:1px solid rgba(139,143,255,.15);padding:.9rem 1.5rem;align-items:center;justify-content:space-between;gap:1rem;backdrop-filter:blur(24px);flex-wrap:wrap;">
-<div style="font-family:Space Mono,monospace;font-size:.58rem;color:#a0a0c0;max-width:560px;line-height:1.65;letter-spacing:.03em;">
-      🍪 <strong style="color:#eeeef6;">Nova uses local storage</strong> for preferences. Signed-in accounts, profiles, Social messages, and safety records are stored securely to run Nova. Nova does not sell personal data.
-    </div>
-<div style="display:flex;gap:.5rem;flex-shrink:0;">
-<button id="consent-decline" style="font-family:Space Mono,monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:100px;color:#7878a0;padding:.28rem .8rem;cursor:pointer;">Minimal</button>
-<button id="consent-accept" style="font-family:Space Mono,monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;background:rgba(139,143,255,.14);border:1px solid rgba(139,143,255,.3);border-radius:100px;color:#eeeef6;padding:.28rem .8rem;cursor:pointer;">Accept</button>
-</div>
-</div>
 <div id="whats-new-overlay" class="hidden">
 <div class="whats-new-modal">
 <div class="wn-header">
@@ -3262,7 +3261,7 @@ General
 <script src="/website/js/nova-v7-api.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-v7-account.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-activity.js?v=20260825-stability-r1" defer></script>
-<script src="/website/js/nova.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova.js?v=20260827-consent-r1" defer></script>
 <script src="/website/js/nova-settings-v7-ui.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-settings-control.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-developer-options.js?v=20260825-stability-r1" defer></script>
@@ -3270,8 +3269,8 @@ General
 <script src="/website/js/nova-sound.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-v7-profile.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-v7-profile-account-bridge.js?v=20260825-stability-r1" defer></script>
-<script src="/website/js/nova-setup-v7.js?v=20260825-stability-r1" defer></script>
-<script src="/website/js/nova-tour-v7.js?v=20260826-tour-r3" defer></script>
+<script src="/website/js/nova-setup-v7.js?v=20260827-consent-r1" defer></script>
+<script src="/website/js/nova-onboarding-tour-v7.js?v=20260827-recent-r1" defer></script>
 <script src="/website/js/nova-message-island.js?v=20260825-stability-r1" defer></script>
 <script src="/proxy/js/nova-proxy.js?v=20260822-sj2067-r8.19" defer></script>
 <script src="/website/js/nova-supernova-tier.js?v=20260825-stability-r1"></script>
@@ -3940,7 +3939,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script src="/website/js/nova-movies.js?v=20260825-stability-r1"></script>
 <script src="/website/js/nova-game-copy.js?v=20260825-stability-r1"></script>
-<script src="/website/js/nova-game-detail.js?v=20260825-stability-r1"></script>
+<script src="/website/js/nova-game-detail.js?v=20260827-rating-api1"></script>
 <div id="nova-orbit-panel" style="display:none;position:fixed;top:2.6rem;right:.7rem;z-index:9990;background:var(--bg);border:1px solid rgba(139,143,255,.22);border-radius:16px;padding:1.2rem 1.3rem 1.1rem;min-width:230px;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.5);backdrop-filter:blur(16px);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
     <div style="display:flex;align-items:center;gap:.4rem;">
