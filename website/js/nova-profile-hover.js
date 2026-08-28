@@ -21,7 +21,37 @@
     var data = await NovaAPI.publicProfile(username); cache.set(username, { at: Date.now(), profile: data.profile }); return data.profile;
   }
   function place(anchor) {
-    var rect = anchor.getBoundingClientRect(), width = Math.min(340, innerWidth - 24);
+    var rect = anchor.getBoundingClientRect();
+    var friendRow = anchor.closest && anchor.closest(".social-friend-item");
+    var chatArea = friendRow ? document.getElementById("social-chat-area") : null;
+
+    // Friend profile cards belong in the conversation pane, never on top of
+    // the friends list. Keep the popover fully constrained to the visible
+    // Social chat area while preserving the normal placement everywhere else.
+    if (chatArea) {
+      var chatRect = chatArea.getBoundingClientRect();
+      if (chatRect.width > 80 && chatRect.height > 80) {
+        var gutter = 18;
+        var width = Math.min(340, Math.max(220, chatRect.width - gutter * 2));
+        // Lock the card to the chat/friends divider instead of centering it
+        // in the conversation pane. This keeps profile details visually tied
+        // to the Friends panel without covering the friend rows themselves.
+        var left = Math.max(chatRect.left + gutter, chatRect.right - width - gutter);
+        var cardHeight = card.offsetHeight || 220;
+        var preferredTop = rect.top + (rect.height - cardHeight) / 2;
+        var minTop = chatRect.top + gutter;
+        var maxTop = Math.max(minTop, chatRect.bottom - cardHeight - gutter);
+        var top = Math.min(maxTop, Math.max(minTop, preferredTop));
+        card.style.left = Math.round(left) + "px";
+        card.style.top = Math.round(top) + "px";
+        card.style.width = Math.round(width) + "px";
+        card.classList.add("social-chat-profile");
+        return;
+      }
+    }
+
+    card.classList.remove("social-chat-profile");
+    var width = Math.min(340, innerWidth - 24);
     var left = Math.min(innerWidth - width - 12, Math.max(12, rect.left));
     var top = rect.bottom + 10;
     if (top + card.offsetHeight > innerHeight - 12) top = Math.max(12, rect.top - card.offsetHeight - 10);

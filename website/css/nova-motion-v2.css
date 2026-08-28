@@ -379,3 +379,130 @@ html[data-reduce-motion="on"] *::after{
     transition-delay:0ms!important;
   }
 }
+
+
+
+/* =====================================================================
+   NOVA 7 — MOTION SYSTEM V3 / ISLAND CURRENT PAGE
+   Stronger navigation feedback and richer micro-interactions.
+   ===================================================================== */
+:root{
+  --motion-page:360ms;
+  --motion-page-exit:180ms;
+}
+
+/* Nova Island: one clean position line that physically slides between page rows. */
+.ni-list{position:relative}
+.ni-page-position-indicator{
+  position:absolute;
+  z-index:5;
+  left:0;
+  top:0;
+  width:3px;
+  height:30px;
+  border-radius:0 4px 4px 0;
+  pointer-events:none;
+  opacity:0;
+  background:var(--accent);
+  box-shadow:0 0 14px color-mix(in srgb,var(--accent) 55%,transparent);
+  transform:translate3d(0,0,0);
+  transition:
+    transform 360ms cubic-bezier(.2,.9,.25,1.12),
+    opacity 130ms ease,
+    height 180ms var(--motion-ease)!important;
+  will-change:transform;
+}
+.ni-page-position-indicator.ni-indicator-instant{transition:none!important}
+.ni-page-item{position:relative;overflow:hidden;border:1px solid transparent!important;padding-right:10px!important}
+.ni-page-item::before,.ni-page-item::after{content:none!important}
+.ni-page-item.ni-active-page{
+  background:color-mix(in srgb,var(--accent) 8%,transparent)!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+.ni-page-item.ni-active-page .ni-page-icon{
+  background:color-mix(in srgb,var(--accent) 16%,transparent)!important;
+  color:var(--accent);
+}
+.ni-page-item.ni-active-page .ni-page-label{color:var(--white)}
+html:not([data-reduce-motion="on"]) .ni-page-item.ni-page-launching .ni-page-icon{animation:novaIslandLaunch 320ms var(--motion-spring) both!important}
+@keyframes novaIslandLaunch{0%{transform:scale(1)}45%{transform:scale(.88) rotate(-4deg)}100%{transform:scale(1)}}
+
+/* New page switch: a soft depth-swipe rather than the old simple fade/slide. */
+@keyframes novaPageDepthInForward{
+  0%{opacity:0;transform:translate3d(26px,9px,0) scale(.982);filter:blur(5px)}
+  58%{opacity:1;transform:translate3d(-2px,0,0) scale(1.002);filter:blur(0)}
+  100%{opacity:1;transform:none;filter:blur(0)}
+}
+@keyframes novaPageDepthInBack{
+  0%{opacity:0;transform:translate3d(-26px,9px,0) scale(.982);filter:blur(5px)}
+  58%{opacity:1;transform:translate3d(2px,0,0) scale(1.002);filter:blur(0)}
+  100%{opacity:1;transform:none;filter:blur(0)}
+}
+@keyframes novaPageDepthOutForward{
+  from{opacity:1;transform:none;filter:blur(0)}
+  to{opacity:0;transform:translate3d(-12px,-3px,0) scale(.992);filter:blur(2px)}
+}
+@keyframes novaPageDepthOutBack{
+  from{opacity:1;transform:none;filter:blur(0)}
+  to{opacity:0;transform:translate3d(12px,-3px,0) scale(.992);filter:blur(2px)}
+}
+html:not([data-reduce-motion="on"]) .page.pg-enter-right{animation:novaPageDepthInForward var(--motion-page) var(--motion-ease) both!important}
+html:not([data-reduce-motion="on"]) .page.pg-enter-left,
+html:not([data-reduce-motion="on"]) .page.pg-enter-up{animation:novaPageDepthInBack var(--motion-page) var(--motion-ease) both!important}
+html:not([data-reduce-motion="on"]) .page.pg-exit-left{animation:novaPageDepthOutForward var(--motion-page-exit) ease-out both!important}
+html:not([data-reduce-motion="on"]) .page.pg-exit-right,
+html:not([data-reduce-motion="on"]) .page.pg-exit-down{animation:novaPageDepthOutBack var(--motion-page-exit) ease-out both!important}
+
+/* More motion across Nova without continuous noise. */
+@keyframes novaContentCascade{from{opacity:0;transform:translate3d(0,10px,0) scale(.994)}to{opacity:1;transform:none}}
+@keyframes novaModalBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes novaBadgePop{0%{opacity:0;transform:scale(.7)}70%{transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
+@keyframes novaToastSpring{0%{opacity:0;transform:translate3d(0,10px,0) scale(.96)}70%{opacity:1;transform:translate3d(0,-1px,0) scale(1.01)}100%{opacity:1;transform:none}}
+
+html:not([data-reduce-motion="on"]) .page.active .game-card,
+html:not([data-reduce-motion="on"]) .page.active .app-card,
+html:not([data-reduce-motion="on"]) .page.active .movie-card,
+html:not([data-reduce-motion="on"]) .page.active .support-card,
+html:not([data-reduce-motion="on"]) .page.active .plan-card,
+html:not([data-reduce-motion="on"]) .page.active .reward-card,
+html:not([data-reduce-motion="on"]) .page.active .recent-card{
+  animation:novaContentCascade 330ms var(--motion-ease) both!important;
+}
+html:not([data-reduce-motion="on"]) .page.active .game-card:nth-child(2),
+html:not([data-reduce-motion="on"]) .page.active .app-card:nth-child(2),
+html:not([data-reduce-motion="on"]) .page.active .support-card:nth-child(2){animation-delay:25ms!important}
+html:not([data-reduce-motion="on"]) .page.active .game-card:nth-child(3),
+html:not([data-reduce-motion="on"]) .page.active .app-card:nth-child(3),
+html:not([data-reduce-motion="on"]) .page.active .support-card:nth-child(3){animation-delay:50ms!important}
+html:not([data-reduce-motion="on"]) .page.active .game-card:nth-child(4),
+html:not([data-reduce-motion="on"]) .page.active .app-card:nth-child(4),
+html:not([data-reduce-motion="on"]) .page.active .support-card:nth-child(4){animation-delay:75ms!important}
+
+html:not([data-reduce-motion="on"]) .modal:not(.hidden),
+html:not([data-reduce-motion="on"]) .social-modal-overlay:not(.hidden),
+html:not([data-reduce-motion="on"]) #whats-new-overlay:not(.hidden){animation:novaModalBackdropIn 160ms ease-out both!important}
+html:not([data-reduce-motion="on"]) .toast.show,
+html:not([data-reduce-motion="on"]) .nova-toast.show{animation:novaToastSpring 280ms var(--motion-spring) both!important}
+html:not([data-reduce-motion="on"]) .ni-badge,
+html:not([data-reduce-motion="on"]) .badge-new,
+html:not([data-reduce-motion="on"]) .notification-badge{animation:novaBadgePop 260ms var(--motion-spring) both!important}
+
+/* Hover feedback for common interactive surfaces. */
+@media (hover:hover) and (pointer:fine){
+  html:not([data-reduce-motion="on"]) .ni-page-item:not(.ni-active-page):hover{transform:translate3d(3px,0,0)!important}
+  html:not([data-reduce-motion="on"]) .settings-rail-btn:hover,
+  html:not([data-reduce-motion="on"]) .social-games-tab:hover,
+  html:not([data-reduce-motion="on"]) .social-everyone-tab:hover{transform:translate3d(0,-1px,0)!important}
+  html:not([data-reduce-motion="on"]) .support-card:hover,
+  html:not([data-reduce-motion="on"]) .plan-card:hover,
+  html:not([data-reduce-motion="on"]) .reward-card:hover{transform:translate3d(0,-3px,0) scale(1.006)!important}
+}
+
+/* Reduced motion remains a true low-motion mode. */
+html[data-reduce-motion="on"] .ni-page-position-indicator,
+html[data-reduce-motion="on"] .ni-page-item,
+html[data-reduce-motion="on"] .page{animation:none!important;transition-duration:.01ms!important;filter:none!important;transform:none!important}
+@media (prefers-reduced-motion:reduce){
+  .ni-page-position-indicator,.ni-page-item,.page,.game-card,.app-card,.movie-card,.support-card,.plan-card,.reward-card,.recent-card{animation:none!important;transition-duration:.01ms!important;filter:none!important;transform:none!important}
+}

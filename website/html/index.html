@@ -772,7 +772,7 @@ html[data-island-close-button="off"] #nova-island-content > .ni-tabs .ni-tab-ind
 <link rel="stylesheet" href="/website/css/nova-chess.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="/website/css/nova-connect4.css?v=20260825-stability-r1">
 <style>.checkers-surface,.chess-surface,.connect4-surface,.social-game-picker{background-color:var(--bg)!important;background-image:radial-gradient(circle at 72% 18%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 42%)!important}@media(max-width:700px){#page-social.social-game-open .social-sidebar{display:none!important}#page-social.social-game-open .social-layout,#page-social.social-game-open .social-chat-area{width:100%!important;max-width:none!important;flex:1 1 100%!important}.social-game-open .social-game-shell{inset:0!important}}</style>
-<link rel="stylesheet" href="/website/css/nova-motion-v2.css?v=20260825-stability-r1">
+<link rel="stylesheet" href="/website/css/nova-motion-v2.css?v=20260827-island-line-r2">
 <style id="nova-v44-ui-polish">
 /* v4.4 UI polish */
 html[data-theme="light"]{
@@ -867,6 +867,7 @@ html[data-theme="light"] .settings-sync-pill{background:rgba(255,250,244,.82)!im
   <!-- PAGES -->
   <div class="ni-panel active" data-ni-panel="pages">
     <div class="ni-list">
+      <span class="ni-page-position-indicator" id="ni-page-position-indicator" aria-hidden="true"></span>
       <button class="ni-page-item ni-active-page" data-page="home">
         <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
         <div><div class="ni-page-label">Home</div><div class="ni-page-sub">Nova start page</div></div>
@@ -1545,8 +1546,8 @@ document.querySelectorAll('.ni-page-item[data-page]').forEach(function(btn){
       return;
     }
     var navTab = document.querySelector('.nav-tab[data-page="'+btn.dataset.page+'"]');
-    document.querySelectorAll('.ni-page-item').forEach(function(b){ b.classList.remove('ni-active-page'); });
-    btn.classList.add('ni-active-page');
+    islandCurrentPage = btn.dataset.page;
+    syncIslandCurrentPage(btn.dataset.page);
     btn.classList.add('ni-page-launching');
     setTimeout(function(){
       if(window.innerWidth <= 640) mobileIslandDismissed = true;
@@ -1556,16 +1557,48 @@ document.querySelectorAll('.ni-page-item[data-page]').forEach(function(btn){
     }, 130);
   });
 });
+function syncIslandPageIndicator(activeItem, instant){
+  var indicator = document.getElementById('ni-page-position-indicator');
+  var list = indicator && indicator.closest('.ni-list');
+  if(!indicator || !list || !activeItem || activeItem.offsetParent === null){
+    if(indicator) indicator.style.opacity = '0';
+    return;
+  }
+  var y = activeItem.offsetTop + ((activeItem.offsetHeight - indicator.offsetHeight) / 2);
+  if(instant) indicator.classList.add('ni-indicator-instant');
+  indicator.style.opacity = '1';
+  indicator.style.transform = 'translate3d(0,' + Math.max(0, y) + 'px,0)';
+  if(instant){
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ indicator.classList.remove('ni-indicator-instant'); });
+    });
+  }
+}
+function syncIslandCurrentPage(page, instant){
+  page = page || islandCurrentPage || 'home';
+  var activeItem = null;
+  document.querySelectorAll('.ni-page-item[data-page]').forEach(function(b){
+    var active = b.dataset.page === page;
+    b.classList.toggle('ni-active-page', active);
+    if(active){
+      activeItem = b;
+      b.setAttribute('aria-current','page');
+    } else {
+      b.removeAttribute('aria-current');
+    }
+  });
+  syncIslandPageIndicator(activeItem, !!instant);
+}
 document.addEventListener('nova:page-change', function(e){
   if(e.detail && e.detail.page){
     islandCurrentPage = e.detail.page;
     syncIslandAdminPage();
-    document.querySelectorAll('.ni-page-item[data-page]').forEach(function(b){
-      b.classList.toggle('ni-active-page', b.dataset.page === e.detail.page);
-    });
+    syncIslandCurrentPage(e.detail.page);
     syncIslandVisibility();
   }
 });
+syncIslandCurrentPage(islandCurrentPage, true);
+window.addEventListener('resize', function(){ syncIslandCurrentPage(islandCurrentPage, true); });
 setTimeout(syncIslandVisibility, 0);
 
 // ── UNIVERSAL Recent Activity ──────────────────────────
@@ -3297,7 +3330,7 @@ General
 <script src="/website/js/nova-realtime-voice.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-social-vc.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-tickets.js?v=20260825-stability-r1" defer></script>
-<script src="/website/js/nova-profile-hover.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-profile-hover.js?v=20260827-chat-pane-r1" defer></script>
 <script src="/website/js/nova-ecosystem-6.js?v=20260825-stability-r1" defer></script>
 <script>
 /* Gate Supernova page to Pro users only */
