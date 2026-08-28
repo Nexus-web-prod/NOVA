@@ -50,3 +50,24 @@ test('CSP keeps existing proxy/Wisp allowances and adds scoped AdSense origins',
 test('root document exposes AdSense site verification without a global ad runtime', () => {
   assert.match(html, /<meta\s+name=["']google-adsense-account["']\s+content=["']ca-pub-6082584609878503["']\s*\/?\s*>/i);
 });
+
+test('AdSense traffic-quality runtime is allowed by CSP without opening script-src to all HTTPS', () => {
+  assert.match(headers, /script-src[^\n;]*https:\/\/\*\.adtrafficquality\.google/);
+  assert.match(headers, /connect-src[^\n;]*https:\/\/\*\.adtrafficquality\.google/);
+  assert.doesNotMatch(headers, /script-src[^\n;]*(?:^|\s)https:\s/);
+});
+
+test('AdSense loader is absent from browser, diagnostics, gameplay, policy, and verification pages', () => {
+  const blockedFiles = [
+    'proxy/html/proxy-frame.html',
+    'proxy/html/proxy-diagnostics.html',
+    'website/html/nova-games.html',
+    'website/html/privacy-policy.html',
+    'website/html/staff-privacy-policy.html',
+    'website/html/verification-handoff.html'
+  ];
+  for (const file of blockedFiles) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.equal(source.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js'), false, file);
+  }
+});

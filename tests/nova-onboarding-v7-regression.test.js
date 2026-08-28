@@ -46,6 +46,12 @@ test('Everyone Chat advances only on confirmed send', () => {
   assert.doesNotMatch(tour, /social-everyone-send-btn/);
 });
 
+test('signed-in Social advances from the real Social tab state', () => {
+  assert.match(tour, /id:'social'[\s\S]*?completeWhen:function\(\)\{return!!q\('\.ni-tab\.active\[data-ni-tab="friends"\]'\)\}/);
+  assert.match(tour, /watchSelector=step\.id==='social'\?step\.target:step\.observe/);
+  assert.match(tour, /events:\['nova:social-pane-opened'\]/);
+});
+
 test('the playable tutorial target is Equinox, never Request A Game', () => {
   assert.match(tour, /cardName:'Equinox'/);
   assert.doesNotMatch(tour, /cardName:'Request A Game'/);

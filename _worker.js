@@ -436,16 +436,20 @@ export default {
       return Response.redirect(canonicalUrl.toString(), 308);
     }
 
-    if (isDocumentRequest(request, url)) {
-      if (!hasDatabaseConfig(env)) return maintenanceDocument({ message: "Nova is temporarily unavailable." });
+    // Static proxy/runtime documents must never depend on Turso. The browser
+    // frame is part of the proxy bootstrap, and returning a maintenance 503 here
+    // prevents Scramjet from starting at all. For user-facing documents,
+    // maintenance is best-effort: an actual enabled maintenance flag still wins,
+    // but a missing/unreachable database must not take the entire static app down.
+    if (shouldCheckMaintenanceDocument(request, url) && hasDatabaseConfig(env)) {
       try {
-        const maintenance = await maintenanceState(getDb(env));
-        if (maintenance.enabled && !(await hasStaffSession(request, getDb(env)))) {
+        const db = getDb(env);
+        const maintenance = await maintenanceState(db);
+        if (maintenance.enabled && !(await hasStaffSession(request, db))) {
           return maintenanceDocument(maintenance);
         }
       } catch (error) {
-        console.error("Nova maintenance check failed", error);
-        return maintenanceDocument({ message: "Nova is temporarily unavailable." });
+        console.warn("Nova maintenance check failed open; serving static document", error);
       }
     }
 
@@ -491,7 +495,7 @@ function adSensePreviewDocument(headOnly = false) {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store, max-age=0",
-      "Content-Security-Policy": "default-src 'none'; script-src https://pagead2.googlesyndication.com; style-src 'unsafe-inline'; img-src data: https:; frame-src https://*.googlesyndication.com https://*.doubleclick.net; connect-src https://*.googlesyndication.com https://*.doubleclick.net; base-uri 'none'; form-action 'none'"
+      "Content-Security-Policy": "default-src 'none'; script-src https://pagead2.googlesyndication.com https://tpc.googlesyndication.com https://googleads.g.doubleclick.net https://*.adtrafficquality.google; style-src 'unsafe-inline'; img-src data: https:; frame-src https://*.googlesyndication.com https://*.doubleclick.net https://www.google.com; connect-src https://*.googlesyndication.com https://*.doubleclick.net https://*.adtrafficquality.google https://www.google.com; base-uri 'none'; form-action 'none'"
     }
   });
 }
@@ -4122,6 +4126,15 @@ function isDocumentRequest(request, url) {
   const destination = String(request.headers.get("Sec-Fetch-Dest") || "").toLowerCase();
   const mode = String(request.headers.get("Sec-Fetch-Mode") || "").toLowerCase();
   return destination === "document" || mode === "navigate" || url.pathname === "/" || url.pathname === "/index.html";
+}
+
+function shouldCheckMaintenanceDocument(request, url) {
+  if (!isDocumentRequest(request, url)) return false;
+  // Proxy bootstrap/runtime documents must remain available independently of
+  // the database or the proxy can deadlock before it has a chance to start.
+  if (url.pathname.startsWith("/proxy/")) return false;
+  if (url.pathname === "/website/html/verification-handoff.html") return false;
+  return true;
 }
 
 async function maintenanceState(db, force = false) {
