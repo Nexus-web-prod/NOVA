@@ -51,3 +51,24 @@ CREATE TABLE IF NOT EXISTS nova_view_recent (
   last_view_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS nova_view_recent_time_idx ON nova_view_recent(last_view_at);
+
+-- Native Apps/Games suggestions and one vote per signed-in account.
+CREATE TABLE IF NOT EXISTS content_suggestions (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK(kind IN ('game','app')),
+  title TEXT NOT NULL,
+  normalized_title TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','planned','added','declined')),
+  created_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE(kind, normalized_title)
+);
+CREATE TABLE IF NOT EXISTS content_suggestion_votes (
+  suggestion_id TEXT NOT NULL REFERENCES content_suggestions(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY(suggestion_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS content_suggestions_status_idx ON content_suggestions(status,kind,updated_at DESC);
+CREATE INDEX IF NOT EXISTS content_suggestion_votes_suggestion_idx ON content_suggestion_votes(suggestion_id,created_at DESC);

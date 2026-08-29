@@ -396,7 +396,7 @@ html[data-reduce-motion="on"] *::after{
 .ni-page-position-indicator{
   position:absolute;
   z-index:5;
-  left:0;
+  left:8px;
   top:0;
   width:3px;
   height:30px;

@@ -12,6 +12,7 @@
     staff: '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
     reports: '<svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
     tickets: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2.5 2.5 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2.5 2.5 0 0 0 0-4z"/><path d="M13 5v2m0 3v4m0 3v2"/></svg>',
+    contentVotes: '<svg viewBox="0 0 24 24"><path d="M5 11h14l2 4v6H3v-6l2-4Z"/><path d="M7 3h10v12H7z"/><path d="m9.5 8 1.7 1.7 3.5-3.7"/></svg>',
     chat: '<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="m9 10 2 2 4-4"/></svg>',
     voice: '<svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>',
     supernova: '<svg viewBox="0 0 24 24"><path d="M12 2.5 14.2 9.8 21.5 12l-7.3 2.2L12 21.5l-2.2-7.3L2.5 12l7.3-2.2z"/></svg>',
@@ -89,7 +90,7 @@
     return '<div class="nova-v7-admin" data-admin-role="' + esc(user.role) + '">' +
       '<header class="nova-admin-topbar"><div class="nova-admin-brand"><span class="nova-admin-mark">✦</span><div><strong>Nova Control</strong><small>Administration</small></div></div>' +
       '<div class="nova-admin-top-actions"><span class="nova-admin-environment"><i></i>Turso connected</span><button type="button" class="nova-admin-icon-btn" id="nova-admin-refresh" title="Refresh current view" aria-label="Refresh current view">' + icons.refresh + '</button><span class="nova-admin-role is-' + esc(user.role) + '">' + esc(user.role) + "</span></div></header>" +
-      '<div class="nova-admin-body"><aside class="nova-admin-sidebar"><div class="nova-admin-nav-group"><label>Workspace</label>' + navButton("overview", "Overview") + navButton("health", "Health") + navButton("views", "Views") + navButton("tasks", "Tasks") + '</div><div class="nova-admin-nav-group"><label>Manage</label>' + navButton("users", "People") + (isDeveloperUp() ? navButton("staff", "Staff access") : "") + navButton("tickets", "Support tickets") + (canManageAccounts() ? navButton("chat", "Chat moderation") + navButton("voice", "Voice safety") : "") + navButton("reports", "Reports") + navButton("supernova", "Supernova") + '</div>' +
+      '<div class="nova-admin-body"><aside class="nova-admin-sidebar"><div class="nova-admin-nav-group"><label>Workspace</label>' + navButton("overview", "Overview") + navButton("health", "Health") + navButton("views", "Views") + navButton("tasks", "Tasks") + '</div><div class="nova-admin-nav-group"><label>Manage</label>' + navButton("users", "People") + (isDeveloperUp() ? navButton("staff", "Staff access") : "") + navButton("tickets", "Support tickets") + navButton("contentVotes", "Content votes") + (canManageAccounts() ? navButton("chat", "Chat moderation") + navButton("voice", "Voice safety") : "") + navButton("reports", "Reports") + navButton("supernova", "Supernova") + '</div>' +
       (isDeveloperUp() ? '<div class="nova-admin-nav-group"><label>Publish</label>' + navButton("banners", "Banners") + navButton("maintenance", "Maintenance") + '</div>' : '') +
       (canManageAccounts() ? '<div class="nova-admin-nav-group"><label>Security</label>' + navButton("devices", "Device bans") + (isDeveloperUp() ? navButton("proxy", "Proxy activity") + navButton("audit", "Audit log") : "") + "</div>" : "") +
       '<div class="nova-admin-sidebar-user">' + avatar(user) + '<div><strong>' + esc(user.displayName || user.username) + '</strong><span>@' + esc(user.username) + "</span></div></div></aside>" +
@@ -155,6 +156,7 @@
       if (view === "overview") await loadOverview(content, quiet);
       else if (view === "health") await loadHealthView(content);
       else if (view === "views") await loadViewsView(content);
+      else if (view === "contentVotes") await loadContentVotesView(content);
       else if (view === "tasks") await loadTasksView(content);
       else if (view === "users") await loadUsersView(content);
       else if (view === "staff") await loadStaffView(content);
@@ -263,6 +265,41 @@
       '<section class="nova-admin-panel nova-admin-views-panel"><header><div><h2>Day by day</h2><p>Last 31 tracked days</p></div></header>' + analyticsBars(daily, analyticsDateLabel) + '</section>' +
       '<section class="nova-admin-panel nova-admin-views-panel"><header><div><h2>Month by month</h2><p>Last 24 tracked months</p></div></header>' + analyticsBars(monthly, analyticsMonthLabel) + '</section>' +
       '<div class="nova-admin-health-note"><strong>Privacy-friendly counting</strong><span>Nova stores only one aggregated counter per UTC day. No IP address, account, device ID, or per-visitor analytics history is saved.</span></div>';
+  }
+
+  async function loadContentVotesView(content) {
+    content.innerHTML = viewHeading("Community", "Content votes", "Ranked app and game suggestions submitted inside Nova.") +
+      '<div class="nova-admin-toolbar"><select id="nova-admin-content-vote-status"><option value="">All statuses</option><option value="open">Open</option><option value="planned">Planned</option><option value="added">Added</option><option value="declined">Declined</option></select></div><div id="nova-admin-content-votes-list">' + loadingView() + '</div>';
+    document.getElementById("nova-admin-content-vote-status").onchange = refreshContentVotes;
+    await refreshContentVotes();
+  }
+
+  async function refreshContentVotes() {
+    var target = document.getElementById("nova-admin-content-votes-list");
+    if (!target) return;
+    target.innerHTML = loadingView();
+    try {
+      var status = (document.getElementById("nova-admin-content-vote-status") || {}).value || "";
+      var data = await NovaAPI.adminContentVotes(status);
+      var suggestions = data.suggestions || [];
+      var gameCount = suggestions.filter(function (item) { return item.kind === "game"; }).length;
+      var appCount = suggestions.length - gameCount;
+      var totalVotes = suggestions.reduce(function (sum, item) { return sum + Number(item.votes || 0); }, 0);
+      target.innerHTML = '<div class="nova-admin-metrics nova-admin-content-vote-metrics">' + metric("Suggestions", suggestions.length, "Across both libraries", "purple") + metric("Games", gameCount, "Game ideas") + metric("Apps", appCount, "App ideas") + metric("Votes", totalVotes, "Community votes", "green") + '</div>' +
+        (suggestions.length ? '<div class="nova-admin-content-vote-list">' + suggestions.map(contentVoteCard).join("") + '</div>' : emptyState("No suggestions here", "New in-app votes will appear automatically."));
+      target.querySelectorAll("[data-content-vote-status]").forEach(function (select) {
+        select.onchange = async function () {
+          select.disabled = true;
+          try { await NovaAPI.adminUpdateContentVote({ id: select.dataset.contentVoteStatus, status: select.value }); toast("Suggestion status updated", "success"); await refreshContentVotes(); }
+          catch (error) { toast(error.message, "error"); select.disabled = false; }
+        };
+      });
+    } catch (error) { target.innerHTML = errorView(error.message); }
+  }
+
+  function contentVoteCard(item) {
+    var statuses = ["open", "planned", "added", "declined"];
+    return '<article class="nova-admin-content-vote-card"><span class="nova-admin-content-vote-kind is-' + esc(item.kind) + '">' + esc(item.kind) + '</span><div><h3>' + esc(item.title) + '</h3><p>Suggested by ' + (item.creator ? "@" + esc(item.creator) : "unknown") + ' · ' + esc(fmtTime(item.createdAt)) + '</p></div><strong><span>▲</span>' + esc(Number(item.votes || 0).toLocaleString("en-US")) + '</strong><select data-content-vote-status="' + esc(item.id) + '" aria-label="Status for ' + esc(item.title) + '">' + statuses.map(function (status) { return '<option value="' + status + '"' + (item.status === status ? " selected" : "") + '>' + status.charAt(0).toUpperCase() + status.slice(1) + '</option>'; }).join("") + '</select></article>';
   }
 
   function healthStatusLabel(status) {

@@ -82,9 +82,10 @@
         "image": "/website/assets/media/icons/geodash.png"
     },
     {
-        "name": "Request A Game",
-        "url": "https://docs.google.com/forms/d/e/1FAIpQLScN7qzRdWgdAFqia6Pew9dvlPhEcwkCdL26HO2I1sUb6GzVLw/viewform?pli=1",
-        "image": "/website/assets/media/icons/request.webp",
+        "name": "Vote for Apps & Games",
+        "url": "#nova-content-vote",
+        "image": "/website/assets/media/icons/content-vote.svg",
+        "contentVote": "game",
         "blank": true,
         "noRating": true
     },

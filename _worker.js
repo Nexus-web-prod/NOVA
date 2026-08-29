@@ -350,7 +350,26 @@ async function ensureTursoSchema(db) {
           scope_key TEXT PRIMARY KEY,
           last_view_at INTEGER NOT NULL
         )`),
-        db.prepare("CREATE INDEX IF NOT EXISTS nova_view_recent_time_idx ON nova_view_recent(last_view_at)")
+        db.prepare("CREATE INDEX IF NOT EXISTS nova_view_recent_time_idx ON nova_view_recent(last_view_at)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS content_suggestions(
+          id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL CHECK(kind IN ('game','app')),
+          title TEXT NOT NULL,
+          normalized_title TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','planned','added','declined')),
+          created_by TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE(kind,normalized_title)
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS content_suggestion_votes(
+          suggestion_id TEXT NOT NULL REFERENCES content_suggestions(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY(suggestion_id,user_id)
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS content_suggestions_status_idx ON content_suggestions(status,kind,updated_at DESC)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS content_suggestion_votes_suggestion_idx ON content_suggestion_votes(suggestion_id,created_at DESC)")
       ]);
       return true;
     })().catch(error => { tursoSchemaReady = null; throw error; });
@@ -614,6 +633,10 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/browser-download" && method === "POST") return browserDownload(request, getDb(env));
   if (pathname === "/api/announcements" && method === "GET") return activeAnnouncements(getDb(env));
   if (pathname === "/api/analytics/view" && method === "POST") return recordNovaView(request, getDb(env));
+  if (pathname === "/api/content-votes" && method === "GET") return getContentVotes(request, url, getDb(env));
+  if (pathname === "/api/content-votes" && method === "POST") return updateContentVote(request, getDb(env));
+  if (pathname === "/api/admin/content-votes" && method === "GET") return adminContentVotes(request, url, getDb(env));
+  if (pathname === "/api/admin/content-votes" && method === "PATCH") return adminUpdateContentVote(request, getDb(env));
   if (pathname === "/api/admin/views" && method === "GET") return adminViews(request, getDb(env));
   if (pathname === "/api/admin/health" && method === "GET") return adminHealth(request, env);
   if (pathname === "/api/admin/overview" && method === "GET") return adminOverview(request, getDb(env));
@@ -650,6 +673,92 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/admin/audit" && method === "GET") return adminAudit(request, url, getDb(env));
 
   return apiError("NOT_FOUND", "API route not found", 404);
+}
+
+function exposeContentSuggestion(row) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    title: row.title,
+    status: row.status,
+    votes: Number(row.votes || 0),
+    voted: !!Number(row.voted || 0),
+    creator: row.creator || null,
+    createdAt: Number(row.createdAt || row.created_at || 0),
+    updatedAt: Number(row.updatedAt || row.updated_at || 0)
+  };
+}
+
+async function getContentVotes(request, url, db) {
+  const auth = await requireUser(request, db);
+  const kind = enumValue(cleanText(url.searchParams.get("kind"), 8).toLowerCase(), ["game", "app"], "game");
+  const result = await db.prepare(`SELECT s.id,s.kind,s.title,s.status,s.created_at AS createdAt,s.updated_at AS updatedAt,
+    COUNT(v.user_id) AS votes,MAX(CASE WHEN v.user_id=? THEN 1 ELSE 0 END) AS voted
+    FROM content_suggestions s LEFT JOIN content_suggestion_votes v ON v.suggestion_id=s.id
+    WHERE s.kind=? AND s.status!='declined' GROUP BY s.id
+    ORDER BY CASE s.status WHEN 'added' THEN 0 WHEN 'planned' THEN 1 ELSE 2 END, votes DESC, s.created_at DESC LIMIT 100`)
+    .bind(auth.id, kind).all();
+  return apiJson({ kind, suggestions: (result.results || []).map(exposeContentSuggestion) });
+}
+
+async function updateContentVote(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "content-vote", 40, 10 * 60 * 1000, 10 * 60 * 1000);
+  const body = await readJson(request);
+  const action = enumValue(cleanText(body.action, 16).toLowerCase(), ["suggest", "toggle"], "toggle");
+  const now = Date.now();
+  let suggestionId = cleanText(body.suggestionId, 80);
+  if (action === "suggest") {
+    const kind = enumValue(cleanText(body.kind, 8).toLowerCase(), ["game", "app"], "game");
+    const title = cleanText(body.title, 80).replace(/\s+/g, " ").trim();
+    if (title.length < 2) return apiError("TITLE_REQUIRED", "Enter an app or game name", 400);
+    const normalized = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!normalized) return apiError("TITLE_REQUIRED", "Enter an app or game name", 400);
+    suggestionId = `suggest_${randomId()}`;
+    await db.prepare("INSERT OR IGNORE INTO content_suggestions(id,kind,title,normalized_title,status,created_by,created_at,updated_at) VALUES(?,?,?,?,'open',?,?,?)")
+      .bind(suggestionId, kind, title, normalized, auth.id, now, now).run();
+    const existing = await db.prepare("SELECT id FROM content_suggestions WHERE kind=? AND normalized_title=? LIMIT 1").bind(kind, normalized).first();
+    suggestionId = existing?.id || suggestionId;
+    await db.prepare("INSERT OR IGNORE INTO content_suggestion_votes(suggestion_id,user_id,created_at) VALUES(?,?,?)").bind(suggestionId, auth.id, now).run();
+  } else {
+    const suggestion = await db.prepare("SELECT id FROM content_suggestions WHERE id=? AND status!='declined'").bind(suggestionId).first();
+    if (!suggestion) return apiError("SUGGESTION_NOT_FOUND", "That suggestion is no longer available", 404);
+    const existing = await db.prepare("SELECT 1 FROM content_suggestion_votes WHERE suggestion_id=? AND user_id=?").bind(suggestionId, auth.id).first();
+    if (existing) await db.prepare("DELETE FROM content_suggestion_votes WHERE suggestion_id=? AND user_id=?").bind(suggestionId, auth.id).run();
+    else await db.prepare("INSERT INTO content_suggestion_votes(suggestion_id,user_id,created_at) VALUES(?,?,?)").bind(suggestionId, auth.id, now).run();
+  }
+  const row = await db.prepare(`SELECT s.id,s.kind,s.title,s.status,s.created_at AS createdAt,s.updated_at AS updatedAt,
+    COUNT(v.user_id) AS votes,MAX(CASE WHEN v.user_id=? THEN 1 ELSE 0 END) AS voted
+    FROM content_suggestions s LEFT JOIN content_suggestion_votes v ON v.suggestion_id=s.id WHERE s.id=? GROUP BY s.id`)
+    .bind(auth.id, suggestionId).first();
+  return apiJson({ suggestion: exposeContentSuggestion(row) });
+}
+
+async function adminContentVotes(request, url, db) {
+  await requireRole(request, db, new Set(["admin", "developer", "owner"]));
+  const status = cleanText(url.searchParams.get("status"), 16).toLowerCase();
+  const allowed = new Set(["open", "planned", "added", "declined"]);
+  const where = allowed.has(status) ? "WHERE s.status=?" : "";
+  const statement = db.prepare(`SELECT s.id,s.kind,s.title,s.status,s.created_at AS createdAt,s.updated_at AS updatedAt,
+    u.username AS creator,COUNT(v.user_id) AS votes FROM content_suggestions s
+    LEFT JOIN content_suggestion_votes v ON v.suggestion_id=s.id LEFT JOIN users u ON u.id=s.created_by
+    ${where} GROUP BY s.id ORDER BY votes DESC,s.updated_at DESC LIMIT 250`);
+  const result = allowed.has(status) ? await statement.bind(status).all() : await statement.all();
+  return apiJson({ suggestions: (result.results || []).map(exposeContentSuggestion) });
+}
+
+async function adminUpdateContentVote(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, new Set(["admin", "developer", "owner"]));
+  const body = await readJson(request);
+  const id = cleanText(body.id, 80);
+  const status = enumValue(cleanText(body.status, 16).toLowerCase(), ["open", "planned", "added", "declined"], "open");
+  const existing = await db.prepare("SELECT id FROM content_suggestions WHERE id=?").bind(id).first();
+  if (!existing) return apiError("SUGGESTION_NOT_FOUND", "Suggestion not found", 404);
+  await db.prepare("UPDATE content_suggestions SET status=?,updated_at=? WHERE id=?").bind(status, Date.now(), id).run();
+  await audit(db, auth.id, "content_vote.status", "content_suggestion", id, `Marked ${status}`, { status });
+  return apiJson({ ok: true });
 }
 
 async function browserDownload(request, db) {

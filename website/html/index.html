@@ -38,6 +38,7 @@ if(location.protocol === 'file:') location.replace('https://dev.nova-7.pages.dev
     <link rel="stylesheet" href="/website/css/nova-tickets.css?v=20260825-stability-r1">
     <link rel="stylesheet" href="/website/css/nova-settings-v7.css?v=20260825-stability-r1">
     <link rel="stylesheet" href="/website/css/nova-browser-devtools.css?v=20260825-stability-r1">
+    <link rel="stylesheet" href="/website/css/nova-content-votes.css?v=20260828-vote-r1">
     <link rel="stylesheet" href="/website/css/nova-setup-v7.css?v=20260827-opaque-r3">
     <link rel="stylesheet" href="/website/css/nova-theme-global.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;900&family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
@@ -772,7 +773,7 @@ html[data-island-close-button="off"] #nova-island-content > .ni-tabs .ni-tab-ind
 <link rel="stylesheet" href="/website/css/nova-chess.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="/website/css/nova-connect4.css?v=20260825-stability-r1">
 <style>.checkers-surface,.chess-surface,.connect4-surface,.social-game-picker{background-color:var(--bg)!important;background-image:radial-gradient(circle at 72% 18%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 42%)!important}@media(max-width:700px){#page-social.social-game-open .social-sidebar{display:none!important}#page-social.social-game-open .social-layout,#page-social.social-game-open .social-chat-area{width:100%!important;max-width:none!important;flex:1 1 100%!important}.social-game-open .social-game-shell{inset:0!important}}</style>
-<link rel="stylesheet" href="/website/css/nova-motion-v2.css?v=20260827-island-line-r2">
+<link rel="stylesheet" href="/website/css/nova-motion-v2.css?v=20260828-island-line-r3">
 <style id="nova-v44-ui-polish">
 /* v4.4 UI polish */
 html[data-theme="light"]{
@@ -1132,6 +1133,17 @@ function openIsland(){
   island.classList.add('open'); // morphs island pill→card
   hint.classList.add('hidden');
   setIslandLayoutOpen(true, true);
+  // The Island starts as a collapsed star, so its page rows do not have final
+  // geometry until the open class has been painted. Position the active line
+  // from the expanded layout before it becomes visible.
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      if(island.classList.contains('open')) syncIslandCurrentPage(islandCurrentPage, true);
+    });
+  });
+  islandCloseTimers.push(setTimeout(function(){
+    if(island.classList.contains('open')) syncIslandCurrentPage(islandCurrentPage, true);
+  }, islandCloseDuration() + 20));
   islandCloseTimers.push(setTimeout(function(){
     island.classList.remove('opening');
   }, islandCloseDuration() + 40));
@@ -1564,7 +1576,7 @@ function syncIslandPageIndicator(activeItem, instant){
     if(indicator) indicator.style.opacity = '0';
     return;
   }
-  var y = activeItem.offsetTop + ((activeItem.offsetHeight - indicator.offsetHeight) / 2);
+  var y = activeItem.offsetTop - list.scrollTop + ((activeItem.offsetHeight - indicator.offsetHeight) / 2);
   if(instant) indicator.classList.add('ni-indicator-instant');
   indicator.style.opacity = '1';
   indicator.style.transform = 'translate3d(0,' + Math.max(0, y) + 'px,0)';
@@ -2436,7 +2448,7 @@ body:has(#nova-shell[style*="display:none"])>#nova-adsense-real-home{
 </div>
 <div class="support-faq-item">
 <div class="support-faq-q">How do I suggest a game?</div>
-<div class="support-faq-a">Use the "Request" entry in the Games page or submit a bug report with your suggestion — we check all submissions.</div>
+<div class="support-faq-a">Use the "Vote for Apps &amp; Games" card in either library to suggest an addition and vote on what Nova should add next.</div>
 </div>
 </div>
 <div class="nexus-footer"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <a href="https://nexus-n-co.pages.dev/nexus" target="_blank" class="nexus-footer-link"><strong>NEXUS</strong></a></span></div>
@@ -3297,6 +3309,7 @@ General
 <script src="/website/js/nova-stars.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-ip-guard.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-v7-api.js?v=20260825-stability-r1" defer></script>
+<script src="/website/js/nova-content-votes.js?v=20260828-vote-r1" defer></script>
 <script src="/website/js/nova-v7-account.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-activity.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova.js?v=20260827-consent-r1" defer></script>
