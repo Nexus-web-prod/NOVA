@@ -1251,8 +1251,9 @@ island.addEventListener('click', function(e){
   });
 });
 // Close on outside click — but NOT if clicking star or inside island
-// Outside click closes island
+// Outside clicks dismiss the Island only on pages where it can cover the work area.
 document.addEventListener('click', function(e){
+  if(islandCurrentPage !== 'browser' && islandCurrentPage !== 'settings') return;
   var socialOverlay = e.target.closest && e.target.closest('.social-attachment-menu,.social-camera-overlay,.social-reaction-picker');
   var attachmentActive = document.body.classList.contains('social-attachment-active') || document.body.classList.contains('social-reaction-active');
   if(star.classList.contains('open') && !attachmentActive && !socialOverlay && !island.contains(e.target) && !star.contains(e.target) && !(socialDock && socialDock.contains(e.target))){

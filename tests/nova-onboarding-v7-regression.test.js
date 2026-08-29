@@ -86,8 +86,9 @@ test('Recent observes the actual tab state and advances after its real click', (
   assert.match(tour, /\[80,180,340\]/);
 });
 
-test('Nova Island closes on outside clicks including the Browser iframe', () => {
+test('Nova Island outside clicks dismiss only on Browser and Settings', () => {
   const index = fs.readFileSync(indexPath, 'utf8');
+  assert.match(index, /if\(islandCurrentPage !== 'browser' && islandCurrentPage !== 'settings'\) return;/);
   assert.match(index, /if\(star\.classList\.contains\('open'\)[\s\S]*?\)\{\s*closeIsland\(\);/);
   assert.match(index, /focused\.matches\('#frame-container iframe\.tab-iframe\.active'\)/);
   assert.doesNotMatch(index, /if\(!islandShouldStayOpen\(\)\) closeIsland\(\);/);
