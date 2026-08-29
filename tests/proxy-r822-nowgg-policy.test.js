@@ -7,8 +7,8 @@ const manager = fs.readFileSync(path.join(ROOT, "proxy/js/nova-proxy-manager.js"
 const compatibility = fs.readFileSync(path.join(ROOT, "proxy/js/nova-proxy-compatibility.js"), "utf8");
 const worker = fs.readFileSync(path.join(ROOT, "proxy/sw.js"), "utf8");
 
-assert(manager.includes('const VERSION = "20260829-sj2067-r8.22"'));
-assert(worker.includes('const NOVA_PROXY_RUNTIME_VERSION = "20260829-sj2067-r8.22"'));
+assert(manager.includes('const VERSION = "20260829-sj2067-r8.23"'));
+assert(worker.includes('const NOVA_PROXY_RUNTIME_VERSION = "20260829-sj2067-r8.23"'));
 assert(compatibility.includes('id: "nowgg-cloud-streaming"'));
 assert(compatibility.includes('mode: "direct-on-proxy-policy"'));
 assert(manager.includes("/unofficial proxy detected/i.test(bodyText)"));

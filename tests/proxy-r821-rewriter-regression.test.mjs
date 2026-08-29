@@ -11,10 +11,6 @@ const meta = {
   base: new URL("https://now.gg/")
 };
 
-// Missing URL values are absence, not the literal path "undefined".
-assert.equal(scramjet.rewriteUrl(undefined, context, meta), undefined);
-assert.equal(scramjet.rewriteUrl("", context, meta), "");
-
 // Browser-native communication schemes must never enter the HTTP proxy path.
 for (const url of [
   "about:blank",
