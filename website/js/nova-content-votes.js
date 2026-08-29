@@ -134,18 +134,18 @@
   function decorateCards() {
     document.querySelectorAll('.game-card').forEach(function (card) {
       var name = card.querySelector('.game-name');
-      if (name && name.textContent.trim() === 'Vote for Apps & Games') card.classList.add('nova-content-vote-card');
+      if (!name || name.textContent.trim() !== 'Vote for Apps & Games') return;
+      card.classList.add('nova-content-vote-card');
+      if (card.dataset.contentVoteWired) return;
+      card.dataset.contentVoteWired = '1';
+      card.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        open(card.closest('#page-apps') ? 'app' : 'game');
+      }, true);
     });
   }
 
-  document.addEventListener("click", function (event) {
-    var card = event.target.closest && event.target.closest(".game-card");
-    if (!card) return;
-    var name = card.querySelector(".game-name");
-    if (!name || name.textContent.trim() !== "Vote for Apps & Games") return;
-    event.preventDefault(); event.stopImmediatePropagation();
-    open(card.closest("#page-apps") ? "app" : "game");
-  }, true);
   document.addEventListener("keydown", function (event) {
     var modal = ensureModal();
     if (modal.hidden) return;
@@ -154,9 +154,15 @@
     var focusable = Array.from(modal.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled])')).filter(function (node) { return node.offsetParent !== null; });
     if (!focusable.length) return;
     var first = focusable[0], last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   });
-  new MutationObserver(decorateCards).observe(document.documentElement, { childList: true, subtree: true });
   window.NovaContentVote = { open: open, close: close };
+  function boot() {
+    decorateCards();
+    var root = document.body || document.documentElement;
+    if (root) new MutationObserver(decorateCards).observe(root, { childList: true, subtree: true });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
 })();
