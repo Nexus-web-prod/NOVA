@@ -3584,7 +3584,7 @@ function newTab(url){
         tab.title=tab.localGame.name;
         if(activeId===id)urlBar.value=tab.localGame.name;
       }else{
-        try{ var real=sc.url&&sc.url.toString(); if(real&&real!=='about:blank'){tab.url=real; if(activeId===id)urlBar.value=real;} }catch(e){}
+        try{ var activeFrame=tab.scFrame||sc; var real=activeFrame.url&&activeFrame.url.toString(); if(real&&real!=='about:blank'){tab.url=real; if(activeId===id)urlBar.value=real;} }catch(e){}
         try{ var t2=iframe.contentDocument&&iframe.contentDocument.title; if(t2&&t2.trim()&&t2!=='about:blank')tab.title=t2; }catch(e){}
       }
       renderTabs();
@@ -3609,6 +3609,7 @@ function navigateTo(url){
   if(window._novaSwitchPage) window._novaSwitchPage('browser');
   var tab = activeTab();
   if(!tab){ tab=newTab(); if(!tab)return; }
+  var wasLocal = !!tab.localGame;
   tab.url = localGame ? localGame.url : resolved;
   tab.localGame = localGame;
   tab.loading = true;
@@ -3622,8 +3623,18 @@ function navigateTo(url){
   if(resolved===SILKSONG){ frameWrap.classList.add('silksong-crop'); }
   else { frameWrap.classList.remove('silksong-crop'); }
   if(localGame){
+    try{ if(tab.scFrame&&tab.scFrame.destroy)tab.scFrame.destroy(); }catch(e){}
+    tab.scFrame=null;
     tab.iframe.removeAttribute('srcdoc');
     tab.iframe.src = localGame.url;
+  }else if(wasLocal){
+    tab.iframe.src='/proxy/html/proxy-frame.html';
+    tab.iframe.addEventListener('load',function restoreProxyFrame(){
+      waitProxy(function(){
+        tab.scFrame=window.NovaProxyManager.createFrame(tab.iframe);
+        tab.scFrame.go(resolved);
+      });
+    },{once:true});
   }else if(tab.scFrame){ tab.scFrame.go(resolved); }
   else { waitProxy(function(){ if(tab.scFrame) tab.scFrame.go(resolved); }); }
   // Fire nova:navigate so weblogs captures every navigation

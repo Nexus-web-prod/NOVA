@@ -27,6 +27,8 @@ test('local games bypass Scramjet and use the game name in browser chrome', () =
   assert.match(index, /function localGameFor\(url\)/);
   assert.match(index, /parsed\.origin!==location\.origin/);
   assert.match(index, /tab\.iframe\.src = localGame\.url/);
+  assert.match(index, /tab\.scFrame&&tab\.scFrame\.destroy/);
+  assert.match(index, /tab\.scFrame=window\.NovaProxyManager\.createFrame/);
   assert.match(index, /urlBar\.value = localGame \? localGame\.name : resolved/);
   assert.match(index, /t\.localGame\?t\.localGame\.name:t\.url/);
 });
