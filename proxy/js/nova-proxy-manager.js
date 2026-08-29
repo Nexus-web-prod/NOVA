@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260825-sj2067-r8.20";
+  const VERSION = "20260829-sj2067-r8.21";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({

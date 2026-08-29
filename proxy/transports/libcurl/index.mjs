@@ -5163,6 +5163,7 @@ var libcurl = function() {
       let packet = create_packet(4, this.stream_id, payload);
       this.ws.send(packet);
       this.open = false;
+      this.connection.remember_closed_stream(this.stream_id, "local-close");
       delete this.connection.active_streams[this.stream_id];
     }
   }
@@ -5172,6 +5173,8 @@ var libcurl = function() {
       this.wisp_url = wisp_url;
       this.max_buffer_size = null;
       this.active_streams = {};
+      this.closed_streams = /* @__PURE__ */ new Map();
+      this.unknown_stream_packets = /* @__PURE__ */ new Map();
       this.connected = false;
       this.connecting = false;
       this.next_stream_id = 1;
@@ -5208,7 +5211,34 @@ var libcurl = function() {
       let close_event = new CloseEvent("close", { code: reason });
       stream.open = false;
       stream.dispatchEvent(close_event);
+      this.remember_closed_stream(stream.stream_id, "remote-close");
       delete this.active_streams[stream.stream_id];
+    }
+    remember_closed_stream(stream_id, reason) {
+      this.cleanup_closed_streams();
+      this.closed_streams.set(stream_id, { closed_at: Date.now(), reason });
+      while (this.closed_streams.size > 2048) {
+        this.closed_streams.delete(this.closed_streams.keys().next().value);
+      }
+    }
+    cleanup_closed_streams(now = Date.now()) {
+      for (let [stream_id, info] of this.closed_streams) {
+        if (now - info.closed_at > 1e4) this.closed_streams.delete(stream_id);
+      }
+    }
+    warn_unknown_stream(stream_id, packet_type) {
+      let packet_name = packet_names[packet_type] || `type-${packet_type}`;
+      let key = `${stream_id}:${packet_name}`;
+      let count = (this.unknown_stream_packets.get(key) || 0) + 1;
+      this.unknown_stream_packets.set(key, count);
+      while (this.unknown_stream_packets.size > 256) {
+        this.unknown_stream_packets.delete(this.unknown_stream_packets.keys().next().value);
+      }
+      if (count <= 5) {
+        warn_msg(`wisp client warning: received a ${packet_name} packet for unknown stream ${stream_id}`);
+      } else if (count % 100 === 0) {
+        warn_msg(`wisp client warning: suppressed ${count - 5} repeated ${packet_name} packets for unknown stream ${stream_id}`);
+      }
     }
     on_ws_close() {
       this.connected = false;
@@ -5233,6 +5263,7 @@ var libcurl = function() {
       return stream;
     }
     on_ws_msg(event) {
+      this.cleanup_closed_streams();
       let packet = new Uint8Array(event.data);
       if (packet.length < 5) {
         warn_msg(`wisp client warning: received a packet which is too short`);
@@ -5243,7 +5274,8 @@ var libcurl = function() {
       let payload = packet.slice(5);
       let stream = this.active_streams[stream_id];
       if (typeof stream === "undefined" && stream_id !== 0) {
-        warn_msg(`wisp client warning: received a ${packet_names[packet_type]} packet for a stream which doesn't exist`);
+        if (this.closed_streams.has(stream_id)) return;
+        this.warn_unknown_stream(stream_id, packet_type);
         return;
       }
       if (packet_type === packet_types.DATA) {
