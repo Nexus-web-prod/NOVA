@@ -136,14 +136,17 @@
       var name = card.querySelector('.game-name');
       if (!name || name.textContent.trim() !== 'Vote for Apps & Games') return;
       card.classList.add('nova-content-vote-card');
-      if (card.dataset.contentVoteWired) return;
-      card.dataset.contentVoteWired = '1';
-      card.addEventListener('click', function (event) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        open(card.closest('#page-apps') ? 'app' : 'game');
-      }, true);
     });
+  }
+
+  function handleVoteCardClick(event) {
+    var card = event.target && event.target.closest ? event.target.closest('.game-card') : null;
+    if (!card) return;
+    var name = card.querySelector('.game-name');
+    if (!name || name.textContent.trim() !== 'Vote for Apps & Games') return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    open(card.closest('#page-apps') ? 'app' : 'game');
   }
 
   document.addEventListener("keydown", function (event) {
@@ -160,8 +163,8 @@
   window.NovaContentVote = { open: open, close: close };
   function boot() {
     decorateCards();
-    var root = document.body || document.documentElement;
-    if (root) new MutationObserver(decorateCards).observe(root, { childList: true, subtree: true });
+    document.addEventListener('click', handleVoteCardClick, true);
+    document.addEventListener('nova:page-change', decorateCards);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
   else boot();
