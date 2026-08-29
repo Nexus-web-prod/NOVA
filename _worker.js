@@ -19,6 +19,21 @@ const OPEN_RELAY_HOST = "staticauth.openrelay.metered.ca";
 const OPEN_RELAY_STATIC_SECRET = "openrelayprojectsecret";
 const OPEN_RELAY_TTL_SECONDS = 2 * 60 * 60;
 const EVERYONE_CHAT_COOLDOWN_MS = 5 * 1000;
+const MODERATION_VERSION = 3;
+const MODERATION_CONFIG = Object.freeze({
+  mildProfanityEnabled: true,
+  severeFilterEnabled: true,
+  fuzzyFilterEnabled: true,
+  spamShortLimit: 5,
+  spamShortWindowMs: 4 * 1000,
+  spamLongLimit: 10,
+  spamLongWindowMs: 15 * 1000,
+  maxMentions: 5,
+  crossMessageCount: 3,
+  crossMessageWindowMs: 10 * 1000,
+  crossMessageMaxLength: 150,
+  stateTtlMs: 30 * 60 * 1000
+});
 const MAINTENANCE_CACHE_MS = 2 * 1000;
 const MAX_JSON_BODY_BYTES = 256 * 1024;
 const AI_MAX_JSON_BODY_BYTES = 6 * 1024 * 1024;
@@ -83,6 +98,7 @@ let chessSchemaReady = null;
 let connect4SchemaReady = null;
 const requestUserCache = new WeakMap();
 const geminiModelCache = new Map();
+const moderationUserState = new Map();
 
 
 // -----------------------------------------------------------------------------
@@ -2723,14 +2739,15 @@ async function publishVoiceTranscript(request, env) {
   if (!room || room.status !== "active" || !room.dictationEnabled) return apiError("VOICE_DICTATION_OFF", "Dictation is disabled for this room", 409);
   const member = await getDb(env).prepare("SELECT status,dictation_enabled,muted_by_host FROM voice_room_members WHERE room_id=? AND user_id=?").bind(room.id, auth.id).first();
   if (!member || member.status !== "connected" || !member.dictation_enabled || member.muted_by_host) return apiError("VOICE_DICTATION_FORBIDDEN", "Dictation is not available for your microphone", 403);
-  const text = cleanText(body.text, 500);
+  let text = cleanText(body.text, 500);
   if (!text) return apiError("EMPTY_DICTATION", "No dictated text was detected", 400);
-  const moderation = moderateChatText(text, room.scopeType === "group" ? "group" : "dm");
+  const moderation = await moderateMessage({ userId: auth.id, text, context: "voice_text_chat" });
   if (!moderation.allowed) {
     await recordChatModerationEvent(getDb(env), auth.id, `voice:${room.id}`, moderation.rule, text);
     await voiceEvent(getDb(env), room.id, auth.id, auth.id, "dictation_filtered", { rule: moderation.rule });
-    return apiError("DICTATION_FILTERED", "That dictated segment was hidden by Nova safety", 422, { rule: moderation.rule });
+    return apiError("DICTATION_FILTERED", "That dictated segment was hidden by Nova safety", 422);
   }
+  text = moderation.displayText;
   const createdAt = Date.now();
   const line = { id: randomToken(10), userId: auth.id, username: auth.username, displayName: auth.display_name || auth.username, avatarUrl: auth.avatar_url || "", text, createdAt };
   await notifyVoiceRoom(env, room.id, { type: "transcript", line }, false);
@@ -3295,55 +3312,183 @@ async function getMessageIslandRecent(request, url, db) {
   });
 }
 
-const CHAT_FILTER_WORDS = new Set([
+const MODERATION_MILD_TERMS = new Set(["damn", "hell", "crap", "ass"]);
+const MODERATION_HEAVY_TERMS = new Set([
   "fuck", "shit", "bitch", "cunt", "cock", "dick", "pussy", "asshole", "whore", "slut",
   "porn", "hentai", "nudes", "naked", "boobs", "tits", "vagina", "penis", "rape",
-  "nigger", "nigga", "faggot", "chink", "spic", "kike", "tranny", "wetback", "kys",
-  "pedo", "pedophile", "loli"
+  "pedo", "pedophile", "loli", "masturbate", "masturbation", "blowjob", "handjob", "creampie", "gangbang"
 ]);
-const CHAT_FILTER_PREFIXES = ["masturbat", "blowjob", "handjob", "creampie", "gangbang"];
-const CHAT_FILTER_THREATS = [
-  "kill yourself", "kill urself", "kill ur self", "go kill yourself", "go kill urself",
+// This authoritative list intentionally remains in the Worker and is never returned to clients.
+const MODERATION_SEVERE_TERMS = new Set([
+  "nigger", "nigga", "faggot", "chink", "spic", "kike", "tranny", "wetback"
+]);
+const MODERATION_PREFIXES = ["masturbat", "blowjob", "handjob", "creampie", "gangbang"];
+const MODERATION_THREATS = [
+  "kill yourself", "kill urself", "kill ur self", "go kill yourself", "go kill urself", "kys",
   "hang yourself", "hang urself", "slit your", "go die", "i will kill", "im gonna kill",
   "i am going to kill", "shoot you", "stab you"
 ];
+const MODERATION_CONFUSABLES = Object.freeze({
+  "а":"a", "α":"a", "ɑ":"a", "е":"e", "ε":"e", "ο":"o", "о":"o", "ρ":"p", "р":"p",
+  "с":"c", "ϲ":"c", "х":"x", "χ":"x", "у":"y", "і":"i", "ι":"i", "ј":"j", "ѕ":"s", "β":"b"
+});
+const MODERATION_LEET = Object.freeze({ "0":"o", "3":"e", "4":"a", "5":"s", "7":"t", "8":"b", "@":"a", "$":"s" });
 
-function normalizeChatText(value) {
-  let text = String(value || "").toLowerCase();
-  try { text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, ""); } catch {}
-  const lookalikes = { "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y", "і": "i", "ј": "j", "ѕ": "s" };
-  text = text.replace(/[аеорсхуіјѕ]/g, character => lookalikes[character] || character);
-  const substitutions = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "@": "a", "$": "s", "!": "i", "|": "i" };
-  text = text.replace(/[0134578@$!|]/g, character => substitutions[character] || character);
-  return text.replace(/([a-z])\1{2,}/g, "$1$1").replace(/[^a-z0-9]+/g, " ").trim();
+function moderationForms(value) {
+  const original = String(value || "");
+  let compatibility = original;
+  try { compatibility = compatibility.normalize("NFKC"); } catch {}
+  compatibility = compatibility
+    .replace(/[\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/gu, "")
+    .toLowerCase();
+  let accentless = compatibility;
+  try { accentless = accentless.normalize("NFKD").replace(/\p{M}+/gu, ""); } catch {}
+  const skeleton = accentless.replace(/[аαɑеεοоρрсϲхχуіιјѕβ]/gu, character => MODERATION_CONFUSABLES[character] || character);
+  const leet = skeleton.replace(/[034578@$]/g, character => MODERATION_LEET[character] || character);
+  const reduce = text => text.replace(/([\p{L}\p{N}])\1{2,}/gu, "$1$1");
+  const words = text => reduce(text).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const compact = text => reduce(text).replace(/[^\p{L}\p{N}]+/gu, "");
+  const normal = words(accentless);
+  const skeletonWords = words(skeleton);
+  const leetWords = words(leet);
+  return {
+    original, normal, skeleton: skeletonWords, leet: leetWords,
+    compact: compact(accentless), compactSkeleton: compact(skeleton), compactLeet: compact(leet),
+    tokens: [...new Set([normal, skeletonWords, leetWords].flatMap(text => text.split(/\s+/)).filter(Boolean))]
+  };
+}
+
+function normalizeChatText(value) { return moderationForms(value).leet; }
+
+function damerauLevenshteinWithin(a, b, limit) {
+  if (Math.abs(a.length - b.length) > limit) return false;
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  let previousPrevious = null;
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    let rowMin = current[0];
+    for (let j = 1; j <= b.length; j += 1) {
+      let cost = Math.min(current[j - 1] + 1, previous[j] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (previousPrevious && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cost = Math.min(cost, previousPrevious[j - 2] + 1);
+      current[j] = cost;
+      rowMin = Math.min(rowMin, cost);
+    }
+    if (rowMin > limit) return false;
+    previousPrevious = previous.slice();
+    for (let j = 0; j < current.length; j += 1) previous[j] = current[j];
+  }
+  return previous[b.length] <= limit;
+}
+
+function moderationSingleLetterRuns(text) {
+  const runs = [];
+  let run = "";
+  for (const token of String(text || "").split(/\s+/).filter(Boolean)) {
+    if ([...token].length === 1) run += token;
+    else { if (run.length >= 3) runs.push(run); run = ""; }
+  }
+  if (run.length >= 3) runs.push(run);
+  return runs;
+}
+
+function containsSevereTerm(forms) {
+  const separated = moderationSingleLetterRuns(forms.leet);
+  for (const term of MODERATION_SEVERE_TERMS) {
+    if (forms.tokens.includes(term) || separated.some(run => run.includes(term))) return true;
+    if (!MODERATION_CONFIG.fuzzyFilterEnabled || term.length < 5) continue;
+    const allowance = term.length >= 8 ? 1 : 1;
+    if (forms.tokens.some(token => token.length >= 5 && damerauLevenshteinWithin(token, term, allowance))) return true;
+  }
+  return false;
+}
+
+function censorModeratedText(value) {
+  const blocked = new Set([...MODERATION_MILD_TERMS, ...MODERATION_HEAVY_TERMS]);
+  return String(value || "").replace(/[\p{L}\p{N}@$]+/gu, token => {
+    const forms = moderationForms(token);
+    const hit = forms.tokens.some(candidate => blocked.has(candidate) || MODERATION_PREFIXES.some(prefix => candidate.startsWith(prefix)));
+    return hit ? "*".repeat(Math.min(12, Math.max(4, [...token].length))) : token;
+  });
+}
+
+function baseModerationDecision(value, context = "social_public") {
+  const forms = moderationForms(value);
+  const original = forms.original;
+  const phraseForms = [forms.normal, forms.skeleton, forms.leet];
+  if (MODERATION_THREATS.some(phrase => phraseForms.some(text => text.includes(phrase)))) {
+    return { action: "block", allowed: false, displayText: "", severity: 5, reasons: ["threat"], rule: "threat", flag: true };
+  }
+  if (MODERATION_CONFIG.severeFilterEnabled && containsSevereTerm(forms)) {
+    return { action: "block", allowed: false, displayText: "", severity: 3, reasons: ["severe_language"], rule: "severe_language" };
+  }
+  const ordinaryTokens = forms.normal.split(/\s+/).filter(Boolean);
+  if (/(.)\1{14,}/iu.test(original) || (ordinaryTokens.length >= 10 && new Set(ordinaryTokens).size <= 2)) {
+    return { action: "block", allowed: false, displayText: "", severity: 2, reasons: ["character_spam"], rule: "character_spam" };
+  }
+  const links = original.match(/(?:https?:\/\/|www\.)\S+/gi) || [];
+  const linkLimit = context === "social_public" ? 1 : 3;
+  if (links.length > linkLimit) return { action: "block", allowed: false, displayText: "", severity: 2, reasons: ["link_spam"], rule: "link_spam" };
+  const mentions = original.match(/(^|\s)@[\p{L}\p{N}_-]+/gu) || [];
+  if (mentions.length > MODERATION_CONFIG.maxMentions) return { action: "block", allowed: false, displayText: "", severity: 2, reasons: ["mention_spam"], rule: "mention_spam" };
+  if (/\b(?:\d[ -]*?){9}\b/.test(original) && /\b(?:ssn|social security)\b/i.test(original)) {
+    return { action: "block", allowed: false, displayText: "", severity: 3, reasons: ["sensitive_information"], rule: "sensitive_information" };
+  }
+  const collapsedTokens = forms.tokens.map(token => token.replace(/([\p{L}\p{N}])\1+/gu, "$1"));
+  const separatedRuns = moderationSingleLetterRuns(forms.leet);
+  const obfuscatedHeavy = separatedRuns.some(run => [...MODERATION_HEAVY_TERMS].some(term => term.length >= 4 && run.includes(term)));
+  const heavy = collapsedTokens.some(token => MODERATION_HEAVY_TERMS.has(token) || MODERATION_PREFIXES.some(prefix => token.startsWith(prefix))) || obfuscatedHeavy;
+  const mild = MODERATION_CONFIG.mildProfanityEnabled && forms.tokens.some(token => MODERATION_MILD_TERMS.has(token));
+  if (heavy || mild) return { action: "censor", allowed: true, displayText: obfuscatedHeavy ? "[censored]" : censorModeratedText(original), severity: heavy ? 2 : 1, reasons: [heavy ? "heavy_profanity" : "mild_profanity"], rule: heavy ? "heavy_profanity" : "mild_profanity" };
+  return { action: "allow", allowed: true, displayText: original, severity: 0, reasons: [], rule: "" };
+}
+
+function moderationStateFor(userId, now) {
+  let state = moderationUserState.get(userId);
+  if (!state || now - state.updatedAt > MODERATION_CONFIG.stateTtlMs) state = { messages: [], strikes: [], timeoutUntil: 0, updatedAt: now };
+  state.updatedAt = now;
+  moderationUserState.set(userId, state);
+  return state;
+}
+
+function similarityFingerprint(text) { return normalizeChatText(text).replace(/[^\p{L}\p{N}]/gu, ""); }
+
+async function moderateMessage({ userId, text, context = "social_public", now = Date.now() }) {
+  const state = moderationStateFor(String(userId || "anonymous"), now);
+  if (state.timeoutUntil > now) return { action: "timeout", allowed: false, displayText: "", severity: 4, reasons: ["temporary_timeout"], rule: "temporary_timeout", timeoutSeconds: Math.ceil((state.timeoutUntil - now) / 1000), moderationVersion: MODERATION_VERSION };
+  const historyWindowMs = Math.max(MODERATION_CONFIG.crossMessageWindowMs, MODERATION_CONFIG.spamLongWindowMs);
+  state.messages = state.messages.filter(item => now - item.at <= historyWindowMs);
+  state.strikes = state.strikes.filter(item => now - item.at <= item.ttl);
+  let decision = baseModerationDecision(text, context);
+  const shortCount = state.messages.filter(item => now - item.at <= MODERATION_CONFIG.spamShortWindowMs).length;
+  const longCount = state.messages.filter(item => now - item.at <= MODERATION_CONFIG.spamLongWindowMs).length;
+  const fingerprint = similarityFingerprint(text);
+  const recentDuplicates = state.messages.filter(item => item.fingerprint && item.fingerprint === fingerprint).length;
+  if (shortCount >= MODERATION_CONFIG.spamShortLimit || longCount >= MODERATION_CONFIG.spamLongLimit || (fingerprint.length >= 3 && recentDuplicates >= 2)) {
+    decision = { action: "block", allowed: false, displayText: "", severity: 2, reasons: [recentDuplicates >= 2 ? "duplicate_spam" : "rate_spam"], rule: recentDuplicates >= 2 ? "duplicate_spam" : "rate_spam" };
+  }
+  const fragments = [...state.messages.filter(item => now - item.at <= MODERATION_CONFIG.crossMessageWindowMs).slice(-(MODERATION_CONFIG.crossMessageCount - 1)).map(item => item.text), String(text || "")];
+  const joined = fragments.join("").slice(-MODERATION_CONFIG.crossMessageMaxLength);
+  if (fragments.length > 1 && containsSevereTerm(moderationForms(joined))) decision = { action: "block", allowed: false, displayText: "", severity: 3, reasons: ["fragmented_severe_language"], rule: "fragmented_severe_language" };
+  state.messages.push({ at: now, text: String(text || ""), fingerprint });
+  if (decision.action === "block") {
+    const points = decision.severity >= 5 ? 4 : decision.severity >= 3 ? 3 : 1;
+    const ttl = decision.severity >= 3 ? 60 * 60 * 1000 : 10 * 60 * 1000;
+    state.strikes.push({ at: now, points, ttl });
+    const score = state.strikes.reduce((sum, item) => sum + item.points, 0);
+    const timeoutSeconds = score >= 8 ? 30 * 60 : score >= 5 ? 5 * 60 : score >= 3 ? 30 : 0;
+    if (timeoutSeconds) { state.timeoutUntil = now + timeoutSeconds * 1000; decision.timeoutSeconds = timeoutSeconds; }
+  }
+  return { ...decision, moderationVersion: MODERATION_VERSION };
 }
 
 function moderateChatText(value, channelKind) {
-  const original = String(value || "");
-  const normalized = normalizeChatText(original);
-  const tokens = normalized.split(/\s+/).filter(Boolean);
-  const singleLetterRuns = [];
-  let singleLetterRun = "";
-  for (const token of tokens) {
-    if (token.length === 1) singleLetterRun += token;
-    else { if (singleLetterRun.length >= 3) singleLetterRuns.push(singleLetterRun); singleLetterRun = ""; }
-  }
-  if (singleLetterRun.length >= 3) singleLetterRuns.push(singleLetterRun);
-  if (CHAT_FILTER_THREATS.some(phrase => normalized.includes(phrase))) return { allowed: false, rule: "threat" };
-  if (tokens.some(token => CHAT_FILTER_WORDS.has(token) || CHAT_FILTER_PREFIXES.some(prefix => token.startsWith(prefix)))) return { allowed: false, rule: "unsafe_language" };
-  if (singleLetterRuns.some(run => [...CHAT_FILTER_WORDS].some(word => word.length >= 4 && run.includes(word)))) return { allowed: false, rule: "filter_evasion" };
-  if (/(.)\1{14,}/iu.test(original)) return { allowed: false, rule: "character_spam" };
-  if (tokens.length >= 10 && new Set(tokens).size <= 2) return { allowed: false, rule: "repeated_spam" };
-  const links = original.match(/(?:https?:\/\/|www\.)\S+/gi) || [];
-  if (links.length > (channelKind === "everyone" ? 1 : 3)) return { allowed: false, rule: "link_spam" };
-  if (/\b(?:\d[ -]*?){9}\b/.test(original) && /\b(?:ssn|social security)\b/i.test(original)) return { allowed: false, rule: "sensitive_information" };
-  return { allowed: true, rule: "" };
+  return baseModerationDecision(value, channelKind === "everyone" ? "social_public" : channelKind === "group" ? "group_chat" : "direct_message");
 }
 
 async function recordChatModerationEvent(db, userId, channelId, rule, excerpt) {
   const now = Date.now();
   await db.prepare("INSERT INTO chat_moderation_events(user_id,channel_id,rule_code,excerpt,created_at,expires_at) VALUES(?,?,?,?,?,?)")
-    .bind(userId, channelId, rule, cleanText(excerpt, 240), now, now + CHAT_MODERATION_LOG_MS).run();
+    .bind(userId, channelId, `v${MODERATION_VERSION}:${cleanText(rule, 80)}`, rule === "threat" ? cleanText(excerpt, 240) : "", now, now + CHAT_MODERATION_LOG_MS).run();
 }
 
 async function activeChatRestriction(db, userId, channelKind) {
@@ -3383,11 +3528,17 @@ async function sendMessage(request, db) {
     }
   } else {
     text = cleanText(body.body, 2000);
-    const moderation = moderateChatText(text, channel.kind);
+    const moderation = await moderateMessage({
+      userId: auth.id,
+      text,
+      context: channel.kind === "everyone" ? "social_public" : channel.kind === "group" ? "group_chat" : "direct_message"
+    });
     if (!moderation.allowed) {
       await recordChatModerationEvent(db, auth.id, channel.id, moderation.rule, text);
-      return apiError("MESSAGE_FILTERED", "That message was blocked by Nova's safety filter", 422, { rule: moderation.rule });
+      if (moderation.action === "timeout") return apiError("CHAT_RESTRICTED", "You've been temporarily muted from Social chat for repeated prohibited messages.", 403, { retryAfterSeconds: moderation.timeoutSeconds });
+      return apiError("MESSAGE_FILTERED", "Message blocked by Nova moderation. Please revise it and try again.", 422, moderation.timeoutSeconds ? { timeoutSeconds: moderation.timeoutSeconds } : {});
     }
+    text = moderation.displayText;
   }
   if (!text) return apiError("EMPTY_MESSAGE", "Message cannot be empty", 400);
   const now = Date.now();
