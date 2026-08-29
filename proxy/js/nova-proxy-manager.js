@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260829-sj2067-r8.23";
+  const VERSION = "20260829-sj2067-r8.24";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
@@ -1347,8 +1347,21 @@
       this._forcedLegacyPolicy = "";
       this._routeGeneration = 0;
       this._preferredTransportSwitch = null;
+      this._policyHandoffToken = "";
+      this._policyHandoffURL = "";
+      this._onPolicyHandoff = event => {
+        if (event.source !== this.element.contentWindow || event.origin !== location.origin) return;
+        if (event.data?.type !== "nova-nowgg-official-proxy" || event.data?.token !== this._policyHandoffToken) return;
+        const target = this._policyHandoffURL;
+        if (!target) return;
+        this._policyHandoffToken = "";
+        this._policyHandoffURL = "";
+        this._forcedLegacyPolicy = "";
+        this.go(target);
+      };
       this._onLoad = this._onLoad.bind(this);
       this.element.addEventListener("load", this._onLoad);
+      window.addEventListener("message", this._onPolicyHandoff);
 
       if (state.currentEngine === "vortex") {
         this._legacySwitch = this._activateLegacy(false);
@@ -1460,7 +1473,8 @@
           const bodyText = (doc?.body?.innerText || doc?.body?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 12000);
           const proxyPolicyRejected = isNowGgURL(requested.href) && /unofficial proxy detected/i.test(bodyText);
           if (proxyPolicyRejected) {
-            this._showPolicyRestriction(requested.href);
+            const offered = bodyText.match(/(?:visit|use) (?:our )?official proxy.{0,400}?(https:\/\/[^\s<>"']+)/i)?.[1] || "";
+            this._showPolicyRestriction(requested.href, offered);
             return;
           }
           const invalidSentinel = current.pathname.includes("/undefined") || fromUrl === "/undefined" || fromUrl === "undefined";
@@ -1742,6 +1756,7 @@
     destroy() {
       this._clearTimers();
       this.element.removeEventListener("load", this._onLoad);
+      window.removeEventListener("message", this._onPolicyHandoff);
       if (this.modernFrame && controller) {
         const index = controller.frames.indexOf(this.modernFrame);
         if (index >= 0) controller.frames.splice(index, 1);
@@ -1761,12 +1776,23 @@
       this.element.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nova connection error</title><style>html{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#05050c;color:#eeeef6;font-family:system-ui,sans-serif}.panel{width:min(620px,calc(100vw - 40px));padding:32px;border:1px solid #2d2d52;border-radius:14px;background:#0b0b18}h1{margin:0 0 12px;font-size:24px}p{color:#aaaac4;line-height:1.6;overflow-wrap:anywhere}.detail{font-size:12px;opacity:.7}</style></head><body><main class="panel"><h1>Nova could not open this page</h1><p>The proxy could not reach <strong>${target}</strong>. Check the address and try again.</p><p class="detail">${detail}</p></main></body></html>`;
     }
 
-    _showPolicyRestriction(url) {
+    _showPolicyRestriction(url, offeredURL = "") {
       this._clearTimers();
       this._pending = false;
       this._forcedLegacyPolicy = "nowgg-proxy-policy";
       const target = escapeHtml(url || "https://now.gg/");
-      this.element.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>now.gg requires direct access</title><style>html{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 50% 15%,#241447,#070711 62%);color:#f7f5ff;font-family:system-ui,sans-serif}.panel{width:min(620px,calc(100vw - 48px));padding:36px;border:1px solid #473870;border-radius:18px;background:rgba(15,12,29,.94);box-shadow:0 24px 80px #0008}h1{margin:0 0 12px;font-size:25px}p{color:#c0b8d7;line-height:1.6}.actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}a{display:inline-flex;padding:12px 18px;border-radius:10px;background:#ff3da5;color:white;text-decoration:none;font-weight:700}.note{font-size:13px;color:#9188aa}</style></head><body><main class="panel"><h1>now.gg requires direct access</h1><p>now.gg loaded through Nova, then declined the proxied connection. This is a site policy response, not a Nova transport failure.</p><div class="actions"><a href="${target}" target="_blank" rel="noopener noreferrer">Open now.gg directly</a></div><p class="note">Nova will not disguise or spoof the proxy to bypass the site’s access policy.</p></main></body></html>`;
+      let official = "";
+      try {
+        const parsed = new URL(String(offeredURL || ""));
+        if (parsed.protocol === "https:" && !isNowGgURL(parsed.href)) official = parsed.href;
+      } catch (_) {}
+      this._policyHandoffURL = official;
+      this._policyHandoffToken = official ? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}` : "";
+      const token = escapeHtml(this._policyHandoffToken);
+      const action = official
+        ? `<button id="official-proxy" type="button">Continue with now.gg’s official proxy</button><script>document.getElementById("official-proxy").addEventListener("click",function(){parent.postMessage({type:"nova-nowgg-official-proxy",token:"${token}"},location.origin)})<\/script>`
+        : `<a href="${target}" target="_blank" rel="noopener noreferrer">Open now.gg directly</a>`;
+      this.element.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>now.gg proxy policy</title><style>html{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 50% 15%,#241447,#070711 62%);color:#f7f5ff;font-family:system-ui,sans-serif}.panel{width:min(620px,calc(100vw - 48px));padding:36px;border:1px solid #473870;border-radius:18px;background:rgba(15,12,29,.94);box-shadow:0 24px 80px #0008}h1{margin:0 0 12px;font-size:25px}p{color:#c0b8d7;line-height:1.6}.actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}a,button{display:inline-flex;padding:12px 18px;border:0;border-radius:10px;background:#ff3da5;color:white;text-decoration:none;font:700 15px system-ui;cursor:pointer}.note{font-size:13px;color:#9188aa}</style></head><body><main class="panel"><h1>now.gg declined Nova Proxy</h1><p>now.gg loaded successfully, then offered an alternate route under its own access policy.</p><div class="actions">${action}</div><p class="note">The official-proxy option stays inside Nova. Nova does not disguise itself or bypass the site’s policy.</p></main></body></html>`;
     }
   }
 

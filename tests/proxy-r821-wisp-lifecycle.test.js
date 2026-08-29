@@ -5,7 +5,7 @@ const assert = require("node:assert");
 const ROOT = path.join(__dirname, "..");
 const manager = fs.readFileSync(path.join(ROOT, "proxy/js/nova-proxy-manager.js"), "utf8");
 
-assert.match(manager, /const VERSION = "20260829-sj2067-r8\.(?:21|22|23)"/, "R8.21+ transport cache buster missing");
+assert.match(manager, /const VERSION = "20260829-sj2067-r8\.(?:21|22|23|24)"/, "R8.21+ transport cache buster missing");
 
 for (const file of ["index.js", "index.mjs"]) {
   const source = fs.readFileSync(path.join(ROOT, "proxy/transports/libcurl", file), "utf8");
