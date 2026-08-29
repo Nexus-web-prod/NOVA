@@ -3391,6 +3391,18 @@ function moderationSingleLetterRuns(text) {
   return runs;
 }
 
+function moderationLongestCharacterRun(text) {
+  let longest = 0;
+  let current = 0;
+  let previous = "";
+  for (const character of String(text || "").toLowerCase()) {
+    current = character === previous ? current + 1 : 1;
+    previous = character;
+    longest = Math.max(longest, current);
+  }
+  return longest;
+}
+
 function containsSevereTerm(forms) {
   const separated = moderationSingleLetterRuns(forms.leet);
   for (const term of MODERATION_SEVERE_TERMS) {
@@ -3422,7 +3434,7 @@ function baseModerationDecision(value, context = "social_public") {
     return { action: "block", allowed: false, displayText: "", severity: 3, reasons: ["severe_language"], rule: "severe_language" };
   }
   const ordinaryTokens = forms.normal.split(/\s+/).filter(Boolean);
-  if (/(.)\1{14,}/iu.test(original) || (ordinaryTokens.length >= 10 && new Set(ordinaryTokens).size <= 2)) {
+  if (moderationLongestCharacterRun(original) >= 10 || (ordinaryTokens.length >= 10 && new Set(ordinaryTokens).size <= 2)) {
     return { action: "block", allowed: false, displayText: "", severity: 2, reasons: ["character_spam"], rule: "character_spam" };
   }
   const links = original.match(/(?:https?:\/\/|www\.)\S+/gi) || [];

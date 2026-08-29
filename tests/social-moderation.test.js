@@ -4,6 +4,7 @@ const path = require("path");
 const vm = require("vm");
 
 const worker = fs.readFileSync(path.join(__dirname, "..", "_worker.js"), "utf8");
+const social = fs.readFileSync(path.join(__dirname, "..", "website", "js", "social.js"), "utf8");
 const start = worker.indexOf("const MODERATION_MILD_TERMS");
 const end = worker.indexOf("async function recordChatModerationEvent", start);
 assert.ok(start >= 0 && end > start, "moderation engine was not found in the Worker");
@@ -33,6 +34,7 @@ assert.strictEqual(baseModerationDecision("that was damn close").action, "censor
 assert.strictEqual(baseModerationDecision("what the fuck").displayText, "what the ****");
 assert.strictEqual(baseModerationDecision("f.u.c.k").action, "censor");
 assert.strictEqual(baseModerationDecision("fuuuuuck").action, "censor");
+assert.strictEqual(baseModerationDecision("fuuuuuuuuuuuuujjujjuckwdoijda").rule, "character_spam");
 
 const severe = "nigger";
 assert.strictEqual(baseModerationDecision(severe).action, "block");
@@ -42,6 +44,11 @@ assert.strictEqual(baseModerationDecision("niggre").action, "block");
 assert.strictEqual(baseModerationDecision("n.i.g.g.e.r").action, "block");
 assert.strictEqual(baseModerationDecision("please go kill yourself").severity, 5);
 assert.strictEqual(baseModerationDecision("@a @b @c @d @e @f hello").rule, "mention_spam");
+assert.match(social, /streamAdd\(stream,fields,optimisticEl\)/, "Social sends must accept the optimistic bubble for reconciliation");
+assert.match(social, /authoritativeText=String\(a\.message\.body/, "Social must render the server-moderated message body");
+assert.match(social, /streamAdd\("nova:stream:everyone",fields,optEl\)/, "Everyone chat must reconcile its optimistic bubble");
+assert.match(social, /streamAdd\(dk,fields,optEl\)/, "DM chat must reconcile its optimistic bubble");
+assert.match(social, /streamAdd\(groupStreamKey\(gid\),fields,optEl\)/, "Group chat must reconcile its optimistic bubble");
 
 (async () => {
   const first = await moderateMessage({ userId:"fragment-user", text:"nig", now:1000 });

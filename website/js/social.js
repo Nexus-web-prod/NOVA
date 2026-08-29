@@ -2,13 +2,19 @@
 // ── Nova Social — authenticated Nova 7 API ───────────────────────────────────
 
 // ── Stream ops (direct Supabase) ──────────────────────────────────────────────
-async function streamAdd(stream,fields){
+async function streamAdd(stream,fields,optimisticEl){
   try{
     // Always build a fresh data object (never mutate the input)
     let data={};
     if(Array.isArray(fields)){for(let i=0;i<fields.length-1;i+=2)data[fields[i]]=fields[i+1];}
     else if(fields&&typeof fields==="object"){data=Object.assign({},fields);}
     const a=await NovaAPI.sendMessage({channel:streamToChannel(stream),body:data.text||"",messageType:data.type||"text",replyToId:data.replyToId||null});
+    if(optimisticEl&&a?.message&&data.type!=="image"){
+      const authoritativeText=String(a.message.body||"");
+      const bubble=optimisticEl.querySelector(".social-msg-bubble");
+      if(bubble&&authoritativeText!==String(data.text||""))bubble.textContent=authoritativeText;
+      if(optimisticEl._novaMessage)optimisticEl._novaMessage.text=authoritativeText;
+    }
     return a&&a.message?String(a.message.id):null;
   }catch(e){console.warn("[nova] streamAdd error",e);throw e;}
 }
@@ -1318,7 +1324,7 @@ async function sendEveryone(text,type){
   if(container){if(container.querySelector('div[style*="opacity:.35"]'))container.innerHTML="";optEl=makeMsg(msg,true,true);container.appendChild(optEl);container.scrollTop=container.scrollHeight;seenIds.add(cid);}
   try{
     const fields={from:me,text,ts:String(msg.ts),type,cid,...(rt?{replyToId:rt._id||null,replyFrom:rt.from,replyText:rt.text.substring(0,200),replyType:rt.type}:{})};
-    const sid=await streamAdd("nova:stream:everyone",fields);
+    const sid=await streamAdd("nova:stream:everyone",fields,optEl);
     if(sid){
       setCursor("everyone",sid);seenIds.add(sid);if(optEl)optEl.dataset.streamId=sid;startEveryoneCooldown(5000);
       document.dispatchEvent(new CustomEvent("nova:social-message-sent",{detail:{pane:"everyone",messageId:sid,type:type}}));
@@ -1341,7 +1347,7 @@ async function sendDM(){
   try{
     const dk=dmKey(me,peer);
     const fields={from:me,text,ts:String(msg.ts),type:"text",cid,...(rt?{replyToId:rt._id||null,replyFrom:rt.from,replyText:rt.text.substring(0,200),replyType:rt.type}:{})};
-    const sid=await streamAdd(dk,fields);
+    const sid=await streamAdd(dk,fields,optEl);
     if(sid){
       setCursor("dm:"+peer,sid);
       seenIds.add(sid);
@@ -1360,7 +1366,7 @@ async function sendDMPhoto(dataUrl){
   const container=document.getElementById("social-messages");let optEl=null;
   if(container){if(container.querySelector('div[style*="opacity:.35"]'))container.innerHTML="";optEl=makeMsg(msg,true,false);container.appendChild(optEl);container.scrollTop=container.scrollHeight;seenIds.add(cid);}
   try{
-    const sid=await streamAdd(dmKey(me,peer),{from:me,text:dataUrl,ts:String(msg.ts),type:"image",cid});
+    const sid=await streamAdd(dmKey(me,peer),{from:me,text:dataUrl,ts:String(msg.ts),type:"image",cid},optEl);
     if(sid){setCursor("dm:"+peer,sid);seenIds.add(sid);if(optEl)optEl.dataset.streamId=sid;}
     else{if(optEl)optEl.remove();seenIds.delete(cid);toast("Photo send failed");}
   }catch(error){if(optEl)optEl.remove();seenIds.delete(cid);showSendError(error);}
@@ -1380,7 +1386,7 @@ async function sendGroupMsg(text,type){
   const gid=activeGroupId;
   try{
     const fields={from:me,text,ts:String(msg.ts),type:type||"text",cid,...(rt?{replyToId:rt._id||null,replyFrom:rt.from,replyText:rt.text.substring(0,200),replyType:rt.type}:{})};
-    const sid=await streamAdd(groupStreamKey(gid),fields);
+    const sid=await streamAdd(groupStreamKey(gid),fields,optEl);
     if(sid){setCursor("group:"+gid,sid);seenIds.add(sid);if(optEl)optEl.dataset.streamId=sid;}else{if(optEl)optEl.remove();seenIds.delete(cid);if(type==="text"&&inputEl)inputEl.value=text;toast("Send failed");}
   }catch(error){if(optEl)optEl.remove();seenIds.delete(cid);if(type==="text"&&inputEl)inputEl.value=text;showSendError(error);}
   finally{sendLock=false;}
