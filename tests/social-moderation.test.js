@@ -13,7 +13,7 @@ const prelude = `
 const MODERATION_VERSION = 3;
 const MODERATION_CONFIG = Object.freeze({
   mildProfanityEnabled:true,severeFilterEnabled:true,fuzzyFilterEnabled:true,
-  spamShortLimit:5,spamShortWindowMs:4000,spamLongLimit:10,spamLongWindowMs:15000,
+  spamShortLimit:4,spamShortWindowMs:4000,spamLongLimit:8,spamLongWindowMs:15000,
   maxMentions:5,crossMessageCount:3,crossMessageWindowMs:10000,
   crossMessageMaxLength:150,stateTtlMs:1800000
 });
@@ -34,6 +34,7 @@ assert.strictEqual(baseModerationDecision("that was damn close").action, "censor
 assert.strictEqual(baseModerationDecision("what the fuck").displayText, "what the ****");
 assert.strictEqual(baseModerationDecision("f.u.c.k").action, "censor");
 assert.strictEqual(baseModerationDecision("fuuuuuck").action, "censor");
+assert.match(baseModerationDecision("fucckk").displayText, /^\*+$/, "repeated-letter profanity must be masked in the stored display text");
 assert.strictEqual(baseModerationDecision("fuuuuuuuuuuuuujjujjuckwdoijda").rule, "character_spam");
 
 const severe = "nigger";
@@ -49,6 +50,9 @@ assert.match(social, /authoritativeText=String\(a\.message\.body/, "Social must 
 assert.match(social, /streamAdd\("nova:stream:everyone",fields,optEl\)/, "Everyone chat must reconcile its optimistic bubble");
 assert.match(social, /streamAdd\(dk,fields,optEl\)/, "DM chat must reconcile its optimistic bubble");
 assert.match(social, /streamAdd\(groupStreamKey\(gid\),fields,optEl\)/, "Group chat must reconcile its optimistic bubble");
+assert.doesNotMatch(worker, /EVERYONE_CHAT_COOLDOWN_MS|EVERYONE_COOLDOWN/, "Everyone chat must not impose a cooldown after every message");
+assert.doesNotMatch(social, /startEveryoneCooldown|_everyoneCooldownUntil/, "the client must not impose a cooldown after every message");
+assert.match(fs.readFileSync(path.join(__dirname, "..", "website", "html", "index.html"), "utf8"), /social\.js\?v=20260829-moderation-r3/, "Social moderation client cache key must be current");
 
 (async () => {
   const first = await moderateMessage({ userId:"fragment-user", text:"nig", now:1000 });
@@ -61,8 +65,8 @@ assert.match(social, /streamAdd\(groupStreamKey\(gid\),fields,optEl\)/, "Group c
   const duplicate = await moderateMessage({ userId:"duplicate-user", text:"HELLO", now:2200 });
   assert.strictEqual(duplicate.rule, "duplicate_spam");
 
-  for (let index = 0; index < 5; index += 1) await moderateMessage({ userId:"burst-user", text:`message ${index}`, now:3000 + index * 100 });
-  const burst = await moderateMessage({ userId:"burst-user", text:"message final", now:3600 });
+  for (let index = 0; index < 4; index += 1) await moderateMessage({ userId:"burst-user", text:`message ${index}`, now:3000 + index * 100 });
+  const burst = await moderateMessage({ userId:"burst-user", text:"message final", now:3500 });
   assert.strictEqual(burst.rule, "rate_spam");
 
   const severeAttempt = await moderateMessage({ userId:"strike-user", text:severe, now:5000 });

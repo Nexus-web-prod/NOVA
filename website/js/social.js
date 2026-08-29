@@ -66,21 +66,6 @@ const _cursors={};
 function getCursor(pane){return _cursors[pane]||0}
 function setCursor(pane,id){_cursors[pane]=parseInt(id)||0}
 
-// ── Everyone cooldown ─────────────────────────────────────────────────────────
-let _everyoneCooldownUntil=0,_everyoneCooldownTimer=null;
-function startEveryoneCooldown(duration){
-  _everyoneCooldownUntil=Math.max(_everyoneCooldownUntil,Date.now()+Math.max(0,Number(duration)||5000));
-  clearInterval(_everyoneCooldownTimer);
-  const tick=()=>{
-    const left=Math.max(0,_everyoneCooldownUntil-Date.now()),seconds=Math.ceil(left/1000);
-    const button=document.getElementById("social-everyone-send-btn"),status=document.getElementById("social-everyone-cooldown");
-    if(button){button.disabled=left>0;button.classList.toggle("is-cooling",left>0);button.title=left>0?"Ready in "+seconds+" seconds":"Send";}
-    if(status){status.textContent=left>0?seconds+"s":"";status.classList.toggle("active",left>0);}
-    if(left<=0){clearInterval(_everyoneCooldownTimer);_everyoneCooldownTimer=null;}
-  };
-  tick();_everyoneCooldownTimer=setInterval(tick,200);
-}
-
 // ── polling timers ─────────────────────────────────────────────────────────────
 let _chatPollTimer=null,_socialPollTimer=null,_friendsPollTimer=null,_reactionPollTimer=null;
 let _friendsPollBusy=false,_socialPollBusy=false,_reactionPollBusy=false;
@@ -1311,12 +1296,11 @@ async function leaveGroup(gid){
 // ── Filters ───────────────────────────────────────────────────────────────────
 // ── Send helpers ──────────────────────────────────────────────────────────────
 function showSendError(error){
-  if(error?.code==="EVERYONE_COOLDOWN")startEveryoneCooldown(error.retryAfterMs||5000);
   toast(error?.message||"Nova could not send that message",4200);
 }
 async function sendEveryone(text,type){
   type=type||"text";const acct=getAccount();if(!acct)return toast("Sign in to chat");
-  if(sendLock||Date.now()<_everyoneCooldownUntil)return;
+  if(sendLock)return;
   sendLock=true;const cid=uid(),me=acct.username.toLowerCase();
   const rt=replyTarget;clearReply();
   const msg={_clientId:cid,from:me,text,ts:Date.now(),type,...(rt?{replyFrom:rt.from,replyText:rt.text,replyType:rt.type}:{})};
@@ -1326,7 +1310,7 @@ async function sendEveryone(text,type){
     const fields={from:me,text,ts:String(msg.ts),type,cid,...(rt?{replyToId:rt._id||null,replyFrom:rt.from,replyText:rt.text.substring(0,200),replyType:rt.type}:{})};
     const sid=await streamAdd("nova:stream:everyone",fields,optEl);
     if(sid){
-      setCursor("everyone",sid);seenIds.add(sid);if(optEl)optEl.dataset.streamId=sid;startEveryoneCooldown(5000);
+      setCursor("everyone",sid);seenIds.add(sid);if(optEl)optEl.dataset.streamId=sid;
       document.dispatchEvent(new CustomEvent("nova:social-message-sent",{detail:{pane:"everyone",messageId:sid,type:type}}));
     }else{if(optEl)optEl.remove();seenIds.delete(cid);toast("Send failed");}
   }catch(error){if(optEl)optEl.remove();seenIds.delete(cid);const input=document.getElementById("social-everyone-input");if(type==="text"&&input&&!input.value)input.value=text;showSendError(error);}

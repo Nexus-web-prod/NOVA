@@ -18,15 +18,14 @@ const SUPERNOVA_REFERRAL_LIMIT = 5;
 const OPEN_RELAY_HOST = "staticauth.openrelay.metered.ca";
 const OPEN_RELAY_STATIC_SECRET = "openrelayprojectsecret";
 const OPEN_RELAY_TTL_SECONDS = 2 * 60 * 60;
-const EVERYONE_CHAT_COOLDOWN_MS = 5 * 1000;
 const MODERATION_VERSION = 3;
 const MODERATION_CONFIG = Object.freeze({
   mildProfanityEnabled: true,
   severeFilterEnabled: true,
   fuzzyFilterEnabled: true,
-  spamShortLimit: 5,
+  spamShortLimit: 4,
   spamShortWindowMs: 4 * 1000,
-  spamLongLimit: 10,
+  spamLongLimit: 8,
   spamLongWindowMs: 15 * 1000,
   maxMentions: 5,
   crossMessageCount: 3,
@@ -3418,7 +3417,8 @@ function censorModeratedText(value) {
   const blocked = new Set([...MODERATION_MILD_TERMS, ...MODERATION_HEAVY_TERMS]);
   return String(value || "").replace(/[\p{L}\p{N}@$]+/gu, token => {
     const forms = moderationForms(token);
-    const hit = forms.tokens.some(candidate => blocked.has(candidate) || MODERATION_PREFIXES.some(prefix => candidate.startsWith(prefix)));
+    const candidates = forms.tokens.flatMap(candidate => [candidate, candidate.replace(/([\p{L}\p{N}])\1+/gu, "$1")]);
+    const hit = candidates.some(candidate => blocked.has(candidate) || MODERATION_PREFIXES.some(prefix => candidate.startsWith(prefix)));
     return hit ? "*".repeat(Math.min(12, Math.max(4, [...token].length))) : token;
   });
 }
@@ -3556,8 +3556,6 @@ async function sendMessage(request, db) {
   const now = Date.now();
   if (channel.kind === "everyone") {
     const previous = await db.prepare("SELECT body,created_at FROM social_messages WHERE sender_id=? AND channel_id='everyone' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1").bind(auth.id).first();
-    const remaining = previous ? EVERYONE_CHAT_COOLDOWN_MS - (now - Number(previous.created_at || 0)) : 0;
-    if (remaining > 0) return apiError("EVERYONE_COOLDOWN", "Everyone chat is cooling down", 429, { retryAfterMs: remaining });
     if (type === "text" && previous && normalizeChatText(previous.body) === normalizeChatText(text) && now - Number(previous.created_at || 0) < 30000) {
       return apiError("DUPLICATE_MESSAGE", "Please do not repeat the same message", 429);
     }
