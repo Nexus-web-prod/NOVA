@@ -40,3 +40,16 @@ test('admin panel and app shell load content voting UI', () => {
   assert.match(admin, /NovaAPI\.adminContentVotes/);
   assert.match(read('website/js/nova-game-detail.js'), /name === 'Vote for Apps & Games'/);
 });
+
+test('vote popup is page-specific, submission-only, and above Nova Island', () => {
+  const html = read('website/html/index.html');
+  const votes = read('website/js/nova-content-votes.js');
+  assert.match(votes, /card\.closest\('#page-apps'\) \? 'app' : 'game'/);
+  assert.doesNotMatch(votes, /data-vote-kind|Community ranking|nova-content-vote-list/);
+  assert.match(html, /\.nova-content-vote-modal\{z-index:100500\}/);
+});
+
+test('all sign-out paths reload the full app', () => {
+  assert.match(read('website/js/nova-v7-api.js'), /auth\/logout[\s\S]*window\.location\.reload\(\)/);
+  assert.match(read('website/js/nova.js'), /acct-signout-btn[\s\S]*window\.location\.reload\(\)/);
+});

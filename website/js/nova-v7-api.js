@@ -187,7 +187,8 @@
     logout: function () {
       return request("/api/presence", { method: "POST", body: { state: "offline" } })
         .catch(function () {})
-        .then(function () { return request("/api/auth/logout", { method: "POST", body: {} }); });
+        .then(function () { return request("/api/auth/logout", { method: "POST", body: {} }); })
+        .then(function (result) { window.location.reload(); return result; });
     },
     changePassword: function (body) { return request("/api/auth/change-password", { method: "POST", body: body }); },
     getProfile: function () { return request("/api/profile"); },

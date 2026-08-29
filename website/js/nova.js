@@ -75,7 +75,7 @@ e.innerHTML=`
 /* tab switching */
 e.querySelectorAll(".acct-dtab").forEach(tab=>tab.addEventListener("click",()=>{e.querySelectorAll(".acct-dtab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");e.querySelectorAll(".acct-dtab-pane").forEach(p=>p.classList.add("hidden"));e.querySelector("#acct-dtab-"+tab.dataset.dtab).classList.remove("hidden")}));
 /* sign out */
-document.getElementById("acct-signout-btn").onclick=()=>{_account=null;localStorage.removeItem("nova_account");updateAccountUI();renderAccountModal();toast("Signed out")};
+document.getElementById("acct-signout-btn").onclick=()=>{_account=null;localStorage.removeItem("nova_account");window.location.reload()};
 /* helpers */
 function setMsg(id,msg,ok){const el=document.getElementById(id);if(el){el.textContent=msg;el.style.color=ok?"#4ade80":"#f87171"}}
 function mkProgress(btn,origLabel){btn.disabled=true;btn.classList.add("acct-loading");const bar=document.createElement("div");bar.className="acct-progress-bar";const fill=document.createElement("div");fill.className="acct-progress-fill";bar.appendChild(fill);btn.parentNode.insertBefore(bar,btn.nextSibling);return{unlock(ok){btn.disabled=false;btn.classList.remove("acct-loading");btn.textContent=origLabel;fill.style.width="100%";fill.style.background=ok?"rgba(100,220,130,.7)":"rgba(255,90,90,.7)";setTimeout(()=>bar.remove(),420)},pulse(){fill.style.transition="width 0s";fill.style.width="0%";fill.style.transition="width 1.4s cubic-bezier(.4,0,.2,1)";fill.style.width="85%"}}}
