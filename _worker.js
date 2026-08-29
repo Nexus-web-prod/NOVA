@@ -2743,6 +2743,7 @@ async function publishVoiceTranscript(request, env) {
   const moderation = await moderateMessage({ userId: auth.id, text, context: "voice_text_chat" });
   if (!moderation.allowed) {
     await recordChatModerationEvent(getDb(env), auth.id, `voice:${room.id}`, moderation.rule, text);
+    if (moderation.timeoutSeconds) await persistAutomaticChatTimeout(getDb(env), auth.id, "all", moderation);
     await voiceEvent(getDb(env), room.id, auth.id, auth.id, "dictation_filtered", { rule: moderation.rule });
     return apiError("DICTATION_FILTERED", "That dictated segment was hidden by Nova safety", 422);
   }
@@ -3475,8 +3476,8 @@ async function moderateMessage({ userId, text, context = "social_public", now = 
   const longCount = state.messages.filter(item => now - item.at <= MODERATION_CONFIG.spamLongWindowMs).length;
   const fingerprint = similarityFingerprint(text);
   const recentDuplicates = state.messages.filter(item => item.fingerprint && item.fingerprint === fingerprint).length;
-  if (shortCount >= MODERATION_CONFIG.spamShortLimit || longCount >= MODERATION_CONFIG.spamLongLimit || (fingerprint.length >= 3 && recentDuplicates >= 2)) {
-    decision = { action: "block", allowed: false, displayText: "", severity: 2, reasons: [recentDuplicates >= 2 ? "duplicate_spam" : "rate_spam"], rule: recentDuplicates >= 2 ? "duplicate_spam" : "rate_spam" };
+  if (shortCount >= MODERATION_CONFIG.spamShortLimit || longCount >= MODERATION_CONFIG.spamLongLimit || (fingerprint.length >= 3 && recentDuplicates >= 4)) {
+    decision = { action: "block", allowed: false, displayText: "", severity: 2, reasons: [recentDuplicates >= 4 ? "duplicate_spam" : "rate_spam"], rule: recentDuplicates >= 4 ? "duplicate_spam" : "rate_spam" };
   }
   const fragments = [...state.messages.filter(item => now - item.at <= MODERATION_CONFIG.crossMessageWindowMs).slice(-(MODERATION_CONFIG.crossMessageCount - 1)).map(item => item.text), String(text || "")];
   const joined = fragments.join("").slice(-MODERATION_CONFIG.crossMessageMaxLength);
@@ -3501,6 +3502,24 @@ async function recordChatModerationEvent(db, userId, channelId, rule, excerpt) {
   const now = Date.now();
   await db.prepare("INSERT INTO chat_moderation_events(user_id,channel_id,rule_code,excerpt,created_at,expires_at) VALUES(?,?,?,?,?,?)")
     .bind(userId, channelId, `v${MODERATION_VERSION}:${cleanText(rule, 80)}`, rule === "threat" ? cleanText(excerpt, 240) : "", now, now + CHAT_MODERATION_LOG_MS).run();
+}
+
+async function persistAutomaticChatTimeout(db, userId, channelKind, decision) {
+  const timeoutSeconds = Math.max(0, Number(decision?.timeoutSeconds || 0));
+  if (!timeoutSeconds) return null;
+  const now = Date.now();
+  const scope = channelKind === "everyone" ? "everyone" : "all";
+  const spam = decision.rule === "duplicate_spam" || decision.rule === "rate_spam";
+  const reason = spam ? "Automatic moderation: repeated message spam" : "Automatic moderation: repeated prohibited messages";
+  const id = `auto_chat_${randomId()}`;
+  const expiresAt = now + timeoutSeconds * 1000;
+  await db.batch([
+    db.prepare("UPDATE chat_restrictions SET revoked_at=? WHERE user_id=? AND scope=? AND id LIKE 'auto_chat_%' AND revoked_at IS NULL").bind(now, userId, scope),
+    // Use the affected account as the relational issuer so this remains valid
+    // on schemas where issued_by is non-null. The auto_chat_ id is the source marker.
+    db.prepare("INSERT INTO chat_restrictions(id,user_id,scope,action,reason,issued_by,created_at,expires_at) VALUES(?,?,?,'ban',?,?,?,?)").bind(id, userId, scope, reason, userId, now, expiresAt)
+  ]);
+  return { id, scope, reason, expiresAt };
 }
 
 async function activeChatRestriction(db, userId, channelKind) {
@@ -3547,19 +3566,18 @@ async function sendMessage(request, db) {
     });
     if (!moderation.allowed) {
       await recordChatModerationEvent(db, auth.id, channel.id, moderation.rule, text);
+      if (moderation.timeoutSeconds) await persistAutomaticChatTimeout(db, auth.id, channel.kind, moderation);
       if (moderation.action === "timeout") return apiError("CHAT_RESTRICTED", "You've been temporarily muted from Social chat for repeated prohibited messages.", 403, { retryAfterSeconds: moderation.timeoutSeconds });
-      return apiError("MESSAGE_FILTERED", "Message blocked by Nova moderation. Please revise it and try again.", 422, moderation.timeoutSeconds ? { timeoutSeconds: moderation.timeoutSeconds } : {});
+      if (moderation.timeoutSeconds) {
+        const spam = moderation.rule === "duplicate_spam" || moderation.rule === "rate_spam";
+        return apiError("CHAT_RESTRICTED", spam ? "You're sending messages too quickly. Social chat has been paused temporarily." : "You've been temporarily muted from Social chat for repeated prohibited messages.", 403, { retryAfterSeconds: moderation.timeoutSeconds });
+      }
+      return apiError("MESSAGE_FILTERED", moderation.rule === "duplicate_spam" || moderation.rule === "rate_spam" ? "Please slow down before sending more messages." : "Message blocked by Nova moderation. Please revise it and try again.", 422);
     }
     text = moderation.displayText;
   }
   if (!text) return apiError("EMPTY_MESSAGE", "Message cannot be empty", 400);
   const now = Date.now();
-  if (channel.kind === "everyone") {
-    const previous = await db.prepare("SELECT body,created_at FROM social_messages WHERE sender_id=? AND channel_id='everyone' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1").bind(auth.id).first();
-    if (type === "text" && previous && normalizeChatText(previous.body) === normalizeChatText(text) && now - Number(previous.created_at || 0) < 30000) {
-      return apiError("DUPLICATE_MESSAGE", "Please do not repeat the same message", 429);
-    }
-  }
   let replyToId = Math.max(0, Number(body.replyToId || 0)) || null;
   if (replyToId) {
     const parent = await db.prepare("SELECT id FROM social_messages WHERE id=? AND channel_id=? AND deleted_at IS NULL").bind(replyToId, channel.id).first();

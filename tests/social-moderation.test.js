@@ -51,6 +51,9 @@ assert.match(social, /streamAdd\("nova:stream:everyone",fields,optEl\)/, "Everyo
 assert.match(social, /streamAdd\(dk,fields,optEl\)/, "DM chat must reconcile its optimistic bubble");
 assert.match(social, /streamAdd\(groupStreamKey\(gid\),fields,optEl\)/, "Group chat must reconcile its optimistic bubble");
 assert.doesNotMatch(worker, /EVERYONE_CHAT_COOLDOWN_MS|EVERYONE_COOLDOWN/, "Everyone chat must not impose a cooldown after every message");
+assert.doesNotMatch(worker, /DUPLICATE_MESSAGE/, "a harmless repeated message must use rolling spam limits instead of an immediate database rejection");
+assert.match(worker, /persistAutomaticChatTimeout\(db, auth\.id, channel\.kind, moderation\)/, "automatic timeouts must be persisted for Chat Moderation");
+assert.match(worker, /id LIKE 'auto_chat_%'/, "automatic restrictions must remain distinguishable from staff actions");
 assert.doesNotMatch(social, /startEveryoneCooldown|_everyoneCooldownUntil/, "the client must not impose a cooldown after every message");
 assert.match(fs.readFileSync(path.join(__dirname, "..", "website", "html", "index.html"), "utf8"), /social\.js\?v=20260829-moderation-r3/, "Social moderation client cache key must be current");
 
@@ -60,9 +63,15 @@ assert.match(fs.readFileSync(path.join(__dirname, "..", "website", "html", "inde
   assert.strictEqual(first.action, "allow");
   assert.strictEqual(second.rule, "fragmented_severe_language");
 
-  await moderateMessage({ userId:"duplicate-user", text:"hello", now:2000 });
-  await moderateMessage({ userId:"duplicate-user", text:"hello!", now:2100 });
-  const duplicate = await moderateMessage({ userId:"duplicate-user", text:"HELLO", now:2200 });
+  const helloOne = await moderateMessage({ userId:"duplicate-user", text:"hello", now:2000 });
+  const helloTwo = await moderateMessage({ userId:"duplicate-user", text:"hello!", now:5000 });
+  const helloThree = await moderateMessage({ userId:"duplicate-user", text:"HELLO", now:8000 });
+  const helloFour = await moderateMessage({ userId:"duplicate-user", text:"hello", now:11000 });
+  const duplicate = await moderateMessage({ userId:"duplicate-user", text:"hello", now:14000 });
+  assert.strictEqual(helloOne.action, "allow");
+  assert.strictEqual(helloTwo.action, "allow");
+  assert.strictEqual(helloThree.action, "allow");
+  assert.strictEqual(helloFour.action, "allow");
   assert.strictEqual(duplicate.rule, "duplicate_spam");
 
   for (let index = 0; index < 4; index += 1) await moderateMessage({ userId:"burst-user", text:`message ${index}`, now:3000 + index * 100 });

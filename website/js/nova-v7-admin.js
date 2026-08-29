@@ -931,7 +931,8 @@
   function chatRestrictionRow(item) {
     var expires = item.expiresAt ? "Timeout ends " + fmtTime(item.expiresAt) : "Permanent Social ban";
     var endLabel = item.expiresAt ? "End timeout" : "Remove ban";
-    return '<article class="nova-admin-chat-ban"><div class="nova-admin-person">' + avatar(item) + '<span><strong>@' + esc(item.username) + '</strong><small>' + esc(item.scope === "everyone" ? "Everyone chat only" : "All Nova Social chat") + '</small></span></div><div class="nova-admin-chat-ban-reason"><strong>' + esc(item.reason) + '</strong><span>' + esc(expires) + (item.issuedBy ? " · by @" + esc(item.issuedBy) : "") + '</span></div><button type="button" class="nova-admin-secondary" data-chat-unban="' + esc(item.id) + '" data-chat-username="' + esc(item.username) + '">' + endLabel + '</button></article>';
+    var issuer = String(item.id || "").indexOf("auto_chat_") === 0 ? " · automatic" : (item.issuedBy ? " · by @" + esc(item.issuedBy) : "");
+    return '<article class="nova-admin-chat-ban"><div class="nova-admin-person">' + avatar(item) + '<span><strong>@' + esc(item.username) + '</strong><small>' + esc(item.scope === "everyone" ? "Everyone chat only" : "All Nova Social chat") + '</small></span></div><div class="nova-admin-chat-ban-reason"><strong>' + esc(item.reason) + '</strong><span>' + esc(expires) + issuer + '</span></div><button type="button" class="nova-admin-secondary" data-chat-unban="' + esc(item.id) + '" data-chat-username="' + esc(item.username) + '">' + endLabel + '</button></article>';
   }
 
   async function searchChatMessages() {
