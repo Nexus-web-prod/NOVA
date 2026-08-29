@@ -1,10 +1,10 @@
 [
   {
     "name": "Vote for Apps & Games",
-    "url": "#nova-content-vote",
+    "url": "/website/html/content-votes.html?kind=app",
     "image": "/website/assets/media/icons/content-vote.svg",
     "contentVote": "app",
-    "blank": true,
+    "blank": false,
     "noRating": true
   },
   {

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nova Community Picks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Oxanium:wght@700;800&family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="/website/css/nova-content-votes.css?v=20260828-vote-r3">
+  <style>
+    :root{--bg:#04040a;--bg2:#080812;--s1:#0c0c1a;--text:#c8c8d8;--muted:#68687d;--dim:#424250;--white:#eeeef6;--accent:#8b8fff;--glass-bg:rgba(255,255,255,.03);--glass-bg-h:rgba(255,255,255,.07);--glass-b:rgba(255,255,255,.09)}
+    *{box-sizing:border-box}html,body{min-height:100%;margin:0;background:radial-gradient(circle at 70% 12%,rgba(139,143,255,.14),transparent 38%),var(--bg);color:var(--text);font-family:Lato,sans-serif}body{display:grid;place-items:center;padding:24px;overflow:auto}.vote-page-home{width:min(680px,100%);text-align:center}.vote-page-home svg{width:54px;height:54px;fill:none;stroke:var(--accent);stroke-width:1.7}.vote-page-home h1{margin:12px 0 5px;font:800 1.55rem Oxanium,sans-serif;color:var(--white)}.vote-page-home p{margin:0 0 18px;color:var(--muted)}.vote-page-home button{min-height:46px;padding:0 20px;border:1px solid rgba(139,143,255,.4);border-radius:11px;background:rgba(139,143,255,.16);color:var(--white);font:700 .7rem "Space Mono",monospace;cursor:pointer}.nova-content-vote-modal{position:fixed}.nova-content-vote-backdrop{background:rgba(2,2,10,.35)}
+  </style>
+</head>
+<body>
+  <main class="vote-page-home">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14l2 4v6H3v-6l2-4Z"/><path d="M7 3h10v12H7z"/><path d="m9.5 8 1.7 1.7 3.5-3.7"/></svg>
+    <h1>Nova Community Picks</h1>
+    <p>Suggest and vote on what Nova should add next.</p>
+    <button type="button" id="open-content-votes">Open voting</button>
+  </main>
+  <script src="/website/js/nova-v7-api.js?v=20260825-stability-r1"></script>
+  <script src="/website/js/nova-content-votes.js?v=20260828-vote-r3"></script>
+  <script>
+    (function(){
+      var kind=new URLSearchParams(location.search).get('kind')==='app'?'app':'game';
+      function open(){if(window.NovaContentVote)window.NovaContentVote.open(kind)}
+      document.getElementById('open-content-votes').addEventListener('click',open);
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(open,0)},{once:true});else setTimeout(open,0);
+    })();
+  </script>
+</body>
+</html>
