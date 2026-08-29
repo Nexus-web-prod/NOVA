@@ -357,7 +357,8 @@
     {
         "name": "Pixel Shooter",
         "url": "https://main.nova-7.pages.dev/website/games/pixel-shooter/",
-        "image": "/website/assets/media/icons/pixel-shooter.webp"
+        "image": "/website/assets/media/icons/pixel-shooter.webp",
+        "local": true
     },
     {
         "name": "Google Baseball",

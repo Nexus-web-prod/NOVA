@@ -3440,6 +3440,7 @@ window.toast = toast;
 /* ── resolve URL (mirrors nova.js resolveURL) ── */
 function resolveURL(input){
   input=(input||'').trim(); if(!input)return null;
+  if(input.charAt(0)==='/')return new URL(input,location.origin).href;
   if(/^https?:\/\//i.test(input))return input;
   if(/^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}([/?#].*)?$/.test(input)&&!input.includes(' '))return 'https://'+input;
   var eng=localStorage.getItem('nova_search_engine')||'brave';
@@ -3450,6 +3451,16 @@ function resolveURL(input){
 function getTab(id){ return tabs.find(function(t){return t.id===id;}); }
 function activeTab(){ return getTab(activeId); }
 function tabHostname(url){ try{return new URL(url).hostname||'Tab';}catch(e){return 'Tab';} }
+function localGameFor(url){
+  try {
+    var parsed = new URL(url, location.origin);
+    if(parsed.origin!==location.origin)return null;
+    if(parsed.pathname==='/website/games/pixel-shooter/' || parsed.pathname==='/website/games/pixel-shooter/index.html'){
+      return {name:'Pixel Shooter',url:new URL('/website/games/pixel-shooter/',location.origin).href};
+    }
+  } catch(e){}
+  return null;
+}
 /* ── render tab bar ── */
 function renderTabs(){
   // detach + btn before clearing
@@ -3504,7 +3515,7 @@ function activateTab(id){
   });
   var tab = getTab(id);
   if(tab){
-    urlBar.value = tab.url || '';
+    urlBar.value = tab.localGame ? tab.localGame.name : (tab.url || '');
     if(tab.url){
       if(emptyEl) emptyEl.style.display = 'none';
       frameWrap.classList.add('has-content');
@@ -3558,7 +3569,7 @@ function newTab(url){
     }
   }, {once:true});
   frameWrap.appendChild(iframe);
-  var tab = { id:id, title:'New Tab', url:url||'', loading:!!url, iframe:iframe, scFrame:null };
+  var tab = { id:id, title:'New Tab', url:url||'', loading:!!url, iframe:iframe, scFrame:null, localGame:null };
   tabs.push(tab);
   renderTabs();
   activateTab(id);
@@ -3568,8 +3579,14 @@ function newTab(url){
     iframe.addEventListener('load', function(){
       if(iframe.getAttribute('src')==='/proxy/html/proxy-frame.html') return;
       tab.loading = false;
-      try{ var real=sc.url&&sc.url.toString(); if(real&&real!=='about:blank'){tab.url=real; if(activeId===id)urlBar.value=real;} }catch(e){}
-      try{ var t2=iframe.contentDocument&&iframe.contentDocument.title; if(t2&&t2.trim()&&t2!=='about:blank')tab.title=t2; }catch(e){}
+      if(tab.localGame){
+        tab.url=tab.localGame.url;
+        tab.title=tab.localGame.name;
+        if(activeId===id)urlBar.value=tab.localGame.name;
+      }else{
+        try{ var real=sc.url&&sc.url.toString(); if(real&&real!=='about:blank'){tab.url=real; if(activeId===id)urlBar.value=real;} }catch(e){}
+        try{ var t2=iframe.contentDocument&&iframe.contentDocument.title; if(t2&&t2.trim()&&t2!=='about:blank')tab.title=t2; }catch(e){}
+      }
       renderTabs();
       if(activeId===id){ if(loadingEl)loadingEl.style.display='none'; plbEnd(); }
       document.dispatchEvent(new CustomEvent('nova:browser-frame-load',{detail:{tab:tab}}));
@@ -3587,22 +3604,27 @@ function navigateTo(url){
   if(BLOCKED.test(url) && !window.NovaDeveloperOptions?.mayDownload?.(true)){ toast('Download blocked — enable downloads in Developer Options'); window.NovaDeveloperOptions?.showDownloadBlocked?.(); return; }
   var resolved = resolveURL(url);
   if(!resolved) return;
+  var localGame = localGameFor(resolved);
   // switch to browser page via nova.js's switchPage
   if(window._novaSwitchPage) window._novaSwitchPage('browser');
   var tab = activeTab();
-  if(!tab){ newTab(resolved); return; }
-  tab.url = resolved;
+  if(!tab){ tab=newTab(); if(!tab)return; }
+  tab.url = localGame ? localGame.url : resolved;
+  tab.localGame = localGame;
   tab.loading = true;
-  tab.title = tabHostname(resolved);
+  tab.title = localGame ? localGame.name : tabHostname(resolved);
   renderTabs();
-  urlBar.value = resolved;
+  urlBar.value = localGame ? localGame.name : resolved;
   if(emptyEl) emptyEl.style.display='none';
   if(loadingEl) loadingEl.style.display='block';
   plbStart();
   frameWrap.classList.add('has-content');
   if(resolved===SILKSONG){ frameWrap.classList.add('silksong-crop'); }
   else { frameWrap.classList.remove('silksong-crop'); }
-  if(tab.scFrame){ tab.scFrame.go(resolved); }
+  if(localGame){
+    tab.iframe.removeAttribute('srcdoc');
+    tab.iframe.src = localGame.url;
+  }else if(tab.scFrame){ tab.scFrame.go(resolved); }
   else { waitProxy(function(){ if(tab.scFrame) tab.scFrame.go(resolved); }); }
   // Fire nova:navigate so weblogs captures every navigation
   var _sq=''; try{ var _u=new URL(resolved); _sq=_u.searchParams.get('q')||_u.searchParams.get('query')||''; }catch(e){}
@@ -3612,10 +3634,10 @@ function navigateTo(url){
 window.goTo = navigateTo;
 window._novaTab = {
   navigate: navigateTo,
-  back:    function(){ var t=activeTab(); try{if(t&&t.scFrame)t.scFrame.back();}catch(e){} },
-  forward: function(){ var t=activeTab(); try{if(t&&t.scFrame)t.scFrame.forward();}catch(e){} },
-  reload:  function(){ var t=activeTab(); try{if(t&&t.scFrame)t.scFrame.reload();}catch(e){} },
-  getUrl:  function(){ var t=activeTab(); return t?t.url:''; },
+  back:    function(){ var t=activeTab(); try{if(t&&t.localGame)t.iframe.contentWindow.history.back();else if(t&&t.scFrame)t.scFrame.back();}catch(e){} },
+  forward: function(){ var t=activeTab(); try{if(t&&t.localGame)t.iframe.contentWindow.history.forward();else if(t&&t.scFrame)t.scFrame.forward();}catch(e){} },
+  reload:  function(){ var t=activeTab(); try{if(t&&t.localGame)t.iframe.contentWindow.location.reload();else if(t&&t.scFrame)t.scFrame.reload();}catch(e){} },
+  getUrl:  function(){ var t=activeTab(); return t?(t.localGame?t.localGame.name:t.url):''; },
   newTab:  newTab,
   getActive: activeTab,
   list: function(){ return tabs.slice(); },

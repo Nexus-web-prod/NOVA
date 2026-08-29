@@ -1704,6 +1704,7 @@
     "name": "Pixel Shooter",
     "link": "https://main.nova-7.pages.dev/website/games/pixel-shooter/",
     "image": "/website/assets/media/icons/pixel-shooter.webp",
+    "local": true,
     "categories": [
       "all"
     ]
