@@ -13,7 +13,7 @@ test('catalog request cards use the native vote experience', () => {
   cards.forEach(card => {
     assert.ok(card, 'native vote card missing');
     assert.equal(card.name, 'Vote for Apps & Games');
-    assert.match(card.url, /^\/website\/html\/content-votes\.html\?kind=(game|app)$/);
+    assert.match(card.url, /^https:\/\/nova-7\.pages\.dev\/website\/html\/content-votes\.html\?kind=(game|app)$/);
     assert.equal(card.image, '/website/assets/media/icons/content-vote.svg');
   });
   assert.equal(games.some(item => item.name === 'Request A Game'), false);

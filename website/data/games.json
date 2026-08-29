@@ -83,7 +83,7 @@
     },
     {
         "name": "Vote for Apps & Games",
-        "url": "/website/html/content-votes.html?kind=game",
+        "url": "https://nova-7.pages.dev/website/html/content-votes.html?kind=game",
         "image": "/website/assets/media/icons/content-vote.svg",
         "contentVote": "game",
         "blank": true,
