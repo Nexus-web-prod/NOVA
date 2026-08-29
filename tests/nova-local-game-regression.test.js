@@ -26,11 +26,18 @@ test('local games bypass Scramjet and use the game name in browser chrome', () =
   const index = read('website/html/index.html');
   assert.match(index, /function localGameFor\(url\)/);
   assert.match(index, /parsed\.origin!==location\.origin/);
-  assert.match(index, /tab\.iframe\.src = localGame\.url/);
+  assert.match(index, /var localIframe=replaceTabIframe\(tab\)/);
   assert.match(index, /tab\.scFrame&&tab\.scFrame\.destroy/);
   assert.match(index, /tab\.scFrame=window\.NovaProxyManager\.createFrame/);
   assert.match(index, /urlBar\.value = localGame \? localGame\.name : resolved/);
   assert.match(index, /t\.localGame\?t\.localGame\.name:t\.url/);
+});
+
+test('proxy-to-local navigation replaces the instrumented iframe browsing context', () => {
+  const index = read('website/html/index.html');
+  assert.match(index, /function replaceTabIframe\(tab\)/);
+  assert.match(index, /var localIframe=replaceTabIframe\(tab\)/);
+  assert.match(index, /previous\.parentNode\.replaceChild\(iframe,previous\)/);
 });
 
 test('Nova CSP permits the Function constructor required by Cocos Creator 2.4.2', () => {

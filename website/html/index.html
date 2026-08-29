@@ -3461,6 +3461,16 @@ function localGameFor(url){
   } catch(e){}
   return null;
 }
+function replaceTabIframe(tab){
+  var previous=tab.iframe;
+  var iframe=document.createElement('iframe');
+  iframe.className=previous.className;
+  iframe.referrerPolicy='no-referrer';
+  iframe.allow='fullscreen';
+  previous.parentNode.replaceChild(iframe,previous);
+  tab.iframe=iframe;
+  return iframe;
+}
 /* ── render tab bar ── */
 function renderTabs(){
   // detach + btn before clearing
@@ -3625,16 +3635,37 @@ function navigateTo(url){
   if(localGame){
     try{ if(tab.scFrame&&tab.scFrame.destroy)tab.scFrame.destroy(); }catch(e){}
     tab.scFrame=null;
-    tab.iframe.removeAttribute('srcdoc');
-    tab.iframe.src = localGame.url;
+    // A Scramjet-instrumented browsing context stays patched even after its
+    // frame handle is destroyed. Replace the iframe so local games always get
+    // a fresh native Window with no proxy hooks left behind.
+    var localIframe=replaceTabIframe(tab);
+    localIframe.addEventListener('load',function(){
+      tab.loading=false;
+      tab.url=localGame.url;
+      tab.title=localGame.name;
+      if(activeId===tab.id){urlBar.value=localGame.name;if(loadingEl)loadingEl.style.display='none';plbEnd();}
+      renderTabs();
+      document.dispatchEvent(new CustomEvent('nova:browser-frame-load',{detail:{tab:tab}}));
+    });
+    localIframe.src=localGame.url;
   }else if(wasLocal){
-    tab.iframe.src='/proxy/html/proxy-frame.html';
-    tab.iframe.addEventListener('load',function restoreProxyFrame(){
+    var proxyIframe=replaceTabIframe(tab);
+    proxyIframe.addEventListener('load',function restoreProxyFrame(){
       waitProxy(function(){
-        tab.scFrame=window.NovaProxyManager.createFrame(tab.iframe);
+        tab.scFrame=window.NovaProxyManager.createFrame(proxyIframe);
+        proxyIframe.addEventListener('load',function(){
+          if(proxyIframe.getAttribute('src')==='/proxy/html/proxy-frame.html')return;
+          tab.loading=false;
+          try{var real=tab.scFrame.url&&tab.scFrame.url.toString();if(real&&real!=='about:blank'){tab.url=real;if(activeId===tab.id)urlBar.value=real;}}catch(e){}
+          try{var title=proxyIframe.contentDocument&&proxyIframe.contentDocument.title;if(title&&title.trim()&&title!=='about:blank')tab.title=title;}catch(e){}
+          renderTabs();
+          if(activeId===tab.id){if(loadingEl)loadingEl.style.display='none';plbEnd();}
+          document.dispatchEvent(new CustomEvent('nova:browser-frame-load',{detail:{tab:tab}}));
+        });
         tab.scFrame.go(resolved);
       });
     },{once:true});
+    proxyIframe.src='/proxy/html/proxy-frame.html';
   }else if(tab.scFrame){ tab.scFrame.go(resolved); }
   else { waitProxy(function(){ if(tab.scFrame) tab.scFrame.go(resolved); }); }
   // Fire nova:navigate so weblogs captures every navigation
