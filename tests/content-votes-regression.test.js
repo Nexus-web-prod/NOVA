@@ -13,7 +13,7 @@ test('catalog request cards use the native vote experience', () => {
   cards.forEach(card => {
     assert.ok(card, 'native vote card missing');
     assert.equal(card.name, 'Vote for Apps & Games');
-    assert.match(card.url, /^https:\/\/nova-7\.pages\.dev\/website\/html\/content-votes\.html\?kind=(game|app)$/);
+    assert.match(card.url, /^#vote-(games|apps)$/);
     assert.equal(card.image, '/website/assets/media/icons/content-vote.svg');
   });
   assert.equal(games.some(item => item.name === 'Request A Game'), false);
@@ -34,6 +34,7 @@ test('admin panel and app shell load content voting UI', () => {
   const votePage = read('website/html/content-votes.html');
   const admin = read('website/js/nova-v7-admin.js');
   assert.match(html, /nova-content-votes\.css/);
+  assert.match(html, /nova-content-votes\.js/);
   assert.match(votePage, /nova-content-votes\.js/);
   assert.match(admin, /navButton\("contentVotes", "Content votes"\)/);
   assert.match(admin, /NovaAPI\.adminContentVotes/);
