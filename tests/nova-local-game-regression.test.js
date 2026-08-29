@@ -37,6 +37,7 @@ test('FNAF 2 is registered as a self-contained Nova local game', () => {
   assert.equal(legacyGame.local, true);
   assert.match(packagedGame, /var projectParts = \["project\.part1\.bin", "project\.part2\.bin"\]/);
   assert.match(packagedGame, /Promise\.all\(projectParts\.map/);
+  assert.match(packagedGame, /connect-src 'self' data: blob:/);
   assert.doesNotMatch(packagedGame, /static\.cloudflareinsights\.com\/beacon/);
   for (const part of ['project.part1.bin', 'project.part2.bin']) {
     const partPath = path.join(root, 'website/games/fnaf-2', part);
