@@ -1,6 +1,6 @@
 "use strict";
 
-const NOVA_PROXY_RUNTIME_VERSION = "20260822-sj2067-r8.19";
+const NOVA_PROXY_RUNTIME_VERSION = "20260829-sj2067-r8.22";
 
 if (navigator.userAgent.includes("Firefox")) {
   try {
