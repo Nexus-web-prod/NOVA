@@ -3458,6 +3458,9 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/pixel-shooter/' || parsed.pathname==='/website/games/pixel-shooter/index.html'){
       return {name:'Pixel Shooter',url:new URL('/website/games/pixel-shooter/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/fnaf-2/' || parsed.pathname==='/website/games/fnaf-2/index.html'){
+      return {name:'FNAF 2',url:new URL('/website/games/fnaf-2/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

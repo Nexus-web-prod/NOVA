@@ -196,8 +196,9 @@
     },
     {
         "name": "FNAF 2",
-        "url": "https://sussygamedeveloper.github.io/FNAF2/",
-        "image": "/website/assets/media/icons/FNAF2.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/fnaf-2/",
+        "image": "/website/assets/media/icons/FNAF2.webp",
+        "local": true
     },
     {
         "name": "FNAF 3",

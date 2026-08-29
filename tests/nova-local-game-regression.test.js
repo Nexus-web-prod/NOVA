@@ -22,9 +22,33 @@ test('Pixel Shooter is registered as Nova local content', () => {
   assert.ok(fs.existsSync(path.join(root, 'website/games/pixel-shooter/assets/main/config.99d5f.json')));
 });
 
+test('FNAF 2 is registered as a self-contained Nova local game', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(item => item.name === 'FNAF 2');
+  const legacyGame = legacyGames.find(item => item.name === 'FNAF 2');
+  const packagedGame = read('website/games/fnaf-2/index.html');
+
+  assert.deepEqual(
+    { url: game.url, local: game.local },
+    { url: 'https://main.nova-7.pages.dev/website/games/fnaf-2/', local: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(legacyGame.local, true);
+  assert.match(packagedGame, /var projectParts = \["project\.part1\.bin", "project\.part2\.bin"\]/);
+  assert.match(packagedGame, /Promise\.all\(projectParts\.map/);
+  assert.doesNotMatch(packagedGame, /static\.cloudflareinsights\.com\/beacon/);
+  for (const part of ['project.part1.bin', 'project.part2.bin']) {
+    const partPath = path.join(root, 'website/games/fnaf-2', part);
+    assert.ok(fs.existsSync(partPath));
+    assert.ok(fs.statSync(partPath).size < 25 * 1024 * 1024);
+  }
+});
+
 test('local games bypass Scramjet and use the game name in browser chrome', () => {
   const index = read('website/html/index.html');
   assert.match(index, /function localGameFor\(url\)/);
+  assert.match(index, /website\/games\/fnaf-2/);
   assert.match(index, /parsed\.origin!==location\.origin/);
   assert.match(index, /var localIframe=replaceTabIframe\(tab\)/);
   assert.match(index, /tab\.scFrame&&tab\.scFrame\.destroy/);

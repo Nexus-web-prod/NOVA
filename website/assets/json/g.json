@@ -844,11 +844,12 @@
   },
   {
     "name": "FNAF 2",
-    "link": "https://sussygamedeveloper.github.io/FNAF2/",
+    "link": "https://main.nova-7.pages.dev/website/games/fnaf-2/",
     "image": "/website/assets/media/icons/FNAF2.webp",
     "categories": [
       "all"
-    ]
+    ],
+    "local": true
   },
   {
     "name": "FNAF 3",
