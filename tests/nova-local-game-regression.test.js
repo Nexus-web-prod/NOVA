@@ -32,3 +32,11 @@ test('local games bypass Scramjet and use the game name in browser chrome', () =
   assert.match(index, /urlBar\.value = localGame \? localGame\.name : resolved/);
   assert.match(index, /t\.localGame\?t\.localGame\.name:t\.url/);
 });
+
+test('Pixel Shooter has a route-scoped CSP exception for Cocos runtime eval', () => {
+  const headers = read('_headers');
+  const route = headers.match(/\/website\/games\/pixel-shooter\/\*[\s\S]*?(?=\n\/|$)/)?.[0] || '';
+
+  assert.match(route, /Content-Security-Policy:/);
+  assert.match(route, /script-src[^;]*'unsafe-eval'/);
+});
