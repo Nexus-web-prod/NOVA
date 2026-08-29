@@ -37,4 +37,5 @@ test('admin panel and app shell load content voting UI', () => {
   assert.match(votePage, /nova-content-votes\.js/);
   assert.match(admin, /navButton\("contentVotes", "Content votes"\)/);
   assert.match(admin, /NovaAPI\.adminContentVotes/);
+  assert.match(read('website/js/nova-game-detail.js'), /name === 'Vote for Apps & Games'/);
 });

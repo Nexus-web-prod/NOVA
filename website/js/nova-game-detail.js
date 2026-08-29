@@ -412,7 +412,7 @@
     if (!card || event.target.closest('.fav-btn,.game-star')) return;
     var nameElement = card.querySelector('.game-name,.recent-card-name');
     var name = nameElement?.textContent.trim();
-    if (!name || name === 'Request A Game') return;
+    if (!name || name === 'Request A Game' || name === 'Vote for Apps & Games') return;
     event.preventDefault();
     event.stopImmediatePropagation();
     loadCatalog().then(function () { open(findByName(name), { history: true }); }).catch(function () {});
