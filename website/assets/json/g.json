@@ -1721,9 +1721,8 @@
   },
   {
     "name": "Pixel Shooter",
-    "link": "https://main.nova-7.pages.dev/website/games/pixel-shooter/",
+    "link": "https://ubgwtf.gitlab.io/pixel-shooter/",
     "image": "/website/assets/media/icons/pixel-shooter.webp",
-    "local": true,
     "categories": [
       "all"
     ]

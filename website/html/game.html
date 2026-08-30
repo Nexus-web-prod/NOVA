@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#05050b">
+  <title>Nova Game Player</title>
+  <style>
+    :root {
+      --player-bg: #05050b;
+      --player-surface: rgba(15, 15, 29, 0.94);
+      --player-surface-hover: rgba(29, 29, 52, 0.98);
+      --player-border: rgba(255, 255, 255, 0.14);
+      --player-text: #f7f7ff;
+      --player-muted: #b8b8ca;
+      --player-accent: #8b8fff;
+      --player-ring: #b8baff;
+      --player-danger: #ff8585;
+      --player-shadow: 0 20px 60px rgba(0, 0, 0, 0.48);
+      --ease-out: cubic-bezier(.2, .8, .2, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--player-bg);
+      color: var(--player-text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button { font: inherit; }
+
+    .player {
+      position: fixed;
+      inset: 0;
+      min-height: 100dvh;
+      background:
+        radial-gradient(circle at 50% 15%, rgba(139, 143, 255, 0.10), transparent 38%),
+        var(--player-bg);
+    }
+
+    .game-frame {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #000;
+    }
+
+    .loading,
+    .error-state {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: var(--player-bg);
+      transition: opacity 180ms var(--ease-out), visibility 180ms var(--ease-out);
+    }
+
+    .loading.is-hidden,
+    .error-state[hidden] {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-card,
+    .error-card {
+      display: grid;
+      justify-items: center;
+      gap: 16px;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .nova-mark,
+    .launcher-mark {
+      width: 30px;
+      height: 30px;
+      color: var(--player-accent);
+    }
+
+    .loading h1,
+    .error-state h1 {
+      margin: 0;
+      font-size: clamp(20px, 3vw, 28px);
+      line-height: 1.2;
+    }
+
+    .loading p,
+    .error-state p {
+      margin: 0;
+      color: var(--player-muted);
+      line-height: 1.55;
+    }
+
+    .progress-track {
+      width: min(260px, 72vw);
+      height: 4px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .progress-bar {
+      width: 46%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--player-accent), #c4a7ff);
+      animation: load 1.2s var(--ease-out) infinite alternate;
+    }
+
+    .launcher {
+      position: fixed;
+      top: max(16px, env(safe-area-inset-top));
+      right: max(16px, env(safe-area-inset-right));
+      z-index: 60;
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      padding: 0;
+      border: 1px solid var(--player-border);
+      border-radius: 16px;
+      color: var(--player-text);
+      background: rgba(10, 10, 20, 0.88);
+      box-shadow: var(--player-shadow);
+      backdrop-filter: blur(16px);
+      cursor: pointer;
+      transition: background-color 160ms ease, border-color 160ms ease, transform 100ms ease;
+      touch-action: manipulation;
+    }
+
+    .launcher:hover { background: var(--player-surface-hover); border-color: rgba(139, 143, 255, 0.58); }
+    .launcher:active { transform: scale(0.96); }
+
+    .menu {
+      position: fixed;
+      top: max(76px, calc(env(safe-area-inset-top) + 60px));
+      right: max(16px, env(safe-area-inset-right));
+      z-index: 50;
+      width: min(320px, calc(100vw - 32px));
+      padding: 16px;
+      border: 1px solid var(--player-border);
+      border-radius: 20px;
+      background: var(--player-surface);
+      box-shadow: var(--player-shadow);
+      backdrop-filter: blur(22px);
+      transform-origin: top right;
+      transition: opacity 160ms ease, transform 160ms var(--ease-out), visibility 160ms ease;
+    }
+
+    .menu[hidden] {
+      display: block;
+      visibility: hidden;
+      opacity: 0;
+      transform: translateY(-8px) scale(0.98);
+      pointer-events: none;
+    }
+
+    .menu-header {
+      min-width: 0;
+      padding: 2px 4px 14px;
+      border-bottom: 1px solid var(--player-border);
+    }
+
+    .menu-eyebrow {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--player-muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .menu-title {
+      display: block;
+      overflow: hidden;
+      font-size: 18px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .menu-actions {
+      display: grid;
+      gap: 8px;
+      padding-top: 12px;
+    }
+
+    .menu-action,
+    .error-action {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: var(--player-text);
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      transition: background-color 140ms ease, border-color 140ms ease;
+      touch-action: manipulation;
+    }
+
+    .menu-action:hover,
+    .error-action:hover { background: var(--player-surface-hover); border-color: var(--player-border); }
+    .menu-action.back { color: var(--player-danger); }
+
+    .menu-action svg,
+    .error-action svg {
+      flex: 0 0 auto;
+      width: 20px;
+      height: 20px;
+    }
+
+    .action-copy { display: grid; gap: 1px; }
+    .action-label { font-size: 14px; font-weight: 700; }
+    .action-hint { color: var(--player-muted); font-size: 12px; }
+
+    .shortcut-note {
+      margin: 12px 4px 0;
+      color: var(--player-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    kbd {
+      display: inline-grid;
+      place-items: center;
+      min-width: 22px;
+      min-height: 22px;
+      padding: 0 6px;
+      border: 1px solid var(--player-border);
+      border-radius: 6px;
+      color: var(--player-text);
+      background: rgba(255, 255, 255, 0.06);
+      font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    button:focus-visible {
+      outline: 3px solid var(--player-ring);
+      outline-offset: 3px;
+    }
+
+    @keyframes load {
+      from { transform: translateX(-70%); }
+      to { transform: translateX(115%); }
+    }
+
+    @media (max-width: 520px) {
+      .launcher {
+        top: max(12px, env(safe-area-inset-top));
+        right: max(12px, env(safe-area-inset-right));
+      }
+
+      .menu {
+        top: max(72px, calc(env(safe-area-inset-top) + 58px));
+        right: 12px;
+        width: calc(100vw - 24px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="player" id="player">
+    <iframe
+      class="game-frame"
+      id="game-frame"
+      title="Game"
+      allow="autoplay; fullscreen; gamepad"
+      referrerpolicy="no-referrer"
+    ></iframe>
+
+    <section class="loading" id="loading" aria-live="polite">
+      <div class="loading-card">
+        <svg class="nova-mark" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 3C50 3 43 43 3 50C43 57 50 97 50 97C50 97 57 57 97 50C57 43 50 3 50 3Z" fill="currentColor"/></svg>
+        <div>
+          <h1 id="loading-title">Loading game</h1>
+          <p>Nova Game Mode</p>
+        </div>
+        <div class="progress-track" aria-hidden="true"><div class="progress-bar"></div></div>
+      </div>
+    </section>
+
+    <section class="error-state" id="error-state" hidden role="alert">
+      <div class="error-card">
+        <svg class="nova-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg>
+        <div>
+          <h1>Game unavailable</h1>
+          <p id="error-message">Nova could not open this local game.</p>
+        </div>
+        <button class="error-action" id="error-back" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <span class="action-label">Back to Games</span>
+        </button>
+      </div>
+    </section>
+
+    <button class="launcher" id="launcher" type="button" aria-label="Open game controls" aria-expanded="false" aria-controls="game-menu">
+      <svg class="launcher-mark" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 3C50 3 43 43 3 50C43 57 50 97 50 97C50 97 57 57 97 50C57 43 50 3 50 3Z" fill="currentColor"/></svg>
+    </button>
+
+    <aside class="menu" id="game-menu" hidden aria-label="Game controls">
+      <div class="menu-header">
+        <span class="menu-eyebrow">Nova Game Mode</span>
+        <span class="menu-title" id="menu-title">Local game</span>
+      </div>
+      <div class="menu-actions">
+        <button class="menu-action back" id="back-button" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <span class="action-copy"><span class="action-label">Back to Games</span><span class="action-hint">Return to Nova</span></span>
+        </button>
+        <button class="menu-action" id="restart-button" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg>
+          <span class="action-copy"><span class="action-label">Restart</span><span class="action-hint">Reload this game</span></span>
+        </button>
+        <button class="menu-action" id="fullscreen-button" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+          <span class="action-copy"><span class="action-label" id="fullscreen-label">Fullscreen</span><span class="action-hint">Shortcut: F</span></span>
+        </button>
+        <button class="menu-action" id="mute-button" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a9 9 0 0 1 0 12"/></svg>
+          <span class="action-copy"><span class="action-label" id="mute-label">Mute</span><span class="action-hint">HTML game audio</span></span>
+        </button>
+      </div>
+      <p class="shortcut-note"><kbd>Esc</kbd> opens these controls when you are not in fullscreen.</p>
+    </aside>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var games = {
+        'pixel-shooter': { name: 'Pixel Shooter', src: '/website/games/pixel-shooter/' },
+        'fnaf-2': { name: 'FNAF 2', src: '/website/games/fnaf-2/' },
+        'brawl-stars': { name: 'Brawl Stars', src: '/website/games/brawl-stars/' },
+        'brawl-guys': { name: 'Brawl Guys', src: '/website/games/brawl-guys/' },
+        'retro-bowl': { name: 'Retro Bowl', src: '/website/games/retro-bowl/' }
+      };
+
+      var params = new URLSearchParams(window.location.search);
+      var game = games[params.get('game') || ''];
+      var frame = document.getElementById('game-frame');
+      var loading = document.getElementById('loading');
+      var errorState = document.getElementById('error-state');
+      var errorMessage = document.getElementById('error-message');
+      var launcher = document.getElementById('launcher');
+      var menu = document.getElementById('game-menu');
+      var player = document.getElementById('player');
+      var muted = false;
+      var loadTimer;
+
+      function goBack() {
+        if (window.history.length > 1) window.history.back();
+        else window.location.assign('/website/html/index.html');
+      }
+
+      function showError(message) {
+        window.clearTimeout(loadTimer);
+        loading.classList.add('is-hidden');
+        errorMessage.textContent = message;
+        errorState.hidden = false;
+        launcher.hidden = true;
+      }
+
+      function setMenu(open) {
+        menu.hidden = !open;
+        launcher.setAttribute('aria-expanded', String(open));
+        launcher.setAttribute('aria-label', open ? 'Close game controls' : 'Open game controls');
+        if (open) document.getElementById('back-button').focus();
+        else launcher.focus();
+      }
+
+      function toggleFullscreen() {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(function () {});
+        } else if (player.requestFullscreen) {
+          player.requestFullscreen().catch(function () {});
+        }
+      }
+
+      function applyMute() {
+        try {
+          var child = frame.contentWindow;
+          var media = child.document.querySelectorAll('audio, video');
+          media.forEach(function (element) { element.muted = muted; });
+          if (child.Howler && typeof child.Howler.mute === 'function') child.Howler.mute(muted);
+          child.postMessage({ type: 'nova:game-audio', muted: muted }, window.location.origin);
+        } catch (error) {}
+        document.getElementById('mute-button').setAttribute('aria-pressed', String(muted));
+        document.getElementById('mute-label').textContent = muted ? 'Unmute' : 'Mute';
+      }
+
+      document.getElementById('back-button').addEventListener('click', goBack);
+      document.getElementById('error-back').addEventListener('click', goBack);
+      document.getElementById('restart-button').addEventListener('click', function () {
+        setMenu(false);
+        loading.classList.remove('is-hidden');
+        frame.src = game.src;
+      });
+      document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreen);
+      document.getElementById('mute-button').addEventListener('click', function () {
+        muted = !muted;
+        applyMute();
+      });
+      launcher.addEventListener('click', function () { setMenu(menu.hidden); });
+
+      document.addEventListener('fullscreenchange', function () {
+        document.getElementById('fullscreen-label').textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+      });
+
+      document.addEventListener('pointerdown', function (event) {
+        if (!menu.hidden && !menu.contains(event.target) && event.target !== launcher) setMenu(false);
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !document.fullscreenElement) {
+          event.preventDefault();
+          setMenu(menu.hidden);
+        } else if (event.key.toLowerCase() === 'f' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          event.preventDefault();
+          toggleFullscreen();
+        }
+      });
+
+      if (!game) {
+        showError('That game is not part of Nova\'s local library.');
+        return;
+      }
+
+      document.title = game.name + ' — Nova Game Mode';
+      frame.title = game.name;
+      document.getElementById('loading-title').textContent = 'Loading ' + game.name;
+      document.getElementById('menu-title').textContent = game.name;
+      frame.addEventListener('load', function () {
+        window.clearTimeout(loadTimer);
+        loading.classList.add('is-hidden');
+        if (muted) applyMute();
+        try { frame.contentWindow.focus(); } catch (error) {}
+      });
+      frame.addEventListener('error', function () { showError('Nova could not load ' + game.name + '.'); });
+      loadTimer = window.setTimeout(function () {
+        loading.classList.add('is-hidden');
+      }, 15000);
+      frame.src = game.src;
+    }());
+  </script>
+</body>
+</html>

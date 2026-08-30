@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('Pixel Shooter is registered as Nova local content', () => {
+test('Pixel Shooter uses the current external game host', () => {
   const games = JSON.parse(read('website/data/games.json'));
   const legacyGames = JSON.parse(read('website/assets/json/g.json'));
   const game = games.find(item => item.name === 'Pixel Shooter');
@@ -14,12 +14,10 @@ test('Pixel Shooter is registered as Nova local content', () => {
 
   assert.deepEqual(
     { url: game.url, local: game.local },
-    { url: 'https://main.nova-7.pages.dev/website/games/pixel-shooter/', local: true }
+    { url: 'https://ubgwtf.gitlab.io/pixel-shooter/', local: undefined }
   );
   assert.equal(legacyGame.link, game.url);
-  assert.equal(legacyGame.local, true);
-  assert.ok(fs.existsSync(path.join(root, 'website/games/pixel-shooter/index.html')));
-  assert.ok(fs.existsSync(path.join(root, 'website/games/pixel-shooter/assets/main/config.99d5f.json')));
+  assert.equal(legacyGame.local, undefined);
 });
 
 test('FNAF 2 is registered as a self-contained Nova local game', () => {
@@ -148,14 +146,35 @@ test('Retro Bowl is registered with a complete local GameMaker build', () => {
   assert.doesNotMatch(read('website/games/retro-bowl/html5game/RetroBowl.js'), /cpd;\s*$/);
 });
 
-test('local games bypass Scramjet and use the game name in browser chrome', () => {
+test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
+  const player = read('website/html/game.html');
   assert.match(index, /function localGameFor\(url\)/);
   assert.match(index, /website\/games\/fnaf-2/);
   assert.match(index, /website\/games\/brawl-stars/);
   assert.match(index, /website\/games\/brawl-guys/);
   assert.match(index, /website\/games\/retro-bowl/);
-  assert.match(index, /parsed\.origin!==location\.origin/);
+  assert.match(index, /main\.nova-7\.pages\.dev/);
+  assert.match(index, /window\.location\.assign\('\/website\/html\/game\.html\?game='/);
+  assert.match(index, /encodeURIComponent\(localGame\.slug\)/);
+  assert.match(player, /var games = \{/);
+  assert.match(player, /'fnaf-2'/);
+  assert.match(player, /'brawl-stars'/);
+  assert.match(player, /'brawl-guys'/);
+  assert.match(player, /'retro-bowl'/);
+  assert.match(player, /id="back-button"/);
+  assert.match(player, /id="restart-button"/);
+  assert.match(player, /id="fullscreen-button"/);
+  assert.match(player, /id="mute-button"/);
+  assert.match(player, /prefers-reduced-motion: reduce/);
+  assert.match(player, /button:focus-visible/);
+  assert.match(player, /games\[params\.get\('game'\)/);
+  assert.doesNotMatch(player, /frame\.src\s*=\s*params/);
+  assert.doesNotMatch(player, /<input[^>]+name=["']url/);
+});
+
+test('legacy in-browser local loading remains available for an existing local tab', () => {
+  const index = read('website/html/index.html');
   assert.match(index, /var localIframe=replaceTabIframe\(tab\)/);
   assert.match(index, /tab\.scFrame&&tab\.scFrame\.destroy/);
   assert.match(index, /tab\.scFrame=window\.NovaProxyManager\.createFrame/);
