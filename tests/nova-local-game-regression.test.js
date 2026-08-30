@@ -146,6 +146,36 @@ test('Retro Bowl is registered with a complete local GameMaker build', () => {
   assert.doesNotMatch(read('website/games/retro-bowl/html5game/RetroBowl.js'), /cpd;\s*$/);
 });
 
+test('Super Liquid Soccer is registered with a complete local Godot build', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const compactGames = JSON.parse(read('website/assets/json/g.min.json'));
+  const game = games.find(item => item.name === 'Super Liquid Soccer');
+  const legacyGame = legacyGames.find(item => item.name === 'Super Liquid Soccer');
+  const compactGame = compactGames.find(item => item.name === 'Super Liquid Soccer');
+  const gameRoot = path.join(root, 'website/games/super-liquid-soccer');
+  const packagedGame = read('website/games/super-liquid-soccer/index.html');
+  const required = ['index.html', 'index.js', 'index.pck', 'index.wasm', 'index.png', 'index.icon.png'];
+
+  assert.deepEqual(
+    { url: game.url, local: game.local },
+    { url: 'https://main.nova-7.pages.dev/website/games/super-liquid-soccer/', local: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(compactGame.link, game.url);
+  assert.equal(legacyGame.local, true);
+  assert.equal(compactGame.local, true);
+  for (const file of required) {
+    const filePath = path.join(gameRoot, file);
+    assert.ok(fs.existsSync(filePath), `missing Godot file: ${file}`);
+    assert.ok(fs.statSync(filePath).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
+  }
+  assert.match(packagedGame, /window\.PokiSDK = \{/);
+  assert.match(packagedGame, /gameplayStart: function \(\) \{\}/);
+  assert.match(packagedGame, /<title>Super Liquid Soccer<\/title>/);
+  assert.doesNotMatch(packagedGame, /patch\/js|Unblocked Games/);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
@@ -154,6 +184,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /website\/games\/brawl-stars/);
   assert.match(index, /website\/games\/brawl-guys/);
   assert.match(index, /website\/games\/retro-bowl/);
+  assert.match(index, /website\/games\/super-liquid-soccer/);
   assert.match(index, /main\.nova-7\.pages\.dev/);
   assert.match(index, /window\.location\.assign\('\/website\/html\/game\.html\?game='/);
   assert.match(index, /encodeURIComponent\(localGame\.slug\)/);
@@ -162,6 +193,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(player, /'brawl-stars'/);
   assert.match(player, /'brawl-guys'/);
   assert.match(player, /'retro-bowl'/);
+  assert.match(player, /'super-liquid-soccer'/);
   assert.match(player, /id="back-button"/);
   assert.match(player, /id="restart-button"/);
   assert.match(player, /id="fullscreen-button"/);

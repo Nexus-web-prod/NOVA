@@ -18,6 +18,15 @@
     "local": true
   },
   {
+    "name": "Super Liquid Soccer",
+    "link": "https://main.nova-7.pages.dev/website/games/super-liquid-soccer/",
+    "image": "/website/assets/media/icons/soccer.png",
+    "categories": [
+      "all"
+    ],
+    "local": true
+  },
+  {
     "name": "! Create Custom App",
     "image": "/website/assets/media/icons/custom.webp",
     "categories": [

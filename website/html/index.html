@@ -3471,6 +3471,9 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/retro-bowl/' || parsed.pathname==='/website/games/retro-bowl/index.html'){
       return {name:'Retro Bowl',slug:'retro-bowl',url:new URL('/website/games/retro-bowl/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/super-liquid-soccer/' || parsed.pathname==='/website/games/super-liquid-soccer/index.html'){
+      return {name:'Super Liquid Soccer',slug:'super-liquid-soccer',url:new URL('/website/games/super-liquid-soccer/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

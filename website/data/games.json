@@ -21,9 +21,10 @@
         "image": "/website/assets/media/icons/dune-dash.png"
     },
     {
-        "name": "Supper Liquid Soccer",
-        "url": "https://superliquidsoccer.gitlab.io/file/",
-        "image": "/website/assets/media/icons/soccer.png"
+        "name": "Super Liquid Soccer",
+        "url": "https://main.nova-7.pages.dev/website/games/super-liquid-soccer/",
+        "image": "/website/assets/media/icons/soccer.png",
+        "local": true
     },
     {
         "name": "Google Solitaire",
