@@ -302,7 +302,7 @@ test('Funny Shooter 3D uses its packaged image with the archive external game UR
 
   assert.deepEqual(
     { url: game.url, image: game.image, local: game.local },
-    { url: 'https://funnyshooter.github.io/file/', image, local: undefined }
+    { url: 'https://ubgwtf.gitlab.io/funny-shooter/', image, local: undefined }
   );
   assert.equal(legacyGame.link, game.url);
   assert.equal(compactGame.link, game.url);
