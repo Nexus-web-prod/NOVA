@@ -488,6 +488,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /game-player-mode/);
   assert.match(index, /playerFrame\.contentDocument\.addEventListener\('pointermove'/);
   assert.match(index, /#nova-shell\.island-open\.game-player-mode/);
+  assert.match(index, /game-player-mode\.game-player-has-game/);
   assert.match(index, /#page-game-player\.pg-enter-left/);
   assert.match(index, /id="ni-game-player-page-item" data-page="game-player"/);
   assert.match(index, /window\.NovaAPI\.rateGame\(entry\.local\.slug,value\)/);
