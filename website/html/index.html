@@ -857,8 +857,14 @@ html[data-theme="light"] .settings-sync-pill{background:rgba(255,250,244,.82)!im
   .settings-account-actions .settings-secondary-btn{width:100%}
 }
 </style>
+<style>
+body.nova-island-embed{background:transparent!important;overflow:hidden!important}
+body.nova-island-embed>*:not(#nova-island):not(#ni-social-dock):not(script):not(style){display:none!important}
+body.nova-island-embed #nova-island{top:0!important;right:0!important;height:100vh!important;max-height:100vh!important}
+</style>
 </head>
 <body>
+<script>if(new URLSearchParams(location.search).get('islandEmbed')==='1')document.body.classList.add('nova-island-embed');</script>
 
 <!-- ══ NOVA ISLAND STAR BUTTON ══ -->
 <div id="nova-island-hint">Nova Island</div>
@@ -1213,6 +1219,17 @@ function syncIslandVisibility(){
 
 window._novaOpenIsland = openIsland;
 window._novaCloseIsland = closeIsland;
+if(document.body.classList.contains('nova-island-embed')){
+  openIsland();
+  document.addEventListener('click',function(event){
+    var pageItem=event.target.closest&&event.target.closest('.ni-page-item[data-page]');
+    if(!pageItem)return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.parent.postMessage({type:'nova:island-page',page:pageItem.dataset.page},location.origin);
+  },true);
+  if(islandClose)islandClose.addEventListener('click',function(){window.parent.postMessage({type:'nova:island-close'},location.origin);});
+}
 window._novaSetIslandLayoutOpen = setIslandLayoutOpen;
 window._novaSyncIslandVisibility = syncIslandVisibility;
 window.addEventListener('nova:session-changed', function(e){

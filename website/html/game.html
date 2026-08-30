@@ -143,8 +143,8 @@
     .island-dock .launcher { position: static; }
     .island-dock.is-near { background: rgba(10,10,22,.86); border-color: var(--player-border); backdrop-filter: blur(18px); box-shadow: var(--player-shadow); }
     .island-dock.is-captured { opacity: .15; pointer-events: none; }
-    .quick-controls { display: flex; gap: 4px; max-width: 0; overflow: hidden; opacity: 0; transform: translateX(8px); transition: max-width 220ms var(--ease-out), opacity 160ms ease, transform 220ms var(--ease-out); }
-    .island-dock.is-near .quick-controls, .island-dock:focus-within .quick-controls { max-width: 110px; opacity: 1; transform: none; }
+    .quick-controls { display: none; gap: 4px; }
+    .island-dock.is-near .quick-controls, .island-dock:focus-within .quick-controls { display: flex; }
     .quick-control { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; color: var(--player-text); background: transparent; cursor: pointer; }
     .quick-control:hover { background: rgba(255,255,255,.1); }
     .quick-control svg { width: 20px; height: 20px; }
@@ -163,15 +163,16 @@
       right: max(16px, env(safe-area-inset-right));
       z-index: 50;
       width: min(320px, calc(100vw - 32px));
-      padding: 16px;
-      border: 1px solid var(--player-border);
-      border-radius: 20px;
-      background: var(--player-surface);
-      box-shadow: var(--player-shadow);
-      backdrop-filter: blur(22px);
+      height: calc(100dvh - 88px);
+      padding: 0;
+      border: 0;
+      border-radius: 26px;
+      background: transparent;
+      box-shadow: none;
       transform-origin: top right;
       transition: opacity 160ms ease, transform 160ms var(--ease-out), visibility 160ms ease;
     }
+    .nova-island-frame { display: block; width: 100%; height: 100%; border: 0; border-radius: 26px; background: transparent; }
 
     .menu[hidden] {
       display: block;
@@ -362,40 +363,8 @@
       <button class="launcher" id="launcher" type="button" aria-label="Open Nova Island" aria-expanded="false" aria-controls="game-menu"><span class="launcher-star" aria-hidden="true">✦</span></button>
     </div>
 
-    <aside class="menu" id="game-menu" hidden aria-label="Game controls">
-      <div class="menu-header">
-        <span class="menu-eyebrow">Nova 7.0 Island</span>
-        <span class="menu-title" id="menu-title">Games Player</span>
-        <div class="island-tabs" role="tablist"><button class="island-tab active" data-island-tab="pages">Pages</button><button class="island-tab" data-island-tab="social">Social</button><button class="island-tab" data-island-tab="recent">Recent</button></div>
-      </div>
-      <div class="menu-actions island-panel" data-island-panel="pages">
-        <a class="island-link" href="/website/html/index.html"><strong>Home</strong><span>Nova start page</span></a>
-        <a class="island-link" href="/website/html/index.html?page=browser"><strong>Browser</strong><span>Browse freely</span></a>
-        <a class="island-link" href="/website/html/game.html"><strong>Games</strong><span>Full local library</span></a>
-        <a class="island-link" href="/website/html/index.html?page=settings"><strong>Settings</strong><span>Configure Nova</span></a>
-        <button class="menu-action back" id="back-button" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-          <span class="action-copy"><span class="action-label">Back to Games</span><span class="action-hint">Return to Nova</span></span>
-        </button>
-      </div>
-      <div class="island-panel" data-island-panel="social" hidden><div class="island-empty">Open Nova Social from the main Nova page to see friends, chats, and groups.</div></div>
-      <div class="island-panel" data-island-panel="recent" hidden><div class="island-empty" id="recent-games">No recent games yet.</div></div>
-      <div class="menu-actions" hidden>
-        <button class="menu-action" id="restart-button" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg>
-          <span class="action-copy"><span class="action-label">Restart</span><span class="action-hint">Reload this game</span></span>
-        </button>
-        <button class="menu-action" id="fullscreen-button" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
-          <span class="action-copy"><span class="action-label" id="fullscreen-label">Fullscreen</span><span class="action-hint">Shortcut: F</span></span>
-        </button>
-        <button class="menu-action" id="mute-button" type="button" aria-pressed="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a9 9 0 0 1 0 12"/></svg>
-          <span class="action-copy"><span class="action-label" id="mute-label">Mute</span><span class="action-hint">HTML game audio</span></span>
-        </button>
-      </div>
-      <p class="shortcut-note"><kbd>Esc</kbd> opens these controls when you are not in fullscreen.</p>
-    </aside>
+    <aside class="menu" id="game-menu" hidden aria-label="Nova Island"><iframe class="nova-island-frame" id="nova-island-frame" title="Nova Island" src="/website/html/index.html?islandEmbed=1"></iframe></aside>
+    <button id="back-button" type="button" hidden>Back to Games</button><button id="restart-button" type="button" hidden>Restart</button><button id="fullscreen-button" type="button" hidden><span id="fullscreen-label">Fullscreen</span></button><button id="mute-button" type="button" hidden><span id="mute-label">Mute</span></button>
     <div class="message-toast" id="message-toast" role="status" aria-live="polite"><div class="message-avatar" id="message-avatar">N</div><div class="message-copy"><strong id="message-from">Nova message</strong><span id="message-text">You have a new message</span></div></div>
   </main>
   <main class="library" id="library" hidden><div class="library-shell"><header class="library-header"><div><p class="library-kicker">Nova Games Player</p><h1>Local games</h1><p class="library-sub" id="library-count">Loading your library…</p></div><a class="library-back" href="/website/html/index.html">Back to Nova</a></header><section class="game-grid" id="game-grid" aria-live="polite"><div class="library-status">Loading local games…</div></section></div></main>
@@ -461,7 +430,7 @@
         menu.hidden = !open;
         launcher.setAttribute('aria-expanded', String(open));
         launcher.setAttribute('aria-label', open ? 'Close Nova Island' : 'Open Nova Island');
-        if (open) document.getElementById('back-button').focus();
+        if (open) document.getElementById('nova-island-frame').focus();
         else if (restoreFocus !== false) launcher.focus();
       }
 
@@ -574,7 +543,15 @@
         });
       });
       document.addEventListener('nova:message-island-test', function (event) { showMessage(event.detail); });
-      window.addEventListener('message', function (event) { if (event.data && event.data.type === 'nova:message') showMessage(event.data); });
+      window.addEventListener('message', function (event) {
+        if (!event.data) return;
+        if (event.data.type === 'nova:message') showMessage(event.data);
+        if (event.data.type === 'nova:island-close') setMenu(false, false);
+        if (event.data.type === 'nova:island-page') {
+          if (event.data.page === 'games') window.location.assign('/website/html/game.html');
+          else window.location.assign('/website/html/index.html?page=' + encodeURIComponent(event.data.page || 'home'));
+        }
+      });
       window.NovaGamesPlayer = { showMessage: showMessage };
 
       document.addEventListener('fullscreenchange', function () {
@@ -609,7 +586,6 @@
       document.title = game.name + ' — Nova Game Mode';
       frame.title = game.name;
       document.getElementById('loading-title').textContent = 'Loading ' + game.name;
-      document.getElementById('menu-title').textContent = game.name;
       frame.addEventListener('load', function () {
         window.clearTimeout(loadTimer);
         loading.classList.add('is-hidden');
