@@ -386,8 +386,9 @@
     },
     {
         "name": "Moto X3M",
-        "url": "https://html5.gamedistribution.com/rvvASMiM/5b0abd4c0faa4f5eb190a9a16d5a1b4c/index.html",
-        "image": "/website/assets/media/icons/mx3m.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/moto-x3m/",
+        "image": "/website/assets/media/icons/mx3m.webp",
+        "local": true
     },
     {
         "name": "Online Soccer M.",

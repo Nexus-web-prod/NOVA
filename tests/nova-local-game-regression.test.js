@@ -445,6 +445,21 @@ test('Learn to Fly is registered with its uploaded local Flash build', () => {
   assert.ok(fs.statSync(path.join(root, 'website/games/learn-to-fly/c5c02c4e65c1c4423a97.wasm')).size > 1_000_000);
 });
 
+test('Moto X3M is a local build that preserves its Nova icon and does not wait for an ad SDK', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(entry => entry.name === 'Moto X3M');
+  const legacyGame = legacyGames.find(entry => entry.name === 'Moto X3M');
+  const url = 'https://main.nova-7.pages.dev/website/games/moto-x3m/';
+  const image = '/website/assets/media/icons/mx3m.webp';
+  assert.deepEqual({ url: game.url, image: game.image, local: game.local }, { url, image, local: true });
+  assert.deepEqual({ link: legacyGame.link, image: legacyGame.image, local: legacyGame.local }, { link: url, image, local: true });
+  const index = read('website/games/moto-x3m/index.html');
+  assert.match(index, /myDispatchEvent\("sdk_inited"\)/);
+  assert.doesNotMatch(index, /cdn\.y8\.com/);
+  assert.ok(fs.statSync(path.join(root, 'website/games/moto-x3m/motox3m2.min.js')).size > 1_000_000);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
