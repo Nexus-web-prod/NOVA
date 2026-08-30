@@ -218,3 +218,6 @@
 /proxy/store.js
   Content-Type: application/javascript; charset=utf-8
   Cache-Control: no-cache, no-store, must-revalidate
+
+/website/games/jetpack-joyride/*
+  Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src https://abinbins.github.io; object-src 'none'; base-uri 'self'; frame-ancestors 'self'
