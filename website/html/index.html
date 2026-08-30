@@ -857,14 +857,8 @@ html[data-theme="light"] .settings-sync-pill{background:rgba(255,250,244,.82)!im
   .settings-account-actions .settings-secondary-btn{width:100%}
 }
 </style>
-<style>
-body.nova-island-embed{background:transparent!important;overflow:hidden!important}
-body.nova-island-embed>*:not(#nova-island):not(#ni-social-dock):not(script):not(style){display:none!important}
-body.nova-island-embed #nova-island{top:0!important;right:0!important;height:100vh!important;max-height:100vh!important}
-</style>
 </head>
 <body>
-<script>if(new URLSearchParams(location.search).get('islandEmbed')==='1')document.body.classList.add('nova-island-embed');</script>
 
 <!-- ══ NOVA ISLAND STAR BUTTON ══ -->
 <div id="nova-island-hint">Nova Island</div>
@@ -895,6 +889,10 @@ body.nova-island-embed #nova-island{top:0!important;right:0!important;height:100
       <button class="ni-page-item" data-page="games">
         <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M15 13h2"/></svg></div>
         <div><div class="ni-page-label">Games</div><div class="ni-page-sub">89 games to play</div></div>
+      </button>
+      <button class="ni-page-item" data-page="game-player">
+        <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 9 5 3-5 3V9Z"/></svg></div>
+        <div><div class="ni-page-label">Games Player</div><div class="ni-page-sub">Play local games</div></div>
       </button>
       <button class="ni-page-item" data-page="apps">
         <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
@@ -1219,17 +1217,6 @@ function syncIslandVisibility(){
 
 window._novaOpenIsland = openIsland;
 window._novaCloseIsland = closeIsland;
-if(document.body.classList.contains('nova-island-embed')){
-  openIsland();
-  document.addEventListener('click',function(event){
-    var pageItem=event.target.closest&&event.target.closest('.ni-page-item[data-page]');
-    if(!pageItem)return;
-    event.preventDefault();
-    event.stopPropagation();
-    window.parent.postMessage({type:'nova:island-page',page:pageItem.dataset.page},location.origin);
-  },true);
-  if(islandClose)islandClose.addEventListener('click',function(){window.parent.postMessage({type:'nova:island-close'},location.origin);});
-}
 window._novaSetIslandLayoutOpen = setIslandLayoutOpen;
 window._novaSyncIslandVisibility = syncIslandVisibility;
 window.addEventListener('nova:session-changed', function(e){
@@ -1986,6 +1973,7 @@ body:has(#nova-shell[style*="display:none"])>#nova-adsense-real-home{
 <button class="nav-tab active" data-page="home">Home</button>
 <button class="nav-tab" data-page="browser">Browser</button>
 <button class="nav-tab" data-page="games">Games</button>
+<button class="nav-tab" data-page="game-player" hidden>Games Player</button>
 <button class="nav-tab" data-page="apps">Apps</button>
 <button class="nav-tab" data-page="movies">Movies</button>
 <button class="nav-tab" data-page="plans">Plans</button>
@@ -2184,6 +2172,18 @@ body:has(#nova-shell[style*="display:none"])>#nova-adsense-real-home{
 <div class="nexus-footer"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <a href="https://nexus-n-co.pages.dev/nexus" target="_blank" class="nexus-footer-link"><strong>NEXUS</strong></a></span></div>
 <div class="nova-ad-slot nova-ad-slot--collapsed" data-nova-ad-page="games" data-nova-ad-location="games-lower" aria-label="Sponsored content"></div>
 </div>
+</div>
+<div class="page" id="page-game-player">
+<style>
+#page-game-player{overflow:hidden;background:#05050b}
+.game-player-page{position:relative;width:100%;height:100%;min-height:calc(100vh - 48px);background:#05050b}
+#local-game-player-frame{display:block;width:100%;height:100%;min-height:calc(100vh - 48px);border:0;background:#000}
+.game-player-library{height:100%;min-height:calc(100vh - 48px);overflow:auto;padding:clamp(28px,5vw,64px);background:radial-gradient(circle at 85% 0,rgba(139,143,255,.12),transparent 36%),#05050b}
+.game-player-library[hidden],#local-game-player-frame[hidden]{display:none}
+.game-player-library-inner{width:min(1180px,100%);margin:auto}.game-player-library h1{margin:0;color:#f5f5ff;font-size:clamp(34px,6vw,64px);letter-spacing:-.05em}.game-player-library p{margin:9px 0 28px;color:#9797ac}
+.game-player-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px}.game-player-card{overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:18px;color:#f5f5ff;background:rgba(15,15,29,.94);text-decoration:none;cursor:pointer}.game-player-card:hover{border-color:rgba(139,143,255,.55)}.game-player-card img{display:block;width:100%;aspect-ratio:1.22;object-fit:cover;background:#10101c}.game-player-card div{padding:14px}.game-player-card strong{display:block;font-size:14px}.game-player-card span{display:block;margin-top:5px;color:#9797ac;font-size:11px}
+</style>
+<div class="game-player-page"><iframe id="local-game-player-frame" title="Local game" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer" hidden></iframe><section class="game-player-library" id="game-player-library"><div class="game-player-library-inner"><h1>Games Player</h1><p id="game-player-library-count">Your complete local games library</p><div class="game-player-grid" id="game-player-grid"></div></div></section></div>
 </div>
 <div class="page" id="page-game-detail">
 <div class="content-page game-detail-shell">
@@ -3538,6 +3538,51 @@ function replaceTabIframe(tab){
   tab.iframe=iframe;
   return iframe;
 }
+function showGamesPlayerPage(localGame){
+  var frame=document.getElementById('local-game-player-frame');
+  var library=document.getElementById('game-player-library');
+  if(window._novaSwitchPage)window._novaSwitchPage('game-player');
+  else document.querySelector('.nav-tab[data-page="game-player"]')?.click();
+  if(window._novaCloseIsland)window._novaCloseIsland();
+  if(localGame){
+    library.hidden=true;
+    frame.hidden=false;
+    frame.title=localGame.name;
+    frame.src=localGame.url;
+  }else{
+    frame.hidden=true;
+    frame.removeAttribute('src');
+    library.hidden=false;
+  }
+}
+window.openNovaGamePlayer=showGamesPlayerPage;
+function renderGamesPlayerLibrary(){
+  var grid=document.getElementById('game-player-grid');
+  if(!grid)return;
+  fetch('/website/data/games.json').then(function(response){return response.json();}).then(function(items){
+    var localItems=items.filter(function(item){return item.local===true||/main\.nova-7\.pages\.dev\/website\/games\//.test(item.url||item.link||'');});
+    grid.innerHTML='';
+    localItems.forEach(function(item){
+      var local=localGameFor(item.url||item.link);
+      if(!local)return;
+      var button=document.createElement('button');
+      button.type='button';button.className='game-player-card';
+      var image=document.createElement('img');image.src=item.image;image.alt='';image.loading='lazy';
+      var copy=document.createElement('div'),name=document.createElement('strong'),note=document.createElement('span');
+      name.textContent=item.name;note.textContent='Play locally';copy.append(name,note);button.append(image,copy);
+      button.addEventListener('click',function(){showGamesPlayerPage(local);});grid.appendChild(button);
+    });
+    var count=document.getElementById('game-player-library-count');if(count)count.textContent=localItems.length+' games installed locally';
+  }).catch(function(){grid.innerHTML='<p>Nova could not load the local library.</p>';});
+}
+renderGamesPlayerLibrary();
+document.querySelector('.ni-page-item[data-page="game-player"]')?.addEventListener('click',function(){showGamesPlayerPage(null);});
+var requestedGamePlayer=new URLSearchParams(location.search).get('gamePlayer');
+if(requestedGamePlayer){
+  var requestedLocalGame=localGameFor('/website/games/'+requestedGamePlayer+'/');
+  if(requestedLocalGame)setTimeout(function(){showGamesPlayerPage(requestedLocalGame);history.replaceState(null,'',location.pathname);},0);
+}
+if(new URLSearchParams(location.search).get('page')==='game-player')setTimeout(function(){showGamesPlayerPage(null);history.replaceState(null,'',location.pathname);},0);
 /* ── render tab bar ── */
 function renderTabs(){
   // detach + btn before clearing
@@ -3683,7 +3728,7 @@ function navigateTo(url){
   if(!resolved) return;
   var localGame = localGameFor(resolved);
   if(localGame){
-    window.location.assign('/website/html/game.html?game='+encodeURIComponent(localGame.slug));
+    showGamesPlayerPage(localGame);
     return;
   }
   // switch to browser page via nova.js's switchPage

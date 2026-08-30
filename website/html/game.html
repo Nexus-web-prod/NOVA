@@ -6,6 +6,9 @@
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#05050b">
   <title>Games Player — Nova</title>
+  <script>
+    (function(){var slug=new URLSearchParams(location.search).get('game');if(slug)location.replace('/website/html/index.html?gamePlayer='+encodeURIComponent(slug));else location.replace('/website/html/index.html?page=game-player');}());
+  </script>
   <style>
     :root {
       --player-bg: #05050b;

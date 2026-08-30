@@ -479,8 +479,11 @@ test('local games open in the dedicated Nova game player', () => {
     assert.match(player, new RegExp(`'${game}'`));
   }
   assert.match(index, /main\.nova-7\.pages\.dev/);
-  assert.match(index, /window\.location\.assign\('\/website\/html\/game\.html\?game='/);
-  assert.match(index, /encodeURIComponent\(localGame\.slug\)/);
+  assert.match(index, /function showGamesPlayerPage\(localGame\)/);
+  assert.match(index, /window\._novaSwitchPage\('game-player'\)/);
+  assert.match(index, /showGamesPlayerPage\(localGame\)/);
+  assert.match(index, /id="page-game-player"/);
+  assert.match(index, /data-page="game-player"/);
   assert.match(player, /var games = \{/);
   assert.match(player, /'fnaf-2'/);
   assert.match(player, /'brawl-stars'/);
