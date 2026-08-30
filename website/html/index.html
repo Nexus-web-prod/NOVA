@@ -900,7 +900,7 @@ html[data-theme="light"] .settings-sync-pill{background:rgba(255,250,244,.82)!im
         <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M15 13h2"/></svg></div>
         <div><div class="ni-page-label">Games</div><div class="ni-page-sub">89 games to play</div></div>
       </button>
-      <button class="ni-page-item" data-page="game-player">
+      <button class="ni-page-item" id="ni-game-player-page-item" data-page="games">
         <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 9 5 3-5 3V9Z"/></svg></div>
         <div><div class="ni-page-label">Games Player</div><div class="ni-page-sub">Play local games</div></div>
       </button>
@@ -1276,7 +1276,9 @@ island.addEventListener('click', function(e){
 // Close on outside click — but NOT if clicking star or inside island
 // Outside clicks dismiss the Island only on pages where it can cover the work area.
 document.addEventListener('click', function(e){
-  if(islandCurrentPage !== 'browser' && islandCurrentPage !== 'settings') return;
+  var activePage=((document.querySelector('.page.active')||{}).id||'').replace(/^page-/,'');
+  var activeGameplay=activePage==='game-player'&&document.getElementById('nova-shell').classList.contains('game-player-has-game');
+  if(activePage !== 'browser' && activePage !== 'settings' && !activeGameplay) return;
   var socialOverlay = e.target.closest && e.target.closest('.social-attachment-menu,.social-camera-overlay,.social-reaction-picker');
   var attachmentActive = document.body.classList.contains('social-attachment-active') || document.body.classList.contains('social-reaction-active');
   if(star.classList.contains('open') && !attachmentActive && !socialOverlay && !island.contains(e.target) && !star.contains(e.target) && !(socialDock && socialDock.contains(e.target))){
@@ -1289,12 +1291,13 @@ document.addEventListener('click', function(e){
 window.addEventListener('blur', function(){
   setTimeout(function(){
     var focused = document.activeElement;
-    if(island.classList.contains('open') && focused && focused.matches && focused.matches('#frame-container iframe.tab-iframe.active')) closeIsland();
+    if(island.classList.contains('open') && focused && focused.matches && focused.matches('#frame-container iframe.tab-iframe.active,#local-game-player-frame')) closeIsland();
   }, 0);
 });
 // Escape key also closes
 document.addEventListener('keydown', function(e){
-  if(e.key === 'Escape' && island.classList.contains('open') && !document.body.classList.contains('social-attachment-active') && !document.body.classList.contains('social-reaction-active')) closeIsland();
+  var activePage=((document.querySelector('.page.active')||{}).id||'').replace(/^page-/,'');
+  if(e.key === 'Escape' && activePage !== 'games' && island.classList.contains('open') && !document.body.classList.contains('social-attachment-active') && !document.body.classList.contains('social-reaction-active')) closeIsland();
 });
 document.addEventListener('nova:focused-content-open', function(e){
   if(!e.detail || e.detail.type === 'movie') islandMovieActive = true;
@@ -3550,16 +3553,18 @@ function replaceTabIframe(tab){
 function showGamesPlayerPage(localGame){
   var frame=document.getElementById('local-game-player-frame');
   var library=document.getElementById('game-player-library');
-  if(window._novaSwitchPage)window._novaSwitchPage('game-player');
-  else document.querySelector('.nav-tab[data-page="game-player"]')?.click();
-  if(window._novaCloseIsland)window._novaCloseIsland();
   if(localGame){
+    if(window._novaSwitchPage)window._novaSwitchPage('game-player');
+    else document.querySelector('.nav-tab[data-page="game-player"]')?.click();
+    if(window._novaCloseIsland)window._novaCloseIsland(true);
     library.hidden=true;
     frame.hidden=false;
     frame.title=localGame.name;
     frame.src=localGame.url;
     document.getElementById('nova-shell').classList.add('game-player-has-game');
   }else{
+    if(window._novaSwitchPage)window._novaSwitchPage('games');
+    else document.querySelector('.nav-tab[data-page="games"]')?.click();
     frame.hidden=true;
     frame.removeAttribute('src');
     library.hidden=false;
@@ -3600,7 +3605,7 @@ function renderGamesPlayerLibrary(){
 renderGamesPlayerLibrary();
 document.getElementById('game-player-search')?.addEventListener('input',function(){paintGamesPlayerLibrary(this.value,document.querySelector('[data-player-sort].active')?.dataset.playerSort||'az');});
 document.querySelectorAll('[data-player-sort]').forEach(function(button){button.addEventListener('click',function(){document.querySelectorAll('[data-player-sort]').forEach(function(item){item.classList.toggle('active',item===button);});paintGamesPlayerLibrary(document.getElementById('game-player-search').value,button.dataset.playerSort);});});
-document.querySelector('.ni-page-item[data-page="game-player"]')?.addEventListener('click',function(){showGamesPlayerPage(null);});
+document.getElementById('ni-game-player-page-item')?.addEventListener('click',function(){if(window._novaOpenIsland)window._novaOpenIsland();});
 var requestedGamePlayer=new URLSearchParams(location.search).get('gamePlayer');
 if(requestedGamePlayer){
   var requestedLocalGame=localGameFor('/website/games/'+requestedGamePlayer+'/');
