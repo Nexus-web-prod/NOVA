@@ -372,3 +372,12 @@ test('Nova CSP permits the Function constructor required by Cocos Creator 2.4.2'
   const headers = read('_headers');
   assert.match(headers, /Content-Security-Policy:[^\n]*script-src[^;]*'unsafe-eval'/);
 });
+
+test('local Time Shooter Unity payloads have production-safe MIME types', () => {
+  const headers = read('_headers');
+  for (const game of ['time-shooter-2', 'time-shooter-3']) {
+    assert.match(headers, new RegExp(`/website/games/${game}/[^\\n]*framework\\.js\\.unityweb\\n  Content-Type: application/javascript`));
+    assert.match(headers, new RegExp(`/website/games/${game}/[^\\n]*wasm\\.unityweb\\n  Content-Type: application/wasm`));
+    assert.match(headers, new RegExp(`/website/games/${game}/[^\\n]*data\\.unityweb\\n  Content-Type: application/octet-stream`));
+  }
+});

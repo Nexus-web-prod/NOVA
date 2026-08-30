@@ -154,6 +154,25 @@
 /website/js/*
   Cache-Control: no-cache, must-revalidate
 
+# ── Local Unity game payloads ────────────────────────────────────────────────
+/website/games/time-shooter-2/TimeShooter2_Yandex.framework.js.unityweb
+  Content-Type: application/javascript; charset=utf-8
+
+/website/games/time-shooter-2/TimeShooter2_Yandex.wasm.unityweb
+  Content-Type: application/wasm
+
+/website/games/time-shooter-2/TimeShooter2_Yandex.data.unityweb
+  Content-Type: application/octet-stream
+
+/website/games/time-shooter-3/Build/TimeShooter3_GD.framework.js.unityweb
+  Content-Type: application/javascript; charset=utf-8
+
+/website/games/time-shooter-3/Build/TimeShooter3_GD.wasm.unityweb
+  Content-Type: application/wasm
+
+/website/games/time-shooter-3/Build/TimeShooter3_GD.data.unityweb
+  Content-Type: application/octet-stream
+
 # ── Scramjet 2.x proxy runtime ────────────────────────────────────────────────
 /proxy/scramjet/scramjet.js
   Content-Type: application/javascript; charset=utf-8
