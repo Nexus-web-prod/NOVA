@@ -1604,7 +1604,7 @@ function syncIslandPageIndicator(activeItem, instant){
     if(indicator) indicator.style.opacity = '0';
     return;
   }
-  var y = activeItem.offsetTop - list.scrollTop + ((activeItem.offsetHeight - indicator.offsetHeight) / 2);
+  var y = activeItem.offsetTop + ((activeItem.offsetHeight - indicator.offsetHeight) / 2);
   if(instant) indicator.classList.add('ni-indicator-instant');
   indicator.style.opacity = '1';
   indicator.style.transform = 'translate3d(0,' + Math.max(0, y) + 'px,0)';

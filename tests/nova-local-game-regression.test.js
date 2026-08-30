@@ -492,6 +492,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /#page-game-player\.pg-enter-left/);
   assert.match(index, /id="ni-game-player-page-item" data-page="game-player"/);
   assert.match(index, /window\.NovaAPI\.rateGame\(entry\.local\.slug,value\)/);
+  assert.doesNotMatch(index, /activeItem\.offsetTop - list\.scrollTop/);
   assert.match(index, /activeGameplay=activePage==='game-player'/);
   assert.match(index, /focused\.matches\('#frame-container iframe\.tab-iframe\.active,#local-game-player-frame'\)/);
   assert.match(player, /var games = \{/);
