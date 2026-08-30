@@ -207,6 +207,35 @@ test('Basket Bros is registered with a complete local OpenFL build', () => {
   assert.doesNotMatch(packagedGame, /serviceWorker\.register|googletagmanager|clarity\.ms|cdn-cgi\/scripts|www\.gstatic\.com\/firebasejs|firebase\.initializeApp/);
 });
 
+test('Wrestle Bros is registered with a complete local OpenFL build', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const compactGames = JSON.parse(read('website/assets/json/g.min.json'));
+  const game = games.find(item => item.name === 'Wrestle Bros');
+  const legacyGame = legacyGames.find(item => item.name === 'Wrestle Bros');
+  const compactGame = compactGames.find(item => item.name === 'Wrestle Bros');
+  const gameRoot = path.join(root, 'website/games/wrestle-bros');
+  const packagedGame = read('website/games/wrestle-bros/index.html');
+  const required = ['index.html', 'WrestleBros.js', 'main.min.js', 'manifest.json', 'assets/loading.png'];
+
+  assert.deepEqual(
+    { url: game.url, local: game.local },
+    { url: 'https://main.nova-7.pages.dev/website/games/wrestle-bros/', local: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(compactGame.link, game.url);
+  assert.equal(legacyGame.local, true);
+  assert.equal(compactGame.local, true);
+  for (const file of required) {
+    const filePath = path.join(gameRoot, file);
+    assert.ok(fs.existsSync(filePath), `missing OpenFL file: ${file}`);
+    assert.ok(fs.statSync(filePath).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
+  }
+  assert.match(packagedGame, /<title>Wrestle Bros<\/title>/);
+  assert.match(packagedGame, /lime\.embed \("WrestleBros", "openfl-content"/);
+  assert.doesNotMatch(packagedGame, /serviceWorker\.register|googletagmanager|cdn-cgi\/scripts|recordsession\.php/);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
@@ -217,6 +246,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /website\/games\/retro-bowl/);
   assert.match(index, /website\/games\/super-liquid-soccer/);
   assert.match(index, /website\/games\/basket-bros/);
+  assert.match(index, /website\/games\/wrestle-bros/);
   assert.match(index, /main\.nova-7\.pages\.dev/);
   assert.match(index, /window\.location\.assign\('\/website\/html\/game\.html\?game='/);
   assert.match(index, /encodeURIComponent\(localGame\.slug\)/);
@@ -227,6 +257,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(player, /'retro-bowl'/);
   assert.match(player, /'super-liquid-soccer'/);
   assert.match(player, /'basket-bros'/);
+  assert.match(player, /'wrestle-bros'/);
   assert.match(player, /id="back-button"/);
   assert.match(player, /id="restart-button"/);
   assert.match(player, /id="fullscreen-button"/);

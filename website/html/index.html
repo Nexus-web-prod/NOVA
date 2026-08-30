@@ -3477,6 +3477,9 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/basket-bros/' || parsed.pathname==='/website/games/basket-bros/index.html'){
       return {name:'Basket Bros',slug:'basket-bros',url:new URL('/website/games/basket-bros/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/wrestle-bros/' || parsed.pathname==='/website/games/wrestle-bros/index.html'){
+      return {name:'Wrestle Bros',slug:'wrestle-bros',url:new URL('/website/games/wrestle-bros/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

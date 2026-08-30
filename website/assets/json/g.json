@@ -1,5 +1,14 @@
 [
   {
+    "name": "Wrestle Bros",
+    "link": "https://main.nova-7.pages.dev/website/games/wrestle-bros/",
+    "image": "/website/assets/media/icons/wrestlebros.png",
+    "categories": [
+      "all"
+    ],
+    "local": true
+  },
+  {
     "name": "Basket Bros",
     "link": "https://main.nova-7.pages.dev/website/games/basket-bros/",
     "image": "/website/assets/media/icons/basket-bros.png",

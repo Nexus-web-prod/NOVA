@@ -34,8 +34,9 @@
     },
     {
         "name": "Wrestle Bros",
-        "url": "https://wrestlebros.io/",
-        "image": "/website/assets/media/icons/wrestlebros.png"
+        "url": "https://main.nova-7.pages.dev/website/games/wrestle-bros/",
+        "image": "/website/assets/media/icons/wrestlebros.png",
+        "local": true
     },
     {
         "name": "FNAF 1",
