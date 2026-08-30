@@ -76,11 +76,44 @@ test('Brawl Stars is registered with a complete local Unity build', () => {
   assert.doesNotMatch(read('website/games/brawl-stars/index.html'), /challenge-platform\/scripts/);
 });
 
+test('Retro Bowl is registered with a complete local GameMaker build', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(item => item.name === 'Retro Bowl');
+  const legacyGame = legacyGames.find(item => item.name === 'Retro Bowl');
+  const gameRoot = path.join(root, 'website/games/retro-bowl');
+  const packagedGame = read('website/games/retro-bowl/index.html');
+  const required = [
+    'index.html',
+    'html5game/RetroBowl.js',
+    'html5game/RetroBowl_texture_0.png',
+    'html5game/RetroBowl_texture_1.png',
+    'html5game/RetroBowl_texture_2.png',
+    'html5game/optiondata.dat',
+    'html5game/uph_poki.js'
+  ];
+
+  assert.deepEqual(
+    { url: game.url, local: game.local },
+    { url: 'https://main.nova-7.pages.dev/website/games/retro-bowl/', local: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(legacyGame.local, true);
+  for (const file of required) {
+    const filePath = path.join(gameRoot, file);
+    assert.ok(fs.existsSync(filePath), `missing GameMaker file: ${file}`);
+    assert.ok(fs.statSync(filePath).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
+  }
+  assert.match(packagedGame, /window\.PokiSDK = null/);
+  assert.doesNotMatch(packagedGame, /busqueda\.me|patch\/js\/null\.js/);
+});
+
 test('local games bypass Scramjet and use the game name in browser chrome', () => {
   const index = read('website/html/index.html');
   assert.match(index, /function localGameFor\(url\)/);
   assert.match(index, /website\/games\/fnaf-2/);
   assert.match(index, /website\/games\/brawl-stars/);
+  assert.match(index, /website\/games\/retro-bowl/);
   assert.match(index, /parsed\.origin!==location\.origin/);
   assert.match(index, /var localIframe=replaceTabIframe\(tab\)/);
   assert.match(index, /tab\.scFrame&&tab\.scFrame\.destroy/);

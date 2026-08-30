@@ -3464,6 +3464,9 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/brawl-stars/' || parsed.pathname==='/website/games/brawl-stars/index.html'){
       return {name:'Brawl Stars',url:new URL('/website/games/brawl-stars/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/retro-bowl/' || parsed.pathname==='/website/games/retro-bowl/index.html'){
+      return {name:'Retro Bowl',url:new URL('/website/games/retro-bowl/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

@@ -399,8 +399,9 @@
     },
     {
         "name": "Retro Bowl",
-        "url": "https://freegamesunblocked76.github.io/retro-bowl/",
-        "image": "/website/assets/media/icons/retro.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/retro-bowl/",
+        "image": "/website/assets/media/icons/retro.webp",
+        "local": true
     },
     {
         "name": "Kiomet",

@@ -2116,8 +2116,9 @@
   },
   {
     "name": "Retro Bowl",
-    "link": "/e/2/retro/index.html",
+    "link": "https://main.nova-7.pages.dev/website/games/retro-bowl/",
     "image": "/website/assets/media/icons/retro.webp",
+    "local": true,
     "categories": [
       "all,",
       "sports",
