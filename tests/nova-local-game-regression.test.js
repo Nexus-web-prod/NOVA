@@ -409,6 +409,40 @@ test('Stickman Hook is registered as a complete local game without replacing its
   assert.equal(legacyGame.local, true);
   assert.match(read('website/games/stickman-hook/index.html'), /src="bundle\.js"/);
   assert.ok(fs.statSync(path.join(root, 'website/games/stickman-hook/bundle.js')).size > 1_000_000);
+  assert.match(read('website/html/index.html'), /'\/website\/games\/stickman-hook\/': \{name:'Stickman Hook',slug:'stickman-hook'\}/);
+  assert.match(read('website/html/game.html'), /'stickman-hook': \{ name: 'Stickman Hook', src: '\/website\/games\/stickman-hook\/' \}/);
+});
+
+test('both Tunnel Rush games are complete local builds and preserve their Nova icons', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  for (const item of [
+    { name: 'Tunnel Rush', slug: 'tunnel-rush', icon: '/website/assets/media/icons/tunnelrush.webp' },
+    { name: 'Tunnel Rush 2', slug: 'tunnel-rush-2', icon: '/website/assets/media/icons/tunnelrush2.webp' }
+  ]) {
+    const url = `https://main.nova-7.pages.dev/website/games/${item.slug}/`;
+    const game = games.find(entry => entry.name === item.name);
+    const legacyGame = legacyGames.find(entry => entry.name === item.name);
+    assert.deepEqual({ url: game.url, image: game.image, local: game.local }, { url, image: item.icon, local: true });
+    assert.deepEqual({ link: legacyGame.link, image: legacyGame.image, local: legacyGame.local }, { link: url, image: item.icon, local: true });
+    assert.ok(fs.existsSync(path.join(root, `website/games/${item.slug}/index.html`)));
+  }
+  assert.ok(fs.statSync(path.join(root, 'website/games/tunnel-rush/tunnel_rush_v9wasmcode.unityweb')).size > 3_000_000);
+  assert.ok(fs.statSync(path.join(root, 'website/games/tunnel-rush-2/data.bin')).size > 1_000_000);
+  assert.ok(fs.statSync(path.join(root, 'website/games/tunnel-rush-2/moonbird.wasm')).size > 250_000);
+});
+
+test('Learn to Fly is registered with its uploaded local Flash build', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(entry => entry.name === 'Learn to Fly');
+  const legacyGame = legacyGames.find(entry => entry.name === 'Learn to Fly');
+  const url = 'https://main.nova-7.pages.dev/website/games/learn-to-fly/';
+  const image = '/website/games/learn-to-fly/favicon.ico';
+  assert.deepEqual({ url: game.url, image: game.image, local: game.local }, { url, image, local: true });
+  assert.deepEqual({ link: legacyGame.link, image: legacyGame.image, local: legacyGame.local }, { link: url, image, local: true });
+  assert.ok(fs.statSync(path.join(root, 'website/games/learn-to-fly/learntofly.swf')).size > 800_000);
+  assert.ok(fs.statSync(path.join(root, 'website/games/learn-to-fly/c5c02c4e65c1c4423a97.wasm')).size > 1_000_000);
 });
 
 test('local games open in the dedicated Nova game player', () => {

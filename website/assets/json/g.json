@@ -468,20 +468,23 @@
   },
   {
     "name": "Tunnel Rush",
-    "link": "https://5dd2e8e4-015f-11ea-ad56-9cb6d0d995f7.poki-gdn.com/5627efae-e960-407d-82a5-3da708eb4e68/index.html",
+    "link": "https://main.nova-7.pages.dev/website/games/tunnel-rush/",
     "image": "/website/assets/media/icons/tunnelrush.webp",
     "categories": [
       "all",
-      "2P"
-    ]
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "Tunnel Rush 2",
-    "link": "https://a7e6d137-c3c1-46e6-a3db-04c2d33c98a8.poki-gdn.com/71e6bddd-9b0e-4621-a11a-9503086f69d5/index.html",
+    "link": "https://main.nova-7.pages.dev/website/games/tunnel-rush-2/",
     "image": "/website/assets/media/icons/tunnelrush2.webp",
     "categories": [
-      "all"
-    ]
+      "all",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "Rainbow Obby",
@@ -516,6 +519,16 @@
       "all",
       "2P"
     ]
+  },
+  {
+    "name": "Learn to Fly",
+    "link": "https://main.nova-7.pages.dev/website/games/learn-to-fly/",
+    "image": "/website/games/learn-to-fly/favicon.ico",
+    "categories": [
+      "all",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "Learn to Fly 3",

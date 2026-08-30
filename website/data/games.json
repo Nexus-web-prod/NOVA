@@ -167,13 +167,26 @@
     },
     {
         "name": "Tunnel Rush",
-        "url": "https://tunnelrushgame.io/game/tunnel-rush/",
-        "image": "/website/assets/media/icons/tunnelrush.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/tunnel-rush/",
+        "image": "/website/assets/media/icons/tunnelrush.webp",
+        "local": true
+    },
+    {
+        "name": "Tunnel Rush 2",
+        "url": "https://main.nova-7.pages.dev/website/games/tunnel-rush-2/",
+        "image": "/website/assets/media/icons/tunnelrush2.webp",
+        "local": true
     },
     {
         "name": "Minecraft Classic",
         "url": "https://classic.minecraft.net",
         "image": "/website/assets/media/icons/mc.webp"
+    },
+    {
+        "name": "Learn to Fly",
+        "url": "https://main.nova-7.pages.dev/website/games/learn-to-fly/",
+        "image": "/website/games/learn-to-fly/favicon.ico",
+        "local": true
     },
     {
         "name": "Learn to Fly 3",
