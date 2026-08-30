@@ -244,7 +244,7 @@ test('Time Shooter games use complete local Unity builds and packaged artwork', 
     {
       name: 'Time Shooter 2',
       url: 'https://main.nova-7.pages.dev/website/games/time-shooter-2/',
-      image: '/website/games/time-shooter-2/TimeShooter2_Yandex.jpg',
+      image: '/website/assets/media/icons/timeshooter2.webp',
       root: 'website/games/time-shooter-2',
       required: [
         'index.html',
@@ -311,6 +311,37 @@ test('Funny Shooter 3D uses its packaged image with the archive external game UR
   assert.ok(fs.existsSync(path.join(root, 'website/games/funny-shooter-3d/favicon.ico')));
 });
 
+test('Basket Random is local while preserving its existing Nova icon', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const compactGames = JSON.parse(read('website/assets/json/g.min.json'));
+  const game = games.find(item => item.name === 'Basket Random');
+  const legacyGame = legacyGames.find(item => item.name === 'Basket Random');
+  const compactGame = compactGames.find(item => item.name === 'Basket Random');
+  const gameRoot = path.join(root, 'website/games/basket-random');
+  const packagedGame = read('website/games/basket-random/index.html');
+  const icon = '/website/assets/media/icons/br.webp';
+  const required = ['index.html', 'data.json', 'box2d.wasm', 'box2d.wasm.js', 'scripts/c3runtime.js', 'scripts/offlineclient.js', 'scripts/main.js', 'images/titlebg-sheet0.png'];
+
+  assert.deepEqual(
+    { url: game.url, image: game.image, local: game.local },
+    { url: 'https://main.nova-7.pages.dev/website/games/basket-random/', image: icon, local: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(compactGame.link, game.url);
+  assert.equal(legacyGame.image, icon);
+  assert.equal(compactGame.image, icon);
+  assert.equal(legacyGame.local, true);
+  assert.equal(compactGame.local, true);
+  for (const file of required) {
+    const filePath = path.join(gameRoot, file);
+    assert.ok(fs.existsSync(filePath), `missing Construct file: ${file}`);
+    assert.ok(fs.statSync(filePath).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
+  }
+  assert.match(packagedGame, /<title>Basket Random<\/title>/);
+  assert.doesNotMatch(packagedGame, /patch\/js|register-sw|Unblocked Games 66/);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
@@ -324,6 +355,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /website\/games\/wrestle-bros/);
   assert.match(index, /website\/games\/time-shooter-2/);
   assert.match(index, /website\/games\/time-shooter-3/);
+  assert.match(index, /website\/games\/basket-random/);
   assert.match(index, /main\.nova-7\.pages\.dev/);
   assert.match(index, /window\.location\.assign\('\/website\/html\/game\.html\?game='/);
   assert.match(index, /encodeURIComponent\(localGame\.slug\)/);
@@ -337,6 +369,7 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(player, /'wrestle-bros'/);
   assert.match(player, /'time-shooter-2'/);
   assert.match(player, /'time-shooter-3'/);
+  assert.match(player, /'basket-random'/);
   assert.match(player, /id="back-button"/);
   assert.match(player, /id="restart-button"/);
   assert.match(player, /id="fullscreen-button"/);

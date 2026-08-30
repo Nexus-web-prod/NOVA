@@ -3486,6 +3486,9 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/time-shooter-3/' || parsed.pathname==='/website/games/time-shooter-3/index.html'){
       return {name:'Time Shooter 3: SWAT',slug:'time-shooter-3',url:new URL('/website/games/time-shooter-3/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/basket-random/' || parsed.pathname==='/website/games/basket-random/index.html'){
+      return {name:'Basket Random',slug:'basket-random',url:new URL('/website/games/basket-random/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

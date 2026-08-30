@@ -187,7 +187,7 @@
     {
         "name": "Time Shooter 2",
         "url": "https://main.nova-7.pages.dev/website/games/time-shooter-2/",
-        "image": "/website/games/time-shooter-2/TimeShooter2_Yandex.jpg",
+        "image": "/website/assets/media/icons/timeshooter2.webp",
         "local": true
     },
     {
@@ -269,8 +269,9 @@
     },
     {
         "name": "Basket Random",
-        "url": "https://html5.gamedistribution.com/rvvASMiM/bf1268dccb5d43e7970bb3edaa54afc8/index.html",
-        "image": "/website/assets/media/icons/br.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/basket-random/",
+        "image": "/website/assets/media/icons/br.webp",
+        "local": true
     },
     {
         "name": "Bitlife",
