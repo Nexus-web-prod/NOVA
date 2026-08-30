@@ -3474,6 +3474,9 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/super-liquid-soccer/' || parsed.pathname==='/website/games/super-liquid-soccer/index.html'){
       return {name:'Super Liquid Soccer',slug:'super-liquid-soccer',url:new URL('/website/games/super-liquid-soccer/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/basket-bros/' || parsed.pathname==='/website/games/basket-bros/index.html'){
+      return {name:'Basket Bros',slug:'basket-bros',url:new URL('/website/games/basket-bros/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

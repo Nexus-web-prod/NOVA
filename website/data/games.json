@@ -12,8 +12,9 @@
     },
     {
         "name": "Basket Bros",
-        "url": "https://basketbros-unblocked.github.io/a7/basket-bros/",
-        "image": "/website/assets/media/icons/basket-bros.png"
+        "url": "https://main.nova-7.pages.dev/website/games/basket-bros/",
+        "image": "/website/assets/media/icons/basket-bros.png",
+        "local": true
     },
     {
         "name": "Dune Dash",
