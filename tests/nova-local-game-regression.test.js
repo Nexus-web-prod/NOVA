@@ -374,12 +374,11 @@ test('uploaded classic games are local and preserve every existing catalog icon'
   assert.match(read('_worker.js'), /SanFrancisco\.data\.unityweb/);
 });
 
-test('Jetpack Joyride uses the verified landscape wrapper', () => {
+test('Jetpack Joyride uses its complete local build without an external base URL', () => {
   const game = read('website/games/jetpack-joyride/index.html');
-  assert.match(game, /<iframe[^>]+abinbins\.github\.io\/a7\/jetpack-joyride\//);
-  assert.match(game, /allowfullscreen/);
-  assert.doesNotMatch(game, /rotate_image|HB_ic_rotateScreen/);
-  assert.match(read('_headers'), /\/website\/games\/jetpack-joyride\/\*/);
+  assert.match(game, /src="game3\.js"/);
+  assert.match(game, /id="phaser-canvas"/);
+  assert.doesNotMatch(game, /<base\b|<iframe\b|abinbins\.github\.io/);
 });
 
 test('local games open in the dedicated Nova game player', () => {
