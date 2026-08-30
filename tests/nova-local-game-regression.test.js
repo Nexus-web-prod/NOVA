@@ -484,6 +484,11 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /showGamesPlayerPage\(localGame\)/);
   assert.match(index, /id="page-game-player"/);
   assert.match(index, /data-page="game-player"/);
+  assert.match(index, /game-player-quick-controls/);
+  assert.match(index, /game-player-mode/);
+  assert.match(index, /playerFrame\.contentDocument\.addEventListener\('pointermove'/);
+  assert.match(index, /#nova-shell\.island-open\.game-player-mode/);
+  assert.match(index, /#page-game-player\.pg-enter-left/);
   assert.match(player, /var games = \{/);
   assert.match(player, /'fnaf-2'/);
   assert.match(player, /'brawl-stars'/);
