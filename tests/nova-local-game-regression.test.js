@@ -202,7 +202,9 @@ test('Basket Bros is registered with a complete local OpenFL build', () => {
   }
   assert.match(packagedGame, /<title>Basket Bros<\/title>/);
   assert.match(packagedGame, /lime\.embed \("BasketBros", "openfl-content"/);
-  assert.doesNotMatch(packagedGame, /serviceWorker\.register|googletagmanager|clarity\.ms|cdn-cgi\/scripts/);
+  assert.match(packagedGame, /function isUserLoggedIn\(\) \{\s*return false;/);
+  assert.match(packagedGame, /nova:basket-bros:cloud-save/);
+  assert.doesNotMatch(packagedGame, /serviceWorker\.register|googletagmanager|clarity\.ms|cdn-cgi\/scripts|www\.gstatic\.com\/firebasejs|firebase\.initializeApp/);
 });
 
 test('local games open in the dedicated Nova game player', () => {

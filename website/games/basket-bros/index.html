@@ -224,96 +224,31 @@
 	}
 	</script>
 
-	<!-- Firebase App (the core Firebase SDK) -->
-	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-	<!-- Firebase Authentication -->
-	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-	<!-- Firebase Firestore (Database) -->
-	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
 	<script>
-		// Your web app's Firebase configuration
-  		const firebaseConfig = {
-			apiKey: "AIzaSyDeQ1CV2ZfZg4SJlu9CEWfpHG3--xpt-oU",
-			authDomain: "basket-bros-43586.firebaseapp.com",
-			projectId: "basket-bros-43586",
-			storageBucket: "basket-bros-43586.appspot.com",
-			messagingSenderId: "179647849243",
-			appId: "1:179647849243:web:87b99f44ca23f8a11729be"
-  		};		
+		// Nova keeps the game self-contained. The optional Firebase account sync
+		// from the source build is replaced by local saves so CSP cannot block boot.
+		var userData = localStorage.getItem('nova:basket-bros:cloud-save') || '';
 
-		// Initialize Firebase
-		firebase.initializeApp(firebaseConfig);
-		const auth = firebase.auth();
-		const db = firebase.firestore();
-		var userData = "";
+		function triggerSignIn() {}
 
-		function triggerSignIn()
-		{
-			var provider = new firebase.auth.GoogleAuthProvider();
-			auth.signInWithPopup(provider);
-		}
-
-		// Save game data function
 		function saveGameData(gameData) {
-			console.log('saving gamedata:' + gameData);
-			var userId = auth.currentUser.uid;
 			userData = gameData;
-			db.collection('users').doc(userId).set({
-				gameData: gameData
-			}).then(function() {
-				console.log('Game data saved');
-			}).catch(function(error) {
-				console.error('Error saving game data:', error);
-			});
+			localStorage.setItem('nova:basket-bros:cloud-save', gameData);
 		}
 
-		// Load game data function
 		function loadGameData() { return userData; }
-		
+
 		function loadGameDataAsync() {
-			var userId = auth.currentUser.uid;
-			db.collection('users').doc(userId).get().then(function(doc) {
-				if (doc.exists) {
-					userData = doc.data().gameData;
-					//Main.LoadGlobals();
-					console.log('Game data:', doc.data().gameData);
-					if (typeof Main != "undefined")
-					{
-						Main.LoadDataComplete();
-					}
-				// Use the game data in your game
-				} else {
-				console.log('No such document!');
-				}
-			}).catch(function(error) {
-				console.error('Error loading game data:', error);
-			});
+			if (typeof Main !== 'undefined' && Main.LoadDataComplete) Main.LoadDataComplete();
 		}
 
-   // Firebase auth state observer
-   		auth.onAuthStateChanged(function(user) {
-      		if (user) {
-				loadGameDataAsync();
-				SendEvent('event', 'sign_in');
-				console.log('user signed in');
-			} else {
-				console.log('No user signed in');
-				SendEvent('event', 'sign_out');
-			}
-    	});
-
-		function signOut()
-		{
-			auth.signOut().then(() => {
-				Main.SignOutComplete();
-				console.log('signed out');
-			});		
+		function signOut() {
+			if (typeof Main !== 'undefined' && Main.SignOutComplete) Main.SignOutComplete();
 		}
 
 		function isUserLoggedIn() {
-			return auth.currentUser !== null;
-		}		
+			return false;
+		}
 	</script>
 
 </head>
