@@ -198,6 +198,10 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(player, /id="restart-button"/);
   assert.match(player, /id="fullscreen-button"/);
   assert.match(player, /id="mute-button"/);
+  assert.match(player, /class="launcher-star"/);
+  assert.match(player, /@keyframes island-pulse/);
+  assert.match(player, /document\.activeElement === frame/);
+  assert.match(player, /setMenu\(false, false\)/);
   assert.match(player, /prefers-reduced-motion: reduce/);
   assert.match(player, /button:focus-visible/);
   assert.match(player, /games\[params\.get\('game'\)/);

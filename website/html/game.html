@@ -125,22 +125,27 @@
       z-index: 60;
       display: grid;
       place-items: center;
-      width: 52px;
-      height: 52px;
+      width: 46px;
+      height: 46px;
       padding: 0;
-      border: 1px solid var(--player-border);
-      border-radius: 16px;
+      border: 0;
+      border-radius: 50%;
       color: var(--player-text);
-      background: rgba(10, 10, 20, 0.88);
-      box-shadow: var(--player-shadow);
-      backdrop-filter: blur(16px);
+      background: linear-gradient(135deg, var(--player-accent), #5d5df6);
+      box-shadow: 0 4px 20px rgba(93, 93, 246, 0.4);
       cursor: pointer;
       transition: background-color 160ms ease, border-color 160ms ease, transform 100ms ease;
       touch-action: manipulation;
+      animation: island-pulse 2.5s ease-in-out infinite;
     }
 
-    .launcher:hover { background: var(--player-surface-hover); border-color: rgba(139, 143, 255, 0.58); }
+    .launcher:hover { background: linear-gradient(135deg, #a5a8ff, #7070ff); }
     .launcher:active { transform: scale(0.96); }
+
+    .launcher-star {
+      color: #fff;
+      font: 700 20px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
 
     .menu {
       position: fixed;
@@ -259,6 +264,11 @@
       to { transform: translateX(115%); }
     }
 
+    @keyframes island-pulse {
+      0%, 100% { box-shadow: 0 4px 20px rgba(93, 93, 246, 0.4), 0 0 0 0 rgba(139, 143, 255, 0.5); }
+      60% { box-shadow: 0 4px 20px rgba(93, 93, 246, 0.4), 0 0 0 10px rgba(139, 143, 255, 0); }
+    }
+
     @media (max-width: 520px) {
       .launcher {
         top: max(12px, env(safe-area-inset-top));
@@ -318,7 +328,7 @@
     </section>
 
     <button class="launcher" id="launcher" type="button" aria-label="Open game controls" aria-expanded="false" aria-controls="game-menu">
-      <svg class="launcher-mark" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 3C50 3 43 43 3 50C43 57 50 97 50 97C50 97 57 57 97 50C57 43 50 3 50 3Z" fill="currentColor"/></svg>
+      <span class="launcher-star" aria-hidden="true">✦</span>
     </button>
 
     <aside class="menu" id="game-menu" hidden aria-label="Game controls">
@@ -386,12 +396,12 @@
         launcher.hidden = true;
       }
 
-      function setMenu(open) {
+      function setMenu(open, restoreFocus) {
         menu.hidden = !open;
         launcher.setAttribute('aria-expanded', String(open));
         launcher.setAttribute('aria-label', open ? 'Close game controls' : 'Open game controls');
         if (open) document.getElementById('back-button').focus();
-        else launcher.focus();
+        else if (restoreFocus !== false) launcher.focus();
       }
 
       function toggleFullscreen() {
@@ -434,6 +444,12 @@
 
       document.addEventListener('pointerdown', function (event) {
         if (!menu.hidden && !menu.contains(event.target) && event.target !== launcher) setMenu(false);
+      });
+
+      window.addEventListener('blur', function () {
+        window.setTimeout(function () {
+          if (!menu.hidden && document.activeElement === frame) setMenu(false, false);
+        }, 0);
       });
 
       document.addEventListener('keydown', function (event) {
