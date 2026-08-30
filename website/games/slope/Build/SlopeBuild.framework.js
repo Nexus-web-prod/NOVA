@@ -2360,7 +2360,9 @@ function unityFramework(Module) {
 
 	function _InterstialAd() {
 		console.log("InterstialAd");
-		showNextAd()
+		if (typeof window.showNextAd === "function") {
+			window.showNextAd()
+		}
 	}
 
 	function _JS_Cursor_SetImage(ptr, length) {

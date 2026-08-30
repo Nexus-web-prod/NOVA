@@ -381,6 +381,13 @@ test('Jetpack Joyride uses its complete local build without an external base URL
   assert.doesNotMatch(game, /<base\b|<iframe\b|abinbins\.github\.io/);
 });
 
+test('Slope keeps unavailable advertising hooks from stopping the Unity game', () => {
+  const framework = read('website/games/slope/Build/SlopeBuild.framework.js');
+  const sdk = read('website/games/slope/sdk.js');
+  assert.match(framework, /typeof window\.showNextAd === "function"/);
+  assert.match(sdk, /window\.showNextAd/);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
