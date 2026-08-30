@@ -900,7 +900,7 @@ html[data-theme="light"] .settings-sync-pill{background:rgba(255,250,244,.82)!im
         <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M15 13h2"/></svg></div>
         <div><div class="ni-page-label">Games</div><div class="ni-page-sub">89 games to play</div></div>
       </button>
-      <button class="ni-page-item" id="ni-game-player-page-item" data-page="games">
+      <button class="ni-page-item" id="ni-game-player-page-item" data-page="game-player">
         <div class="ni-page-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 9 5 3-5 3V9Z"/></svg></div>
         <div><div class="ni-page-label">Games Player</div><div class="ni-page-sub">Play local games</div></div>
       </button>
@@ -1297,7 +1297,8 @@ window.addEventListener('blur', function(){
 // Escape key also closes
 document.addEventListener('keydown', function(e){
   var activePage=((document.querySelector('.page.active')||{}).id||'').replace(/^page-/,'');
-  if(e.key === 'Escape' && activePage !== 'games' && island.classList.contains('open') && !document.body.classList.contains('social-attachment-active') && !document.body.classList.contains('social-reaction-active')) closeIsland();
+  var playerLibraryOpen=activePage==='game-player'&&!document.getElementById('nova-shell').classList.contains('game-player-has-game');
+  if(e.key === 'Escape' && activePage !== 'games' && !playerLibraryOpen && island.classList.contains('open') && !document.body.classList.contains('social-attachment-active') && !document.body.classList.contains('social-reaction-active')) closeIsland();
 });
 document.addEventListener('nova:focused-content-open', function(e){
   if(!e.detail || e.detail.type === 'movie') islandMovieActive = true;
@@ -2195,7 +2196,7 @@ body:has(#nova-shell[style*="display:none"])>#nova-adsense-real-home{
 .game-player-library[hidden],#local-game-player-frame[hidden]{display:none}
 .game-player-card{font:inherit;text-align:left}
 </style>
-<div class="game-player-page"><iframe id="local-game-player-frame" title="Local game" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer" hidden></iframe><section class="game-player-library" id="game-player-library"><div class="content-page"><div class="page-title">GAMES PLAYER</div><div class="page-subtitle" id="game-player-library-count">Your complete local games library</div><div class="games-controls-wrap"><div class="glass-pill games-search-pill"><input id="game-player-search" type="text" placeholder="Search local games..." autocomplete="off" spellcheck="false"></div><div class="game-sort-row"><button class="game-sort-btn active" data-player-sort="az">A–Z</button><button class="game-sort-btn" data-player-sort="recent">Recently Added</button></div></div><div class="game-grid" id="game-player-grid"></div></div></section></div>
+<div class="game-player-page"><iframe id="local-game-player-frame" title="Local game" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer" hidden></iframe><section class="game-player-library" id="game-player-library"><div class="content-page"><div class="page-title">GAMES PLAYER</div><div class="page-subtitle" id="game-player-library-count">Your complete local games library</div><div class="games-controls-wrap"><div class="glass-pill games-search-pill"><input id="game-player-search" type="text" placeholder="Search local games..." autocomplete="off" spellcheck="false"></div><div class="game-sort-row"><button class="game-sort-btn active" data-player-sort="az">A–Z</button><button class="game-sort-btn" data-player-sort="rated">Top Rated</button><button class="game-sort-btn" data-player-sort="recent">Recently Added</button></div></div><div class="game-grid" id="game-player-grid"></div></div></section></div>
 </div>
 <div class="page" id="page-game-detail">
 <div class="content-page game-detail-shell">
@@ -3563,8 +3564,8 @@ function showGamesPlayerPage(localGame){
     frame.src=localGame.url;
     document.getElementById('nova-shell').classList.add('game-player-has-game');
   }else{
-    if(window._novaSwitchPage)window._novaSwitchPage('games');
-    else document.querySelector('.nav-tab[data-page="games"]')?.click();
+    if(window._novaSwitchPage)window._novaSwitchPage('game-player');
+    else document.querySelector('.nav-tab[data-page="game-player"]')?.click();
     frame.hidden=true;
     frame.removeAttribute('src');
     library.hidden=false;
@@ -3573,16 +3574,22 @@ function showGamesPlayerPage(localGame){
 }
 window.openNovaGamePlayer=showGamesPlayerPage;
 var gamePlayerItems=[];
+function gamePlayerRatings(){try{return JSON.parse(localStorage.getItem('nova_my_ratings')||'{}');}catch(error){return {};}}
+function gamePlayerFavorites(){try{return new Set(JSON.parse(localStorage.getItem('nova_favs')||'[]'));}catch(error){return new Set();}}
+function gamePlayerStats(slug){try{var cache=JSON.parse(localStorage.getItem('nova_stats_cache')||'{}');return(cache.data&&cache.data[slug])||cache[slug]||{avg:0,count:0};}catch(error){return{avg:0,count:0};}}
 function paintGamesPlayerLibrary(query,sort){
   var grid=document.getElementById('game-player-grid');if(!grid)return;
   var needle=String(query||'').trim().toLowerCase();
   var items=gamePlayerItems.filter(function(entry){return !needle||entry.item.name.toLowerCase().includes(needle);});
-  if(sort==='recent')items=items.slice().reverse();else items.sort(function(a,b){return a.item.name.localeCompare(b.item.name);});
+  if(sort==='recent')items=items.slice().reverse();else if(sort==='rated')items.sort(function(a,b){return(gamePlayerStats(b.local.slug).avg||0)-(gamePlayerStats(a.local.slug).avg||0);});else items.sort(function(a,b){return a.item.name.localeCompare(b.item.name);});
   grid.innerHTML='';
   items.forEach(function(entry){
+    var favorites=gamePlayerFavorites(),ratings=gamePlayerRatings(),rating=ratings[entry.item.name]||0,stats=gamePlayerStats(entry.local.slug);
     var card=document.createElement('div');card.className='game-card game-player-card';
-    card.innerHTML=(entry.item.image?'<img src="'+entry.item.image+'" loading="lazy" alt="">':'')+'<div class="game-name"></div>';
+    card.innerHTML='<button class="fav-btn'+(favorites.has(entry.item.name)?' active':'')+'" aria-label="Favorite '+entry.item.name+'">'+(favorites.has(entry.item.name)?'★':'☆')+'</button>'+(entry.item.image?'<img src="'+entry.item.image+'" loading="lazy" alt="">':'')+'<div class="game-name"></div><div class="game-rating-row"><span class="gr-star">★</span><span class="gr-num">'+(stats.count>0?Number(stats.avg||0).toFixed(1):'—')+'</span>'+(stats.count>0?'<span class="gr-count">('+stats.count+')</span>':'')+'</div><div class="game-stars-row" data-my-rating="'+rating+'">'+[1,2,3,4,5].map(function(value){return'<button class="game-star'+(rating>=value?' lit':'')+'" data-val="'+value+'" aria-label="Rate '+value+' out of 5">★</button>';}).join('')+'</div>';
     card.querySelector('.game-name').textContent=entry.item.name;
+    card.querySelector('.fav-btn').addEventListener('click',function(event){event.stopPropagation();var next=gamePlayerFavorites();if(next.has(entry.item.name))next.delete(entry.item.name);else next.add(entry.item.name);localStorage.setItem('nova_favs',JSON.stringify(Array.from(next)));paintGamesPlayerLibrary(query,sort);});
+    card.querySelectorAll('.game-star').forEach(function(star){star.addEventListener('click',async function(event){event.stopPropagation();var value=parseInt(star.dataset.val,10);try{if(!window.NovaAPI||typeof window.NovaAPI.rateGame!=='function')throw new Error('Rating unavailable');var result=await window.NovaAPI.rateGame(entry.local.slug,value),next=gamePlayerRatings();next[entry.item.name]=value;localStorage.setItem('nova_my_ratings',JSON.stringify(next));if(result&&result.stats){var cache={};try{cache=JSON.parse(localStorage.getItem('nova_stats_cache')||'{}');}catch(error){}if(!cache.data)cache.data={};cache.data[entry.local.slug]=result.stats;localStorage.setItem('nova_stats_cache',JSON.stringify(cache));}paintGamesPlayerLibrary(query,sort);}catch(error){if(window.toast)window.toast('Rating failed — try again');}});});
     card.addEventListener('click',function(){showGamesPlayerPage(entry.local);});grid.appendChild(card);
   });
   if(!items.length)grid.innerHTML='<div class="games-empty">No local games found.</div>';
@@ -3605,7 +3612,7 @@ function renderGamesPlayerLibrary(){
 renderGamesPlayerLibrary();
 document.getElementById('game-player-search')?.addEventListener('input',function(){paintGamesPlayerLibrary(this.value,document.querySelector('[data-player-sort].active')?.dataset.playerSort||'az');});
 document.querySelectorAll('[data-player-sort]').forEach(function(button){button.addEventListener('click',function(){document.querySelectorAll('[data-player-sort]').forEach(function(item){item.classList.toggle('active',item===button);});paintGamesPlayerLibrary(document.getElementById('game-player-search').value,button.dataset.playerSort);});});
-document.getElementById('ni-game-player-page-item')?.addEventListener('click',function(){if(window._novaOpenIsland)window._novaOpenIsland();});
+document.getElementById('ni-game-player-page-item')?.addEventListener('click',function(){showGamesPlayerPage(null);if(window._novaOpenIsland)window._novaOpenIsland();});
 var requestedGamePlayer=new URLSearchParams(location.search).get('gamePlayer');
 if(requestedGamePlayer){
   var requestedLocalGame=localGameFor('/website/games/'+requestedGamePlayer+'/');
