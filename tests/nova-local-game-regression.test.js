@@ -46,10 +46,41 @@ test('FNAF 2 is registered as a self-contained Nova local game', () => {
   }
 });
 
+test('Brawl Stars is registered with a complete local Unity build', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(item => item.name === 'Brawl Stars');
+  const legacyGame = legacyGames.find(item => item.name === 'Brawl Stars');
+  const gameRoot = path.join(root, 'website/games/brawl-stars');
+  const required = [
+    'index.html',
+    'add/howler.js',
+    'playgama-bridge.js',
+    'Build/web.loader.js',
+    'Build/web.data.unityweb',
+    'Build/web.framework.js.unityweb',
+    'Build/web.wasm.unityweb'
+  ];
+
+  assert.deepEqual(
+    { url: game.url, local: game.local },
+    { url: 'https://main.nova-7.pages.dev/website/games/brawl-stars/', local: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(legacyGame.local, true);
+  for (const file of required) {
+    const filePath = path.join(gameRoot, file);
+    assert.ok(fs.existsSync(filePath), `missing Unity file: ${file}`);
+    assert.ok(fs.statSync(filePath).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
+  }
+  assert.doesNotMatch(read('website/games/brawl-stars/index.html'), /challenge-platform\/scripts/);
+});
+
 test('local games bypass Scramjet and use the game name in browser chrome', () => {
   const index = read('website/html/index.html');
   assert.match(index, /function localGameFor\(url\)/);
   assert.match(index, /website\/games\/fnaf-2/);
+  assert.match(index, /website\/games\/brawl-stars/);
   assert.match(index, /parsed\.origin!==location\.origin/);
   assert.match(index, /var localIframe=replaceTabIframe\(tab\)/);
   assert.match(index, /tab\.scFrame&&tab\.scFrame\.destroy/);

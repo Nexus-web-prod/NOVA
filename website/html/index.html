@@ -3461,6 +3461,9 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/fnaf-2/' || parsed.pathname==='/website/games/fnaf-2/index.html'){
       return {name:'FNAF 2',url:new URL('/website/games/fnaf-2/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/brawl-stars/' || parsed.pathname==='/website/games/brawl-stars/index.html'){
+      return {name:'Brawl Stars',url:new URL('/website/games/brawl-stars/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

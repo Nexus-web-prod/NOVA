@@ -1,5 +1,14 @@
 [
   {
+    "name": "Brawl Stars",
+    "link": "https://main.nova-7.pages.dev/website/games/brawl-stars/",
+    "image": "/website/assets/media/icons/brawl-stars.png",
+    "categories": [
+      "all"
+    ],
+    "local": true
+  },
+  {
     "name": "! Create Custom App",
     "image": "/website/assets/media/icons/custom.webp",
     "categories": [

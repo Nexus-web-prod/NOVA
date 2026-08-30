@@ -62,9 +62,10 @@
         "image": "/website/assets/media/icons/cod-zombies.png"
     },
     {
-        "name": "brawl stars",
-        "url": "https://ozogames.com/uploads/games/html5/B/Brawl%20Stars%20Unblocked/index.html",
-        "image": "/website/assets/media/icons/brawl-stars.png"
+        "name": "Brawl Stars",
+        "url": "https://main.nova-7.pages.dev/website/games/brawl-stars/",
+        "image": "/website/assets/media/icons/brawl-stars.png",
+        "local": true
     },
     {
         "name": "Balatro",
