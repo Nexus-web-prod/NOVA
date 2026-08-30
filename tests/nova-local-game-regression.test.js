@@ -371,6 +371,7 @@ test('proxy-to-local navigation replaces the instrumented iframe browsing contex
 test('Nova CSP permits the Function constructor required by Cocos Creator 2.4.2', () => {
   const headers = read('_headers');
   assert.match(headers, /Content-Security-Policy:[^\n]*script-src[^;]*'unsafe-eval'/);
+  assert.match(headers, /Content-Security-Policy:[^\n]*script-src[^;]*blob:/);
 });
 
 test('local Time Shooter Unity payloads have production-safe MIME types', () => {
