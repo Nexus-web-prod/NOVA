@@ -3480,6 +3480,12 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/wrestle-bros/' || parsed.pathname==='/website/games/wrestle-bros/index.html'){
       return {name:'Wrestle Bros',slug:'wrestle-bros',url:new URL('/website/games/wrestle-bros/',location.origin).href};
     }
+    if(parsed.pathname==='/website/games/time-shooter-2/' || parsed.pathname==='/website/games/time-shooter-2/index.html'){
+      return {name:'Time Shooter 2',slug:'time-shooter-2',url:new URL('/website/games/time-shooter-2/',location.origin).href};
+    }
+    if(parsed.pathname==='/website/games/time-shooter-3/' || parsed.pathname==='/website/games/time-shooter-3/index.html'){
+      return {name:'Time Shooter 3: SWAT',slug:'time-shooter-3',url:new URL('/website/games/time-shooter-3/',location.origin).href};
+    }
   } catch(e){}
   return null;
 }

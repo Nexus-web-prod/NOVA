@@ -563,8 +563,26 @@
   },
   {
     "name": "Time Shooter 2",
-    "link": "https://html5.gamedistribution.com/62a72f2da7cb4b609579a47653546e6a/",
-    "image": "/website/assets/media/icons/timeshooter2.webp",
+    "link": "https://main.nova-7.pages.dev/website/games/time-shooter-2/",
+    "image": "/website/games/time-shooter-2/TimeShooter2_Yandex.jpg",
+    "categories": [
+      "all"
+    ],
+    "local": true
+  },
+  {
+    "name": "Time Shooter 3: SWAT",
+    "link": "https://main.nova-7.pages.dev/website/games/time-shooter-3/",
+    "image": "/website/games/time-shooter-3/Build/TimeShooter3_GD.jpg",
+    "categories": [
+      "all"
+    ],
+    "local": true
+  },
+  {
+    "name": "Funny Shooter 3D",
+    "link": "https://funnyshooter.github.io/file/",
+    "image": "/website/games/funny-shooter-3d/favicon.ico",
     "categories": [
       "all"
     ]

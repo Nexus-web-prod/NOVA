@@ -236,6 +236,81 @@ test('Wrestle Bros is registered with a complete local OpenFL build', () => {
   assert.doesNotMatch(packagedGame, /serviceWorker\.register|googletagmanager|cdn-cgi\/scripts|recordsession\.php/);
 });
 
+test('Time Shooter games use complete local Unity builds and packaged artwork', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const compactGames = JSON.parse(read('website/assets/json/g.min.json'));
+  const expected = [
+    {
+      name: 'Time Shooter 2',
+      url: 'https://main.nova-7.pages.dev/website/games/time-shooter-2/',
+      image: '/website/games/time-shooter-2/TimeShooter2_Yandex.jpg',
+      root: 'website/games/time-shooter-2',
+      required: [
+        'index.html',
+        'TimeShooter2_Yandex.loader.js',
+        'TimeShooter2_Yandex.data.unityweb',
+        'TimeShooter2_Yandex.framework.js.unityweb',
+        'TimeShooter2_Yandex.wasm.unityweb',
+        'TimeShooter2_Yandex.jpg'
+      ]
+    },
+    {
+      name: 'Time Shooter 3: SWAT',
+      url: 'https://main.nova-7.pages.dev/website/games/time-shooter-3/',
+      image: '/website/games/time-shooter-3/Build/TimeShooter3_GD.jpg',
+      root: 'website/games/time-shooter-3',
+      required: [
+        'index.html',
+        'Build/UnityLoader.js',
+        'Build/TimeShooter3_GD.data.unityweb',
+        'Build/TimeShooter3_GD.framework.js.unityweb',
+        'Build/TimeShooter3_GD.wasm.unityweb',
+        'Build/TimeShooter3_GD.jpg'
+      ]
+    }
+  ];
+
+  for (const item of expected) {
+    const game = games.find(entry => entry.name === item.name);
+    const legacyGame = legacyGames.find(entry => entry.name === item.name);
+    const compactGame = compactGames.find(entry => entry.name === item.name);
+    assert.deepEqual({ url: game.url, image: game.image, local: game.local }, { url: item.url, image: item.image, local: true });
+    assert.equal(legacyGame.link, item.url);
+    assert.equal(compactGame.link, item.url);
+    assert.equal(legacyGame.image, item.image);
+    assert.equal(compactGame.image, item.image);
+    assert.equal(legacyGame.local, true);
+    assert.equal(compactGame.local, true);
+    for (const file of item.required) {
+      const filePath = path.join(root, item.root, file);
+      assert.ok(fs.existsSync(filePath), `missing Unity file: ${file}`);
+      assert.ok(fs.statSync(filePath).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
+    }
+    assert.doesNotMatch(read(path.join(item.root, 'index.html')), /patch\/js\/null\.js|Unblocked Games 66/);
+  }
+});
+
+test('Funny Shooter 3D uses its packaged image with the archive external game URL', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const compactGames = JSON.parse(read('website/assets/json/g.min.json'));
+  const game = games.find(item => item.name === 'Funny Shooter 3D');
+  const legacyGame = legacyGames.find(item => item.name === 'Funny Shooter 3D');
+  const compactGame = compactGames.find(item => item.name === 'Funny Shooter 3D');
+  const image = '/website/games/funny-shooter-3d/favicon.ico';
+
+  assert.deepEqual(
+    { url: game.url, image: game.image, local: game.local },
+    { url: 'https://funnyshooter.github.io/file/', image, local: undefined }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(compactGame.link, game.url);
+  assert.equal(legacyGame.image, image);
+  assert.equal(compactGame.image, image);
+  assert.ok(fs.existsSync(path.join(root, 'website/games/funny-shooter-3d/favicon.ico')));
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
@@ -247,6 +322,8 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /website\/games\/super-liquid-soccer/);
   assert.match(index, /website\/games\/basket-bros/);
   assert.match(index, /website\/games\/wrestle-bros/);
+  assert.match(index, /website\/games\/time-shooter-2/);
+  assert.match(index, /website\/games\/time-shooter-3/);
   assert.match(index, /main\.nova-7\.pages\.dev/);
   assert.match(index, /window\.location\.assign\('\/website\/html\/game\.html\?game='/);
   assert.match(index, /encodeURIComponent\(localGame\.slug\)/);
@@ -258,6 +335,8 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(player, /'super-liquid-soccer'/);
   assert.match(player, /'basket-bros'/);
   assert.match(player, /'wrestle-bros'/);
+  assert.match(player, /'time-shooter-2'/);
+  assert.match(player, /'time-shooter-3'/);
   assert.match(player, /id="back-button"/);
   assert.match(player, /id="restart-button"/);
   assert.match(player, /id="fullscreen-button"/);
