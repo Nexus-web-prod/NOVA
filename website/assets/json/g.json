@@ -9,6 +9,15 @@
     "local": true
   },
   {
+    "name": "Brawl Guys",
+    "link": "https://main.nova-7.pages.dev/website/games/brawl-guys/",
+    "image": "/website/games/brawl-guys/loading-logo.png",
+    "categories": [
+      "all"
+    ],
+    "local": true
+  },
+  {
     "name": "! Create Custom App",
     "image": "/website/assets/media/icons/custom.webp",
     "categories": [

@@ -68,6 +68,12 @@
         "local": true
     },
     {
+        "name": "Brawl Guys",
+        "url": "https://main.nova-7.pages.dev/website/games/brawl-guys/",
+        "image": "/website/games/brawl-guys/loading-logo.png",
+        "local": true
+    },
+    {
         "name": "Balatro",
         "url": "https://55gms.com/misc/balatro/index.html",
         "image": "/website/assets/media/icons/balatro.png"

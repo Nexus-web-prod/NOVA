@@ -76,6 +76,39 @@ test('Brawl Stars is registered with a complete local Unity build', () => {
   assert.doesNotMatch(read('website/games/brawl-stars/index.html'), /challenge-platform\/scripts/);
 });
 
+test('Brawl Guys is registered with a complete local Construct build', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(item => item.name === 'Brawl Guys');
+  const legacyGame = legacyGames.find(item => item.name === 'Brawl Guys');
+  const gameRoot = path.join(root, 'website/games/brawl-guys');
+  const packagedGame = read('website/games/brawl-guys/index.html');
+  const required = [
+    'index.html',
+    'appmanifest.json',
+    'c2runtime.js',
+    'data.js',
+    'jquery-3.4.1.min.js',
+    'offlineClient.js',
+    'pathfind.js',
+    'loading-logo.png',
+    'images/player-sheet0.png',
+    'media/battlethemea.ogg'
+  ];
+
+  assert.deepEqual(
+    { url: game.url, local: game.local },
+    { url: 'https://main.nova-7.pages.dev/website/games/brawl-guys/', local: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(legacyGame.local, true);
+  for (const file of required) {
+    assert.ok(fs.existsSync(path.join(gameRoot, file)), `missing Construct file: ${file}`);
+  }
+  assert.match(packagedGame, /<title>Brawl Guys<\/title>/);
+  assert.doesNotMatch(packagedGame, /imasdk|patch\/google/);
+});
+
 test('Retro Bowl is registered with a complete local GameMaker build', () => {
   const games = JSON.parse(read('website/data/games.json'));
   const legacyGames = JSON.parse(read('website/assets/json/g.json'));
@@ -120,6 +153,7 @@ test('local games bypass Scramjet and use the game name in browser chrome', () =
   assert.match(index, /function localGameFor\(url\)/);
   assert.match(index, /website\/games\/fnaf-2/);
   assert.match(index, /website\/games\/brawl-stars/);
+  assert.match(index, /website\/games\/brawl-guys/);
   assert.match(index, /website\/games\/retro-bowl/);
   assert.match(index, /parsed\.origin!==location\.origin/);
   assert.match(index, /var localIframe=replaceTabIframe\(tab\)/);
