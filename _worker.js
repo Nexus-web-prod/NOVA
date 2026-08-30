@@ -396,6 +396,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    const splitGameAsset = await serveSplitGameAsset(request, env, url);
+    if (splitGameAsset) return splitGameAsset;
+
     if (url.pathname.startsWith("/api/")) {
       if (request.method === "OPTIONS") return apiJson(null, 204);
       if (!hasDatabaseConfig(env)) return apiError("DATABASE_UNAVAILABLE", "Missing Turso database configuration", 503);
@@ -504,6 +507,51 @@ export default {
     return env.ASSETS.fetch(request);
   }
 };
+
+async function serveSplitGameAsset(request, env, url) {
+  const splitAssets = {
+    "/website/games/subway-surfers/Build/SanFrancisco.data.unityweb": { parts: 2, length: 27979216 },
+    "/website/games/rocket-league/Build/RSD%201.1.0rc4.data.unityweb": { parts: 3, length: 29723236 },
+    "/website/games/rocket-league/Build/RSD%201.1.0rc4.wasm.code.unityweb": { parts: 2, length: 26620102 }
+  };
+  const splitAsset = splitAssets[url.pathname];
+  if (!splitAsset || !["GET", "HEAD"].includes(request.method)) return null;
+
+  const parts = await Promise.all(Array.from({ length: splitAsset.parts }, (_, part) => {
+    const partUrl = new URL(request.url);
+    partUrl.pathname = `${url.pathname}.part${String(part).padStart(2, "0")}`;
+    return env.ASSETS.fetch(new Request(partUrl, request));
+  }));
+  if (parts.some(response => !response.ok)) {
+    return new Response("Game data is unavailable.", { status: 502 });
+  }
+
+  if (request.method === "HEAD") {
+    return new Response(null, { headers: splitGameAssetHeaders(splitAsset.length) });
+  }
+  const body = new ReadableStream({
+    async start(controller) {
+      for (const response of parts) {
+        const reader = response.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+      }
+      controller.close();
+    }
+  });
+  return new Response(body, { headers: splitGameAssetHeaders(splitAsset.length) });
+}
+
+function splitGameAssetHeaders(length) {
+  return {
+    "Content-Type": "application/octet-stream",
+    "Content-Length": String(length),
+    "Cache-Control": "public, max-age=31536000, immutable"
+  };
+}
 
 function isAdSensePreviewRequest(request, url) {
   const userAgent = request.headers.get("User-Agent") || "";

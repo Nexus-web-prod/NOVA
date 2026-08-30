@@ -3489,6 +3489,20 @@ function localGameFor(url){
     if(parsed.pathname==='/website/games/basket-random/' || parsed.pathname==='/website/games/basket-random/index.html'){
       return {name:'Basket Random',slug:'basket-random',url:new URL('/website/games/basket-random/',location.origin).href};
     }
+    var uploadedGames = {
+      '/website/games/jetpack-joyride/': {name:'Jetpack Joyride',slug:'jetpack-joyride'},
+      '/website/games/among-us/': {name:'Among Us',slug:'among-us'},
+      '/website/games/bitlife/': {name:'BitLife',slug:'bitlife'},
+      '/website/games/slope/': {name:'Slope',slug:'slope'},
+      '/website/games/rocket-league/': {name:'Rocket Soccer',slug:'rocket-league'},
+      '/website/games/cookie-clicker/': {name:'Cookie Clicker',slug:'cookie-clicker'},
+      '/website/games/subway-surfers/': {name:'Subway Surfers: San Francisco',slug:'subway-surfers'}
+    };
+    var normalizedPath=parsed.pathname.replace(/index\.html$/,'');
+    var uploadedGame=uploadedGames[normalizedPath];
+    if(uploadedGame){
+      return {name:uploadedGame.name,slug:uploadedGame.slug,url:new URL(normalizedPath,location.origin).href};
+    }
   } catch(e){}
   return null;
 }

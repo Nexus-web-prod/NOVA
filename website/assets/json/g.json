@@ -605,12 +605,13 @@
   },
   {
     "name": "Jetpack Joyride",
-    "link": "/e/jetpack-joyride/index.html",
+    "link": "https://main.nova-7.pages.dev/website/games/jetpack-joyride/",
     "image": "/website/assets/media/icons/jetpackjoyride.webp",
     "categories": [
       "all",
       "local"
-    ]
+    ],
+    "local": true
   },
   {
     "name": "FeedVid",
@@ -1010,13 +1011,15 @@
     ]
   },
   {
-    "name": "Subway Surfers: San Francisco ",
-    "link": "https://raw.githack.com/3kh0/3kh0-assets/main/subway-surfers/index.html",
+    "name": "Subway Surfers: San Francisco",
+    "link": "https://main.nova-7.pages.dev/website/games/subway-surfers/",
     "image": "/website/assets/media/icons/SF.webp",
     "categories": [
       "all,",
-      "emu"
-    ]
+      "emu",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "Survivor.io",
@@ -1039,11 +1042,13 @@
   },
   {
     "name": "Slope",
-    "link": "https://watchdocumentaries.com/wp-content/uploads/games/slope/",
+    "link": "https://main.nova-7.pages.dev/website/games/slope/",
     "image": "/website/assets/media/icons/slope.webp",
     "categories": [
-      "all"
-    ]
+      "all",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "Fortnite (Geforce NOW)",
@@ -1081,12 +1086,14 @@
     ]
   },
   {
-    "name": "2D Rocket League",
-    "link": "https://v6p9d9t4.ssl.hwcdn.net/html/3325334/index.html",
+    "name": "Rocket Soccer",
+    "link": "https://main.nova-7.pages.dev/website/games/rocket-league/",
     "image": "/website/assets/media/icons/2D-Rocket-League.webp",
     "categories": [
-      "all"
-    ]
+      "all",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "3D Dino Game",
@@ -1153,12 +1160,14 @@
     ]
   },
   {
-    "name": "Among Us (Scratch)",
-    "link": "https://turbowarp.org/523967150/fullscreen",
+    "name": "Among Us",
+    "link": "https://main.nova-7.pages.dev/website/games/among-us/",
     "image": "/website/assets/media/icons/scratch-among-us.webp",
     "categories": [
-      "all"
-    ]
+      "all",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "Apex Legends",
@@ -1211,11 +1220,13 @@
   },
   {
     "name": "Bitlife",
-    "link": "https://xlegends.github.io/bitlife/",
+    "link": "https://main.nova-7.pages.dev/website/games/bitlife/",
     "image": "/website/assets/media/icons/bitlife.webp",
     "categories": [
-      "all"
-    ]
+      "all",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "BTD 4",
@@ -1284,11 +1295,13 @@
   },
   {
     "name": "Cookie Clicker",
-    "link": "https://orteil.dashnet.org/cookieclicker/",
+    "link": "https://main.nova-7.pages.dev/website/games/cookie-clicker/",
     "image": "/website/assets/media/icons/cookieclicker.webp",
     "categories": [
-      "all"
-    ]
+      "all",
+      "local"
+    ],
+    "local": true
   },
   {
     "name": "Crossy Road",

@@ -208,8 +208,9 @@
     },
     {
         "name": "Jetpack Joyride",
-        "url": "https://abinbins.github.io/a7/jetpack-joyride/",
-        "image": "/website/assets/media/icons/jetpackjoyride.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/jetpack-joyride/",
+        "image": "/website/assets/media/icons/jetpackjoyride.webp",
+        "local": true
     },
     {
         "name": "DOOM",
@@ -233,9 +234,10 @@
         "image": "/website/assets/media/icons/run3.webp"
     },
     {
-        "name": "Subway Surfers: Rio",
-        "url": "https://html5.gamemonetize.co/4vppm8m74ngl2mwfmixoxmd9ljc9ddms/",
-        "image": "/website/assets/media/icons/SF.webp"
+        "name": "Subway Surfers: San Francisco",
+        "url": "https://main.nova-7.pages.dev/website/games/subway-surfers/",
+        "image": "/website/assets/media/icons/SF.webp",
+        "local": true
     },
     {
         "name": "Survivor.io",
@@ -244,8 +246,9 @@
     },
     {
         "name": "Slope",
-        "url": "https://slopeunblocked.bitbucket.io/file/",
-        "image": "/website/assets/media/icons/slope.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/slope/",
+        "image": "/website/assets/media/icons/slope.webp",
+        "local": true
     },
     {
         "name": "Fortnite (Geforce NOW)",
@@ -258,14 +261,16 @@
         "image": "/website/assets/media/icons/1v1-lol.webp"
     },
     {
-        "name": "Rocket Goal",
-        "url": "https://rocketgoal.io/",
-        "image": "/website/assets/media/icons/2D-Rocket-League.webp"
+        "name": "Rocket Soccer",
+        "url": "https://main.nova-7.pages.dev/website/games/rocket-league/",
+        "image": "/website/assets/media/icons/2D-Rocket-League.webp",
+        "local": true
     },
     {
         "name": "Among Us",
-        "url": "https://amongusonline.bitbucket.io/file/",
-        "image": "/website/assets/media/icons/scratch-among-us.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/among-us/",
+        "image": "/website/assets/media/icons/scratch-among-us.webp",
+        "local": true
     },
     {
         "name": "Basket Random",
@@ -275,8 +280,9 @@
     },
     {
         "name": "Bitlife",
-        "url": "https://xlegends.github.io/bitlife/",
-        "image": "/website/assets/media/icons/bitlife.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/bitlife/",
+        "image": "/website/assets/media/icons/bitlife.webp",
+        "local": true
     },
     {
         "name": "BTD 4",
@@ -295,8 +301,9 @@
     },
     {
         "name": "Cookie Clicker",
-        "url": "https://unblocked-cookie-clicker.pages.dev/unblocked/",
-        "image": "/website/assets/media/icons/cookieclicker.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/cookie-clicker/",
+        "image": "/website/assets/media/icons/cookieclicker.webp",
+        "local": true
     },
     {
         "name": "Crossy Road",

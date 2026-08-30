@@ -342,6 +342,38 @@ test('Basket Random is local while preserving its existing Nova icon', () => {
   assert.doesNotMatch(packagedGame, /patch\/js|register-sw|Unblocked Games 66/);
 });
 
+test('uploaded classic games are local and preserve every existing catalog icon', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const compactGames = JSON.parse(read('website/assets/json/g.min.json'));
+  const expected = [
+    ['Jetpack Joyride', 'jetpack-joyride', '/website/assets/media/icons/jetpackjoyride.webp', '/website/assets/media/icons/jetpackjoyride.webp', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTlXwelM4mWFCoBcTvH8e1JgftqAR_Ssi3b9n3COCC3BuN8sTDpBSjhtDJ6Tv6fk1dbIkfP62PoJL7OjliSW1jA3MOfvMDJhaYTW17a6pU&s=10'],
+    ['Subway Surfers: San Francisco', 'subway-surfers', '/website/assets/media/icons/SF.webp', '/website/assets/media/icons/SF.webp', '/website/assets/media/icons/SF.webp'],
+    ['Slope', 'slope', '/website/assets/media/icons/slope.webp', '/website/assets/media/icons/slope.webp', '/website/assets/media/icons/slope.webp'],
+    ['Rocket Soccer', 'rocket-league', '/website/assets/media/icons/2D-Rocket-League.webp', '/website/assets/media/icons/2D-Rocket-League.webp', '/website/assets/media/icons/2D-Rocket-League.webp'],
+    ['Among Us', 'among-us', '/website/assets/media/icons/scratch-among-us.webp', '/website/assets/media/icons/scratch-among-us.webp', '/website/assets/media/icons/scratch-among-us.webp'],
+    ['Bitlife', 'bitlife', '/website/assets/media/icons/bitlife.webp', '/website/assets/media/icons/bitlife.webp', '/website/assets/media/icons/bitlife.webp'],
+    ['Cookie Clicker', 'cookie-clicker', '/website/assets/media/icons/cookieclicker.webp', '/website/assets/media/icons/cookieclicker.webp', '/website/assets/media/icons/cookieclicker.webp']
+  ];
+
+  for (const [name, slug, dataIcon, legacyIcon, compactIcon] of expected) {
+    const game = games.find(item => item.name === name);
+    const legacyGame = legacyGames.find(item => item.name === name);
+    const compactGame = compactGames.find(item => item.name === name);
+    const url = `https://main.nova-7.pages.dev/website/games/${slug}/`;
+    assert.deepEqual({ url: game.url, image: game.image, local: game.local }, { url, image: dataIcon, local: true });
+    assert.deepEqual({ link: legacyGame.link, image: legacyGame.image, local: legacyGame.local }, { link: url, image: legacyIcon, local: true });
+    assert.deepEqual({ link: compactGame.link, image: compactGame.image, local: compactGame.local }, { link: url, image: compactIcon, local: true });
+    assert.ok(fs.existsSync(path.join(root, `website/games/${slug}/index.html`)));
+  }
+
+  for (const file of fs.readdirSync(path.join(root, 'website/games/subway-surfers/Build'))) {
+    assert.ok(fs.statSync(path.join(root, 'website/games/subway-surfers/Build', file)).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
+  }
+  assert.match(read('_worker.js'), /serveSplitGameAsset/);
+  assert.match(read('_worker.js'), /SanFrancisco\.data\.unityweb/);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
@@ -356,6 +388,10 @@ test('local games open in the dedicated Nova game player', () => {
   assert.match(index, /website\/games\/time-shooter-2/);
   assert.match(index, /website\/games\/time-shooter-3/);
   assert.match(index, /website\/games\/basket-random/);
+  for (const game of ['jetpack-joyride', 'among-us', 'bitlife', 'slope', 'rocket-league', 'cookie-clicker', 'subway-surfers']) {
+    assert.match(index, new RegExp(`website\\/games\\/${game}`));
+    assert.match(player, new RegExp(`'${game}'`));
+  }
   assert.match(index, /main\.nova-7\.pages\.dev/);
   assert.match(index, /window\.location\.assign\('\/website\/html\/game\.html\?game='/);
   assert.match(index, /encodeURIComponent\(localGame\.slug\)/);
