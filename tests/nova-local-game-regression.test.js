@@ -85,11 +85,17 @@ test('Retro Bowl is registered with a complete local GameMaker build', () => {
   const packagedGame = read('website/games/retro-bowl/index.html');
   const required = [
     'index.html',
+    'html5game/Achievements.txt',
+    'html5game/Charities.txt',
+    'html5game/Names_F0.txt',
+    'html5game/Names_F1.txt',
+    'html5game/Names_L.txt',
     'html5game/RetroBowl.js',
     'html5game/RetroBowl_texture_0.png',
     'html5game/RetroBowl_texture_1.png',
-    'html5game/RetroBowl_texture_2.png',
-    'html5game/optiondata.dat',
+    'html5game/Schedule17.txt',
+    'html5game/Teams.txt',
+    'html5game/uniforms_default.txt',
     'html5game/uph_poki.js'
   ];
 
@@ -104,8 +110,9 @@ test('Retro Bowl is registered with a complete local GameMaker build', () => {
     assert.ok(fs.existsSync(filePath), `missing GameMaker file: ${file}`);
     assert.ok(fs.statSync(filePath).size < 25 * 1024 * 1024, `Cloudflare file limit exceeded: ${file}`);
   }
-  assert.match(packagedGame, /window\.PokiSDK = null/);
+  assert.match(packagedGame, /window\.PokiSDK_OK = false/);
   assert.doesNotMatch(packagedGame, /busqueda\.me|patch\/js\/null\.js/);
+  assert.doesNotMatch(read('website/games/retro-bowl/html5game/RetroBowl.js'), /cpd;\s*$/);
 });
 
 test('local games bypass Scramjet and use the game name in browser chrome', () => {

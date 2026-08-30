@@ -11,7 +11,6 @@
 
     <!-- Set the title bar of the page -->
     <title>Retro Bowl</title>
-    <script>window.PokiSDK = null;</script>
 
     <!-- Set the background colour of the document -->
     <style>
@@ -78,7 +77,11 @@
     <!-- Run the game code -->
     <script type="text/javascript" src="html5game/RetroBowl.js?WAEAC=1633155445"></script>
     <script>
-      window.onload = GameMaker_Init;
+      window.addEventListener('load', function () {
+        window.PokiSDK = null;
+        window.PokiSDK_OK = false;
+        GameMaker_Init();
+      });
     </script>
   </body>
 </html>
