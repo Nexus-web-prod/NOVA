@@ -396,6 +396,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    const jetpackAsset = await serveJetpackAsset(request, env, url);
+    if (jetpackAsset) return jetpackAsset;
+
     const splitGameAsset = await serveSplitGameAsset(request, env, url);
     if (splitGameAsset) return splitGameAsset;
 
@@ -507,6 +510,18 @@ export default {
     return env.ASSETS.fetch(request);
   }
 };
+
+async function serveJetpackAsset(request, env, url) {
+  const prefix = "/website/games/jetpack-joyride/assets/";
+  if (!url.pathname.startsWith(prefix) || !url.pathname.endsWith("/") || !["GET", "HEAD"].includes(request.method)) {
+    return null;
+  }
+
+  const assetUrl = new URL(url);
+  assetUrl.pathname = url.pathname.slice(0, -1);
+  const response = await env.ASSETS.fetch(new Request(assetUrl, request));
+  return response.ok ? response : null;
+}
 
 async function serveSplitGameAsset(request, env, url) {
   const splitAssets = {

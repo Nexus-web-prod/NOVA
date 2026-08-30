@@ -379,6 +379,9 @@ test('Jetpack Joyride uses its complete local build without an external base URL
   assert.match(game, /src="game3\.js"/);
   assert.match(game, /id="phaser-canvas"/);
   assert.doesNotMatch(game, /<base\b|<iframe\b|abinbins\.github\.io/);
+  assert.match(read('_worker.js'), /serveJetpackAsset/);
+  assert.ok(fs.readdirSync(path.join(root, 'website/games/jetpack-joyride/assets/audio')).length >= 90);
+  assert.ok(fs.readdirSync(path.join(root, 'website/games/jetpack-joyride/assets/atlas')).length >= 14);
 });
 
 test('Slope keeps unavailable advertising hooks from stopping the Unity game', () => {
