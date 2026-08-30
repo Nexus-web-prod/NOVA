@@ -161,8 +161,9 @@
     },
     {
         "name": "Stickman Hook",
-        "url": "https://stickmanhookonline.io/game/stickman-hook/",
-        "image": "/website/assets/media/icons/stickmanhook.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/stickman-hook/",
+        "image": "/website/assets/media/icons/stickmanhook.webp",
+        "local": true
     },
     {
         "name": "Tunnel Rush",

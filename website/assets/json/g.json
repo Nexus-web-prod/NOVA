@@ -449,12 +449,13 @@
   },
   {
     "name": "Stickman Hook",
-    "link": "/e/stickman-hook/index.html",
+    "link": "https://main.nova-7.pages.dev/website/games/stickman-hook/",
     "image": "/website/assets/media/icons/stickmanhook.webp",
     "categories": [
       "all",
       "local"
-    ]
+    ],
+    "local": true
   },
   {
     "name": "Tube Jumpers",

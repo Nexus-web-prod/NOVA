@@ -391,6 +391,26 @@ test('Slope keeps unavailable advertising hooks from stopping the Unity game', (
   assert.match(sdk, /window\.showNextAd/);
 });
 
+test('Stickman Hook is registered as a complete local game without replacing its Nova icon', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(item => item.name === 'Stickman Hook');
+  const legacyGame = legacyGames.find(item => item.name === 'Stickman Hook');
+  assert.deepEqual(
+    { url: game.url, image: game.image, local: game.local },
+    {
+      url: 'https://main.nova-7.pages.dev/website/games/stickman-hook/',
+      image: '/website/assets/media/icons/stickmanhook.webp',
+      local: true
+    }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(legacyGame.image, game.image);
+  assert.equal(legacyGame.local, true);
+  assert.match(read('website/games/stickman-hook/index.html'), /src="bundle\.js"/);
+  assert.ok(fs.statSync(path.join(root, 'website/games/stickman-hook/bundle.js')).size > 1_000_000);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
