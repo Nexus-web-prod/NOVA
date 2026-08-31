@@ -691,3 +691,18 @@ test('ads.txt is authorized and explicitly crawlable on the production site', ()
   const headers = read('_headers');
   assert.match(headers, /\/ads\.txt\n  Content-Type: text\/plain; charset=utf-8\n  Cache-Control: public, max-age=300, must-revalidate\n  X-Robots-Tag: all/);
 });
+
+test('the profitable-rate ad unit is restricted to the production hostname', () => {
+  const index = read('website/html/index.html');
+  const manager = read('website/js/nova-ads.js');
+  const headers = read('_headers');
+  assert.match(index, /nova-ads\.js\?v=20260831-profitablerate-r1/);
+  assert.doesNotMatch(index, /pl31115444\.profitableratecpmnetwork\.com/);
+  assert.match(manager, /hostname: "nova-7\.pages\.dev"/);
+  assert.match(manager, /container-435f315cf07c1f3b07750aa1e9c321eb/);
+  assert.match(manager, /https:\/\/pl31115444\.profitableratecpmnetwork\.com\/435f315cf07c1f3b07750aa1e9c321eb\/invoke\.js/);
+  assert.match(manager, /script\.dataset\.cfasync = "false"/);
+  assert.match(manager, /if \(window\.location\.hostname === CONFIG\.productionNetwork\.hostname\)/);
+  assert.match(manager, /if \(!isEligible\(page\)/);
+  assert.match(headers, /https:\/\/\*\.profitableratecpmnetwork\.com/);
+});

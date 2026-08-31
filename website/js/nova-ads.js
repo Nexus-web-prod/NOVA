@@ -13,6 +13,11 @@
 
   var CONFIG = Object.freeze({
     publisherId: "ca-pub-6082584609878503",
+    productionNetwork: Object.freeze({
+      hostname: "nova-7.pages.dev",
+      containerId: "container-435f315cf07c1f3b07750aa1e9c321eb",
+      scriptUrl: "https://pl31115444.profitableratecpmnetwork.com/435f315cf07c1f3b07750aa1e9c321eb/invoke.js"
+    }),
     slots: Object.freeze({
       // TODO(AdSense): Replace null with the numeric data-ad-slot ID from each
       // manually-created responsive Display ad unit in Google AdSense.
@@ -154,12 +159,54 @@
     }, 7000);
   }
 
+  function renderProductionNetwork(slot, page) {
+    var network = CONFIG.productionNetwork;
+    if (window.location.hostname !== network.hostname || !isEligible(page) || page !== getCurrentPage()) {
+      slot.classList.add("nova-ad-slot--collapsed");
+      return false;
+    }
+
+    slot.replaceChildren();
+    slot.classList.remove("nova-ad-slot--collapsed");
+    slot.classList.add("nova-ad-slot--active", "nova-ad-slot--loading");
+
+    var label = document.createElement("div");
+    label.className = "nova-ad-label";
+    label.textContent = "Sponsored";
+
+    var container = document.createElement("div");
+    container.id = network.containerId;
+
+    var script = document.createElement("script");
+    script.async = true;
+    script.dataset.cfasync = "false";
+    script.dataset.novaProductionAd = "true";
+    script.src = network.scriptUrl;
+    script.onload = function () {
+      if (!slot.isConnected || !isEligible(page) || page !== getCurrentPage()) return;
+      slot.classList.remove("nova-ad-slot--loading");
+      document.documentElement.classList.add("nova-ads-active");
+    };
+    script.onerror = function () {
+      slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
+      slot.classList.add("nova-ad-slot--collapsed");
+      slot.replaceChildren();
+    };
+
+    slot.append(label, script, container);
+    return true;
+  }
+
   async function render(slot) {
     if (!(slot instanceof Element)) return false;
     var page = slot.dataset.novaAdPage || getCurrentPage();
     if (!isEligible(page) || page !== getCurrentPage()) {
       slot.classList.add("nova-ad-slot--collapsed");
       return false;
+    }
+
+    if (window.location.hostname === CONFIG.productionNetwork.hostname) {
+      return renderProductionNetwork(slot, page);
     }
 
     var slotId = CONFIG.slots[page];
