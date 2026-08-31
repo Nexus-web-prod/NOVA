@@ -660,3 +660,20 @@ test('Geo Dash uses the selected local gdash build and preserves its Nova icon',
   assert.match(read('website/html/index.html'), /website\/games\/geo-dash/);
   assert.match(read('website/html/game.html'), /'geo-dash'/);
 });
+
+test('Monkey Mart archive metadata matches its bundled files and uses a local SDK stub', () => {
+  const rootPath = path.join(root, 'website/games/monkey-mart');
+  const archive = JSON.parse(read('website/games/monkey-mart/archive/archive_files.json'));
+  for (const file of archive.content) {
+    const actualSize = file.pieces.reduce((total, piece) => {
+      return total + fs.statSync(path.join(rootPath, 'archive', piece.name)).size;
+    }, 0);
+    assert.equal(actualSize, file.size, `archive size mismatch for ${file.name}`);
+  }
+
+  const page = read('website/games/monkey-mart/index.html');
+  const sdk = read('website/games/monkey-mart/poki-sdk.js');
+  assert.doesNotMatch(page, /bg_loading\.png|load_bar_(?:bg|fg)\.png/);
+  assert.match(sdk, /window\.PokiSDK = \{/);
+  assert.doesNotMatch(sdk, /poki-sdk-core|createElement\("script"\)/);
+});

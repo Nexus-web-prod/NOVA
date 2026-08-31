@@ -130,15 +130,23 @@
 	}
 
 	.canvas-app-canvas {
-		background-repeat: no-repeat;
-		background-position: center;
-
-		background-position: top;
-		background-size: cover;
-		background-image: url("bg_loading.png");
-
-
+		background: #00BB61;
   }
+
+	#progress-bar-bg {
+		height: 24px;
+		background: #087a3a;
+		border: 3px solid #fff;
+		border-radius: 14px;
+		overflow: hidden;
+	}
+
+	#progress-bar-fg {
+		height: 100%;
+		width: 0;
+		background: #ffe333;
+		border-radius: 10px;
+	}
 
 	</style>
   <script src="./poki-sdk.js"></script>
@@ -153,8 +161,7 @@
    <!-- center and anchor to bottom of page -->
    <div id="progress-bar-root" style="position: absolute; bottom: 16%; left: 50%; visibility: hidden; z-index: 4;">
     <!-- <div id="progress-bar-text"> -->
-    <img id="progress-bar-bg" src="load_bar_bg.png">
-    <img id="progress-bar-fg" src="load_bar_fg.png" style="position:absolute; clip: rect(0px,0px,0px,0px);">
+    <div id="progress-bar-bg"><div id="progress-bar-fg"></div></div>
    </div>
   </div>
   <!-- -->
@@ -249,12 +256,9 @@
 		// progress bar
 		var bar_h = width < height ? width:height;
 		progress_bar_bg.width = Math.min(Math.ceil(bar_h * 0.06 * 300/24),width * 0.8);
-
+		progress_bar_bg.style.width = progress_bar_bg.width + "px";
 		progress_bar_bg.style.marginLeft = - progress_bar_bg.width/2 + "px";
 		progress_bar_fg.width =  Math.ceil(progress_bar_bg.width * 1);
-
-		progress_bar_fg.style.marginTop = (progress_bar_bg.width * 0) * (0)/2 + "px";
-		progress_bar_fg.style.marginLeft = -progress_bar_bg.width/2 - progress_bar_fg.width/2 + "px";
 
 		// progress_bar_text.style.fontSize = Math.ceil(bar_h * 0.10) + "px";
 		progress_bar_root.style.bottom = Math.ceil(height*0.08 + buttonHeight) + "px";
@@ -314,7 +318,7 @@
 			// progress_bar_text.innerHTML  = "<b>" +  Math.ceil(percentage) + "%</b>";
 
 			var fg = document.getElementById('progress-bar-fg');
-			fg.style.clip="rect(0px,"  + fg.width * percentage/100 + "px,"  + fg.height+"px," + "0px)"
+			fg.style.width = Math.max(0, Math.min(100, percentage)) + "%";
 
 			if(isNaN(percentage)){
 				var progress_bar_root = document.getElementById('progress-bar-root');
