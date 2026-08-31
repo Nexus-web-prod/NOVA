@@ -64,15 +64,17 @@ test('AdSense traffic-quality runtime is allowed by CSP without opening script-s
   assert.doesNotMatch(headers, /script-src[^\n;]*(?:^|\s)https:\s/);
 });
 
-test('production Adsterra ads preserve provider ordering, retry no-fill, and collapse permanent blanks', () => {
+test('production Adsterra ads keep one live SPA unit, retry no-fill, and collapse permanent blanks', () => {
   assert.match(ads, /unit\.append\(label, script, container\)/);
   assert.match(ads, /fillObserver\.observe\(container/);
   assert.match(ads, /dataset\.novaAdProvider = "adsterra"/);
   assert.match(ads, /fillTimeoutMs:\s*15000/);
   assert.match(ads, /maxAttempts:\s*2/);
-  assert.match(ads, /renderProductionNetwork\(slot, page, attempt \+ 1\)/);
-  assert.match(ads, /collapseSlot\(slot\)/);
-  assert.doesNotMatch(ads, /state\.productionUnit/);
+  assert.match(ads, /productionUnit:\s*null/);
+  assert.match(ads, /showProductionUnitInSlot/);
+  assert.match(ads, /state\.productionUnit/);
+  assert.match(ads, /removeAll\(\{ destroyProduction: false \}\)/);
+  assert.match(ads, /removeAll\(\{ destroyProduction: true \}\)/);
   assert.doesNotMatch(ads, /installProductionInventoryRelay/);
   assert.doesNotMatch(ads, /"\/api\/ad-inventory\?target="/);
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/pixel\/ase/);
@@ -80,9 +82,11 @@ test('production Adsterra ads preserve provider ordering, retry no-fill, and col
   assert.doesNotMatch(headers, /connect-src[^;]*(?:^|\s)https:\s/);
 });
 
-test('ad diagnostics expose current provider state without enabling the old relay', () => {
-  assert.match(ads, /version:\s*"20260831-adsterra-r7"/);
+test('ad diagnostics expose persistent provider state without enabling the old relay', () => {
+  assert.match(ads, /version:\s*"20260831-adsterra-r8"/);
   assert.match(ads, /getDiagnostics/);
+  assert.match(ads, /hasPersistentProductionUnit/);
+  assert.match(ads, /productionFilled/);
   assert.match(ads, /legacyInventoryRelayInstalled/);
 });
 
