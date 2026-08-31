@@ -82,7 +82,8 @@ test('rotating ad inventory uses a narrow same-origin relay instead of relying o
   assert.match(worker, /url\.pathname === "\/api\/ad-inventory"/);
   assert.match(worker, /target\.pathname !== "\/ntv\.json"/);
   assert.match(worker, /NOVA_AD_INVENTORY_MAX_BYTES/);
-  assert.match(worker, /redirect: "error"/);
+  assert.match(worker, /"Origin": "https:\/\/nova-7\.pages\.dev"/);
+  assert.match(worker, /redirect: "follow"/);
 });
 
 test('AdSense loader is absent from browser, diagnostics, gameplay, policy, and verification pages', () => {

@@ -541,9 +541,11 @@ async function adInventory(request, requestUrl) {
     upstream = await fetch(target.href, {
       headers: {
         "Accept": "application/json, text/plain, */*",
-        "Referer": "https://nova-7.pages.dev/"
+        "Origin": "https://nova-7.pages.dev",
+        "Referer": "https://nova-7.pages.dev/",
+        "User-Agent": request.headers.get("User-Agent") || "Mozilla/5.0"
       },
-      redirect: "error"
+      redirect: "follow"
     });
   } catch (_) {
     return apiError("AD_INVENTORY_UNAVAILABLE", "Ad inventory is temporarily unavailable", 502);
