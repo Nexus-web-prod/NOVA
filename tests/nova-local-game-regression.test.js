@@ -705,4 +705,13 @@ test('the profitable-rate ad unit is restricted to the production hostname', () 
   assert.match(manager, /if \(window\.location\.hostname === CONFIG\.productionNetwork\.hostname\)/);
   assert.match(manager, /if \(!isEligible\(page\)/);
   assert.match(headers, /https:\/\/\*\.profitableratecpmnetwork\.com/);
+  for (const domain of [
+    'sleepoverlimitprofound.com',
+    'fizzyacerbitymellow.com',
+    'protrafficinspector.com',
+    'cdn.cloudvideosa.com',
+    'mamshirt.com'
+  ]) {
+    assert.ok(headers.includes(`https://${domain}`), `CSP should allow ${domain}`);
+  }
 });
