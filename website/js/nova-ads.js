@@ -12,12 +12,12 @@
   "use strict";
 
   var CONFIG = Object.freeze({
-    version: "20260831-adsterra-r8",
+    version: "20260831-adsterra-r9-antiadblock",
     publisherId: "ca-pub-6082584609878503",
     productionNetwork: Object.freeze({
       hostname: "nova-7.pages.dev",
       containerId: "container-435f315cf07c1f3b07750aa1e9c321eb",
-      scriptUrl: "https://pl31115444.profitableratecpmnetwork.com/435f315cf07c1f3b07750aa1e9c321eb/invoke.js",
+      scriptUrl: "https://professionalsusceptible.com/435f315cf07c1f3b07750aa1e9c321eb/invoke.js",
       fillTimeoutMs: 15000,
       maxAttempts: 2
     }),
