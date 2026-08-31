@@ -230,8 +230,9 @@
     },
     {
         "name": "DOOM",
-        "url": "https://arcader.com/roms/doom.html",
-        "image": "/website/assets/media/icons/DOOM.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/doom/",
+        "image": "/website/assets/media/icons/DOOM.webp",
+        "local": true
     },
     {
         "name": "FNAF 2",
@@ -378,8 +379,9 @@
     },
     {
         "name": "Monkey Mart",
-        "url": "https://g.igroutka.ru/games/164/TbxXHpG4s8efPVaM/3/monkey_mart/",
-        "image": "/website/assets/media/icons/mm.webp"
+        "url": "https://main.nova-7.pages.dev/website/games/monkey-mart/",
+        "image": "/website/assets/media/icons/mm.webp",
+        "local": true
     },
     {
         "name": "Crazy Cattle",

@@ -615,3 +615,35 @@ test('UGS replacements are complete local games and preserve Nova artwork', () =
   assert.notEqual(crossyRoad && crossyRoad.local, true);
   assert.doesNotMatch(crossyRoad && crossyRoad.url || '', /website\/games\/crossy-road/);
 });
+
+test('Monkey Mart and the best packaged Doom build are local with existing icons', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const index = read('website/html/index.html');
+  const player = read('website/html/game.html');
+  const expected = [
+    {
+      name: 'Monkey Mart', slug: 'monkey-mart', image: '/website/assets/media/icons/mm.webp',
+      payload: 'MonkeyMart.wasm', minimum: 2_000_000
+    },
+    {
+      name: 'DOOM', slug: 'doom', image: '/website/assets/media/icons/DOOM.webp',
+      payload: '2doom/2DOOM.js', minimum: 5_000_000
+    }
+  ];
+
+  for (const entry of expected) {
+    const game = games.find(item => item.name === entry.name);
+    const url = `https://main.nova-7.pages.dev/website/games/${entry.slug}/`;
+    assert.deepEqual(
+      { url: game.url, image: game.image, local: game.local },
+      { url, image: entry.image, local: true }
+    );
+    assert.ok(fs.statSync(path.join(root, 'website/games', entry.slug, entry.payload)).size > entry.minimum);
+    assert.match(index, new RegExp(`website\\/games\\/${entry.slug}`));
+    assert.match(player, new RegExp(`'${entry.slug}'`));
+  }
+
+  const escapeRoad = games.find(item => item.name === 'Escape Road 2');
+  assert.notEqual(escapeRoad.local, true);
+  assert.doesNotMatch(escapeRoad.url, /website\/games\/escape-road-2/);
+});
