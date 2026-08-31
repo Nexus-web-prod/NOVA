@@ -1,5 +1,5 @@
 /**
- * Nova Ads — centralized, manual AdSense integration.
+ * Nova Ads — centralized, manual ad integration.
  *
  * Rules:
  * - Never serve Nova ads to Supernova users.
@@ -12,11 +12,14 @@
   "use strict";
 
   var CONFIG = Object.freeze({
+    version: "20260831-adsterra-r7",
     publisherId: "ca-pub-6082584609878503",
     productionNetwork: Object.freeze({
       hostname: "nova-7.pages.dev",
       containerId: "container-435f315cf07c1f3b07750aa1e9c321eb",
-      scriptUrl: "https://pl31115444.profitableratecpmnetwork.com/435f315cf07c1f3b07750aa1e9c321eb/invoke.js"
+      scriptUrl: "https://pl31115444.profitableratecpmnetwork.com/435f315cf07c1f3b07750aa1e9c321eb/invoke.js",
+      fillTimeoutMs: 15000,
+      maxAttempts: 2
     }),
     slots: Object.freeze({
       // TODO(AdSense): Replace null with the numeric data-ad-slot ID from each
@@ -93,9 +96,38 @@
     return true;
   }
 
+  function cleanupProductionUnit(unit) {
+    if (!unit) return;
+    if (unit._novaFillObserver) {
+      try { unit._novaFillObserver.disconnect(); } catch (_) {}
+      unit._novaFillObserver = null;
+    }
+    if (unit._novaFillTimer) {
+      clearTimeout(unit._novaFillTimer);
+      unit._novaFillTimer = null;
+    }
+    if (unit._novaRetryTimer) {
+      clearTimeout(unit._novaRetryTimer);
+      unit._novaRetryTimer = null;
+    }
+  }
+
+  function collapseSlot(slot) {
+    if (!slot) return;
+    var unit = slot.querySelector(".nova-production-ad-unit");
+    cleanupProductionUnit(unit);
+    slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
+    slot.classList.add("nova-ad-slot--collapsed");
+    slot.replaceChildren();
+    if (!document.querySelector(".nova-production-ad-unit[data-nova-ad-filled='true']")) {
+      document.documentElement.classList.remove("nova-ads-active");
+    }
+  }
+
   function removeAll() {
     state.renderEpoch++;
     document.querySelectorAll(".nova-ad-slot").forEach(function (slot) {
+      cleanupProductionUnit(slot.querySelector(".nova-production-ad-unit"));
       slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
       slot.classList.add("nova-ad-slot--collapsed");
       slot.replaceChildren();
@@ -162,17 +194,29 @@
     }, 7000);
   }
 
-  function renderProductionNetwork(slot, page) {
+  function productionStillEligible(slot, page, epoch) {
+    return !!(
+      slot && slot.isConnected &&
+      epoch === state.renderEpoch &&
+      isEligible(page) &&
+      page === getCurrentPage()
+    );
+  }
+
+  function renderProductionNetwork(slot, page, attempt) {
     var network = CONFIG.productionNetwork;
+    attempt = Number(attempt || 1);
     if (window.location.hostname !== network.hostname || !isEligible(page) || page !== getCurrentPage()) {
-      slot.classList.add("nova-ad-slot--collapsed");
+      collapseSlot(slot);
       return false;
     }
 
+    cleanupProductionUnit(slot.querySelector(".nova-production-ad-unit"));
     slot.replaceChildren();
     slot.classList.remove("nova-ad-slot--collapsed");
     slot.classList.add("nova-ad-slot--active", "nova-ad-slot--loading");
 
+    var epoch = state.renderEpoch;
     var label = document.createElement("div");
     label.className = "nova-ad-label";
     label.textContent = "Sponsored";
@@ -180,40 +224,65 @@
     var unit = document.createElement("div");
     unit.className = "nova-production-ad-unit";
     unit.dataset.novaAdFilled = "false";
+    unit.dataset.novaAdAttempt = String(attempt);
+    unit.dataset.novaAdProvider = "adsterra";
+
     var container = document.createElement("div");
     container.id = network.containerId;
-    var filled = false;
+
     var fillObserver = new MutationObserver(function () {
       if (!container.childElementCount) return;
-      filled = true;
       unit.dataset.novaAdFilled = "true";
-      fillObserver.disconnect();
+      cleanupProductionUnit(unit);
       var currentSlot = unit.closest(".nova-ad-slot");
-      if (!currentSlot || !isEligible(currentSlot.dataset.novaAdPage) || currentSlot.dataset.novaAdPage !== getCurrentPage()) return;
+      if (!productionStillEligible(currentSlot, page, epoch)) return;
       currentSlot.classList.remove("nova-ad-slot--loading");
       document.documentElement.classList.add("nova-ads-active");
     });
+    unit._novaFillObserver = fillObserver;
     fillObserver.observe(container, { childList: true, subtree: true });
 
     var script = document.createElement("script");
     script.async = true;
     script.dataset.cfasync = "false";
     script.dataset.novaProductionAd = "true";
+    script.dataset.novaAdAttempt = String(attempt);
     script.src = network.scriptUrl;
+
+    function retryOrCollapse(reason) {
+      if (!productionStillEligible(slot, page, epoch)) {
+        cleanupProductionUnit(unit);
+        return;
+      }
+      if (unit.dataset.novaAdFilled === "true" || container.childElementCount) return;
+      cleanupProductionUnit(unit);
+      unit.dataset.novaAdFailure = reason || "no-fill";
+      if (attempt < network.maxAttempts) {
+        unit._novaRetryTimer = window.setTimeout(function () {
+          if (productionStillEligible(slot, page, epoch)) {
+            renderProductionNetwork(slot, page, attempt + 1);
+          }
+        }, 900);
+      } else {
+        collapseSlot(slot);
+      }
+    }
+
     script.onload = function () {
-      // The provider may fill asynchronously or retry its inventory request.
-      // Keep its documented container mounted instead of treating a delay as
-      // an unfilled ad and deleting the provider runtime.
-      var currentSlot = unit.closest(".nova-ad-slot");
-      if (currentSlot) currentSlot.classList.remove("nova-ad-slot--loading");
+      // Adsterra's native banner can fill after invoke.js itself has loaded.
+      // Keep the exact provider container mounted long enough for that request,
+      // but do not leave a permanent empty Sponsored rectangle on no-fill.
+      unit._novaFillTimer = window.setTimeout(function () {
+        retryOrCollapse("fill-timeout");
+      }, network.fillTimeoutMs);
     };
     script.onerror = function () {
-      var currentSlot = unit.closest(".nova-ad-slot");
-      if (currentSlot) currentSlot.classList.remove("nova-ad-slot--loading");
+      retryOrCollapse("script-error");
     };
 
-    // Keep the provider's documented script-before-container ordering. The
-    // script is async, so the container exists by the time it executes.
+    // Preserve Adsterra's documented native-banner order: invoke.js first,
+    // followed immediately by its container. Because invoke.js is async, the
+    // container is present before the provider code executes.
     unit.append(label, script, container);
     slot.append(unit);
     return true;
@@ -228,7 +297,7 @@
     }
 
     if (window.location.hostname === CONFIG.productionNetwork.hostname) {
-      return renderProductionNetwork(slot, page);
+      return renderProductionNetwork(slot, page, 1);
     }
 
     var slotId = CONFIG.slots[page];
@@ -304,6 +373,28 @@
     }
   }
 
+  function getDiagnostics() {
+    return {
+      version: CONFIG.version,
+      page: getCurrentPage(),
+      eligible: isEligible(getCurrentPage()),
+      hostname: window.location.hostname,
+      productionNetwork: window.location.hostname === CONFIG.productionNetwork.hostname,
+      legacyInventoryRelayInstalled: !!window.__novaAdInventoryRelayInstalled,
+      slots: Array.prototype.map.call(document.querySelectorAll(".nova-ad-slot"), function (slot) {
+        var unit = slot.querySelector(".nova-production-ad-unit");
+        return {
+          page: slot.dataset.novaAdPage || "",
+          collapsed: slot.classList.contains("nova-ad-slot--collapsed"),
+          loading: slot.classList.contains("nova-ad-slot--loading"),
+          filled: !!(unit && unit.dataset.novaAdFilled === "true"),
+          attempt: unit ? Number(unit.dataset.novaAdAttempt || 0) : 0,
+          failure: unit ? unit.dataset.novaAdFailure || "" : ""
+        };
+      })
+    };
+  }
+
   async function init() {
     if (state.initialized) return;
     state.initialized = true;
@@ -354,6 +445,7 @@
     refreshForNavigation: refreshForNavigation,
     removeAll: removeAll,
     loadAdSense: loadAdSense,
+    getDiagnostics: getDiagnostics,
     config: CONFIG
   });
 })();
