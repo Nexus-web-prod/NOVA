@@ -681,3 +681,13 @@ test('Monkey Mart archive metadata matches its bundled files and uses a local SD
   assert.match(sdk, /window\.PokiSDK = \{/);
   assert.doesNotMatch(sdk, /poki-sdk-core|createElement\("script"\)/);
 });
+
+test('ads.txt is authorized and explicitly crawlable on the production site', () => {
+  assert.equal(
+    read('ads.txt').trim(),
+    'google.com, pub-6082584609878503, DIRECT, f08c47fec0942fa0'
+  );
+  assert.equal(read('robots.txt'), 'User-agent: *\nAllow: /\n');
+  const headers = read('_headers');
+  assert.match(headers, /\/ads\.txt\n  Content-Type: text\/plain; charset=utf-8\n  Cache-Control: public, max-age=300, must-revalidate\n  X-Robots-Tag: all/);
+});

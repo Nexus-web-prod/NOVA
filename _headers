@@ -74,6 +74,16 @@
   Cache-Control: no-store
 
 # ── Nova UI files ──────────────────────────────────────────────────────────────
+/ads.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
+  X-Robots-Tag: all
+
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
+  X-Robots-Tag: all
+
 /
   Cache-Control: no-cache, no-store, must-revalidate
 
