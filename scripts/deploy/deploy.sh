@@ -31,8 +31,9 @@ echo "  3) Beta        — https://beta.${PROJECT_NAME}.pages.dev"
 echo "  4) Main        — https://main.${PROJECT_NAME}.pages.dev"
 echo "  5) All four"
 echo "  6) GitHub only — skip Cloudflare"
+echo "  7) Void        — https://void.${PROJECT_NAME}.pages.dev"
 echo
-printf "Choose 1–6: "
+printf "Choose 1–7: "
 IFS= read -r deploy_choice
 
 export SKIP_VOICE_DEPLOY=1
@@ -62,6 +63,8 @@ case "${deploy_choice}" in
     deploy_preview beta
     echo
     deploy_preview main
+    echo
+    deploy_preview void
     ;;
   6) cloudflare_deployed=0 ;;
   *)

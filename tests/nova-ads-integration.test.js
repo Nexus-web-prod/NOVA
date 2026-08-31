@@ -64,21 +64,19 @@ test('AdSense traffic-quality runtime is allowed by CSP without opening script-s
   assert.doesNotMatch(headers, /script-src[^\n;]*(?:^|\s)https:\s/);
 });
 
-test('production ads preserve provider ordering, collapse unfilled slots, and path-scope rotating pixels', () => {
+test('production ads preserve provider ordering, remain mounted for delayed fill, and path-scope rotating pixels', () => {
   assert.match(ads, /unit\.append\(label, script, container\)/);
   assert.match(ads, /fillObserver\.observe\(container/);
-  assert.match(ads, /state\.productionUnit/);
-  assert.match(ads, /slot\.replaceChildren\(state\.productionUnit\)/);
-  assert.match(ads, /slot\.classList\.add\("nova-ad-slot--collapsed"\)/);
+  assert.doesNotMatch(ads, /state\.productionUnit/);
+  assert.doesNotMatch(ads, /installProductionInventoryRelay/);
+  assert.doesNotMatch(ads, /filled \|\| !unit\.isConnected/);
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/pixel\/ase/);
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/ntv\.json/);
   assert.doesNotMatch(headers, /connect-src[^;]*(?:^|\s)https:\s/);
 });
 
-test('rotating ad inventory uses a narrow same-origin relay instead of relying on third-party CORS', () => {
-  assert.match(ads, /installProductionInventoryRelay/);
-  assert.match(ads, /parsed\.pathname === "\/ntv\.json"/);
-  assert.match(ads, /"\/api\/ad-inventory\?target="/);
+test('rotating ad inventory relay remains narrow but is not forced over the provider runtime', () => {
+  assert.doesNotMatch(ads, /"\/api\/ad-inventory\?target="/);
   assert.match(worker, /url\.pathname === "\/api\/ad-inventory"/);
   assert.match(worker, /target\.pathname !== "\/ntv\.json"/);
   assert.match(worker, /NOVA_AD_INVENTORY_MAX_BYTES/);

@@ -43,28 +43,8 @@
     scriptLoaded: false,
     entitlementReady: false,
     currentPage: "home",
-    renderEpoch: 0,
-    productionUnit: null
+    renderEpoch: 0
   };
-
-  function installProductionInventoryRelay() {
-    if (window.__novaAdInventoryRelayInstalled || !window.XMLHttpRequest) return;
-    window.__novaAdInventoryRelayInstalled = true;
-    var originalOpen = window.XMLHttpRequest.prototype.open;
-    window.XMLHttpRequest.prototype.open = function (method, requestUrl) {
-      var nextUrl = requestUrl;
-      try {
-        var parsed = new URL(String(requestUrl), window.location.href);
-        if (
-          String(method).toUpperCase() === "GET" && parsed.protocol === "https:" &&
-          parsed.pathname === "/ntv.json" && parsed.searchParams.get("key") === CONFIG.productionNetwork.containerId.slice("container-".length)
-        ) nextUrl = "/api/ad-inventory?target=" + encodeURIComponent(parsed.href);
-      } catch (_) {}
-      var args = Array.prototype.slice.call(arguments);
-      args[1] = nextUrl;
-      return originalOpen.apply(this, args);
-    };
-  }
 
   function getCurrentPage() {
     var active = document.querySelector(".page.active[id^='page-']");
@@ -189,16 +169,6 @@
       return false;
     }
 
-    if (state.productionUnit) {
-      slot.replaceChildren(state.productionUnit);
-      slot.classList.remove("nova-ad-slot--collapsed");
-      slot.classList.add("nova-ad-slot--active");
-      slot.classList.toggle("nova-ad-slot--loading", state.productionUnit.dataset.novaAdFilled !== "true");
-      return true;
-    }
-
-    installProductionInventoryRelay();
-
     slot.replaceChildren();
     slot.classList.remove("nova-ad-slot--collapsed");
     slot.classList.add("nova-ad-slot--active", "nova-ad-slot--loading");
@@ -210,8 +180,6 @@
     var unit = document.createElement("div");
     unit.className = "nova-production-ad-unit";
     unit.dataset.novaAdFilled = "false";
-    state.productionUnit = unit;
-
     var container = document.createElement("div");
     container.id = network.containerId;
     var filled = false;
@@ -233,26 +201,15 @@
     script.dataset.novaProductionAd = "true";
     script.src = network.scriptUrl;
     script.onload = function () {
-      window.setTimeout(function () {
-        if (filled || !unit.isConnected) return;
-        fillObserver.disconnect();
-        var currentSlot = unit.closest(".nova-ad-slot");
-        if (currentSlot) {
-          currentSlot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
-          currentSlot.classList.add("nova-ad-slot--collapsed");
-          currentSlot.replaceChildren();
-        }
-        state.productionUnit = null;
-      }, 8000);
+      // The provider may fill asynchronously or retry its inventory request.
+      // Keep its documented container mounted instead of treating a delay as
+      // an unfilled ad and deleting the provider runtime.
+      var currentSlot = unit.closest(".nova-ad-slot");
+      if (currentSlot) currentSlot.classList.remove("nova-ad-slot--loading");
     };
     script.onerror = function () {
       var currentSlot = unit.closest(".nova-ad-slot");
-      if (currentSlot) {
-        currentSlot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
-        currentSlot.classList.add("nova-ad-slot--collapsed");
-        currentSlot.replaceChildren();
-      }
-      state.productionUnit = null;
+      if (currentSlot) currentSlot.classList.remove("nova-ad-slot--loading");
     };
 
     // Keep the provider's documented script-before-container ordering. The
