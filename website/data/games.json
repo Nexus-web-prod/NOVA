@@ -45,8 +45,9 @@
     },
     {
         "name": "Baseball Bros",
-        "url": "https://baseballbros.io/",
-        "image": "/website/assets/media/icons/baseball-bros.png"
+        "url": "https://main.nova-7.pages.dev/website/games/baseball-bros/",
+        "image": "/website/assets/media/icons/baseball-bros.png",
+        "local": true
     },
     {
         "name": "angry birds",
@@ -111,8 +112,9 @@
     },
     {
         "name": "Speed stars",
-        "url": "https://epicfreegames78.github.io/speed-stars/",
-        "image": "/website/assets/media/icons/speedstars.png"
+        "url": "https://main.nova-7.pages.dev/website/games/speed-stars/",
+        "image": "/website/assets/media/icons/speedstars.png",
+        "local": true
     },
     {
         "name": "Funny Shooter 2",
@@ -494,7 +496,8 @@
     },
     {
         "name": "Space Waves",
-        "url": "https://spacewavesunblocked.github.io/embed/space-waves.html",
-        "image": "/website/assets/media/icons/spacewaves.png"
+        "url": "https://main.nova-7.pages.dev/website/games/space-waves/",
+        "image": "/website/assets/media/icons/spacewaves.png",
+        "local": true
     }
 ]

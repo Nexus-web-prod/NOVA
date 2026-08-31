@@ -565,3 +565,53 @@ test('local Time Shooter Unity payloads have production-safe MIME types', () => 
     assert.match(headers, new RegExp(`/website/games/${game}/[^\\n]*data\\.unityweb\\n  Content-Type: application/octet-stream`));
   }
 });
+
+test('UGS replacements are complete local games and preserve Nova artwork', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const index = read('website/html/index.html');
+  const player = read('website/html/game.html');
+  const expected = [
+    {
+      name: 'Baseball Bros',
+      slug: 'baseball-bros',
+      image: '/website/assets/media/icons/baseball-bros.png',
+      payload: 'BaseballBros.js',
+      minimum: 3_000_000
+    },
+    {
+      name: 'Speed stars',
+      slug: 'speed-stars',
+      image: '/website/assets/media/icons/speedstars.png',
+      payload: 'Build/webgl.wasm.part1',
+      minimum: 10_000_000
+    },
+    {
+      name: 'Space Waves',
+      slug: 'space-waves',
+      image: '/website/assets/media/icons/spacewaves.png',
+      payload: 'Build/7fb5141de5923189bc1dc5f94eb619f2.wasm.unityweb',
+      minimum: 4_000_000
+    }
+  ];
+
+  for (const entry of expected) {
+    const game = games.find(item => item.name === entry.name);
+    const url = `https://main.nova-7.pages.dev/website/games/${entry.slug}/`;
+    assert.deepEqual(
+      { url: game.url, image: game.image, local: game.local },
+      { url, image: entry.image, local: true }
+    );
+    assert.ok(fs.existsSync(path.join(root, 'website/games', entry.slug, 'index.html')));
+    assert.ok(fs.statSync(path.join(root, 'website/games', entry.slug, entry.payload)).size > entry.minimum);
+    assert.match(index, new RegExp(`website\\/games\\/${entry.slug}`));
+    assert.match(player, new RegExp(`'${entry.slug}'`));
+  }
+
+  const speedStars = read('website/games/speed-stars/index.html');
+  assert.match(speedStars, /<script src="merge\.js"><\/script>/);
+  assert.doesNotMatch(speedStars, /game-cdn\.poki\.com|cdn\.jsdelivr\.net/);
+
+  const crossyRoad = games.find(item => item.name === 'Crossy Road');
+  assert.notEqual(crossyRoad && crossyRoad.local, true);
+  assert.doesNotMatch(crossyRoad && crossyRoad.url || '', /website\/games\/crossy-road/);
+});
