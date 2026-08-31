@@ -3,8 +3,8 @@
  *
  * Rules:
  * - Never serve Nova ads to Supernova users.
- * - Never serve ads in Browser/proxy, gameplay/player, private, account, staff,
- *   settings, checkout, support-ticket, voice, or social areas.
+ * - Never serve ads in Browser/proxy, active gameplay, private, account, staff,
+ *   checkout, support-ticket, voice, or social areas.
  * - Manual discovery-page placements only; Auto Ads are intentionally not enabled.
  * - AdSense is lazy-loaded only after entitlement state is server-verified.
  */
@@ -23,15 +23,18 @@
       // manually-created responsive Display ad unit in Google AdSense.
       home: null,
       games: null,
+      "game-player": null,
       apps: null,
-      movies: null
+      movies: null,
+      plans: null,
+      settings: null
     })
   });
 
-  var ALLOWED_PAGES = new Set(["home", "games", "apps", "movies"]);
+  var ALLOWED_PAGES = new Set(["home", "games", "game-player", "apps", "movies", "plans", "settings"]);
   var BLOCKED_PAGES = new Set([
-    "browser", "game-detail", "settings", "supernova", "social", "admin",
-    "dev", "support", "plans", "rewards", "login", "register", "account",
+    "browser", "game-detail", "supernova", "social", "admin",
+    "dev", "support", "rewards", "login", "register", "account",
     "profile", "checkout", "payment", "voice", "moderation"
   ]);
   var state = {
@@ -193,7 +196,9 @@
       slot.replaceChildren();
     };
 
-    slot.append(label, script, container);
+    // The provider looks up its fixed container as soon as the script executes.
+    // Insert that container first so cached script loads also render reliably.
+    slot.append(label, container, script);
     return true;
   }
 
@@ -312,7 +317,6 @@
     if (document.fullscreenElement) removeAll();
     else refreshForNavigation(getCurrentPage());
   });
-
 
   window.addEventListener("storage", function (event) {
     if (event.key === "nova_consent") refreshForNavigation(getCurrentPage());

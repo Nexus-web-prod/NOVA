@@ -7,13 +7,14 @@ const ads = fs.readFileSync('website/js/nova-ads.js','utf8');
 const tier = fs.readFileSync('website/js/nova-supernova-tier.js','utf8');
 const headers = fs.readFileSync('_headers','utf8');
 
-test('manual placements exist only on discovery pages', () => {
-  for (const page of ['home','games','apps','movies']) {
+test('manual placements exist on approved public pages', () => {
+  for (const page of ['home','games','game-player','apps','movies','plans','settings']) {
     assert.equal((html.match(new RegExp(`data-nova-ad-page="${page}"`, 'g')) || []).length, 1);
   }
-  for (const page of ['browser','game-detail','settings','social','supernova','dev','support']) {
+  for (const page of ['browser','game-detail','social','supernova','dev','support']) {
     assert.equal(html.includes(`data-nova-ad-page="${page}"`), false);
   }
+  assert.match(html, /browser-ad-free-note[\s\S]*No ads on this page/);
 });
 
 test('publisher id is configured but ad unit ids are not fabricated', () => {
@@ -22,6 +23,9 @@ test('publisher id is configured but ad unit ids are not fabricated', () => {
   assert.match(ads, /games:\s*null/);
   assert.match(ads, /apps:\s*null/);
   assert.match(ads, /movies:\s*null/);
+  assert.match(ads, /"game-player":\s*null/);
+  assert.match(ads, /plans:\s*null/);
+  assert.match(ads, /settings:\s*null/);
 });
 
 test('blocked/private routes and supernova are guarded centrally', () => {
@@ -55,6 +59,12 @@ test('AdSense traffic-quality runtime is allowed by CSP without opening script-s
   assert.match(headers, /script-src[^\n;]*https:\/\/\*\.adtrafficquality\.google/);
   assert.match(headers, /connect-src[^\n;]*https:\/\/\*\.adtrafficquality\.google/);
   assert.doesNotMatch(headers, /script-src[^\n;]*(?:^|\s)https:\s/);
+});
+
+test('production ads create their container before loading and rotating pixels are path-scoped', () => {
+  assert.match(ads, /slot\.append\(label, container, script\)/);
+  assert.match(headers, /connect-src[^;]*https:\/\/\*\/pixel\/ase/);
+  assert.doesNotMatch(headers, /connect-src[^;]*(?:^|\s)https:\s/);
 });
 
 test('AdSense loader is absent from browser, diagnostics, gameplay, policy, and verification pages', () => {
