@@ -46,6 +46,8 @@ const GEMINI_MODEL_PREFERENCES = [
 const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1/interactions";
 const GEMINI_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000";
 const GEMINI_MODEL_CACHE_MS = 30 * 60 * 1000;
+const NOVA_AD_INVENTORY_KEY = "435f315cf07c1f3b07750aa1e9c321eb";
+const NOVA_AD_INVENTORY_MAX_BYTES = 256 * 1024;
 // The iteration count is embedded in every digest so old accounts can be
 // upgraded transparently after a successful login.
 const PASSWORD_ITERATIONS = 100000;
@@ -396,6 +398,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (url.pathname === "/api/ad-inventory") {
+      return adInventory(request, url);
+    }
+
     const jetpackAsset = await serveJetpackAsset(request, env, url);
     if (jetpackAsset) return jetpackAsset;
 
@@ -510,6 +516,54 @@ export default {
     return env.ASSETS.fetch(request);
   }
 };
+
+async function adInventory(request, requestUrl) {
+  if (request.method !== "GET") return apiError("METHOD_NOT_ALLOWED", "Ad inventory only supports GET", 405);
+  let target;
+  try { target = new URL(requestUrl.searchParams.get("target") || ""); }
+  catch (_) { return apiError("INVALID_AD_TARGET", "Invalid ad inventory target", 400); }
+
+  const hostname = target.hostname.toLowerCase();
+  const isIpAddress = /^\[?[0-9a-f:.]+\]?$/i.test(hostname);
+  if (
+    target.protocol !== "https:" || target.pathname !== "/ntv.json" ||
+    target.searchParams.get("key") !== NOVA_AD_INVENTORY_KEY ||
+    !hostname.includes(".") || hostname === "localhost" || hostname.endsWith(".localhost") || isIpAddress
+  ) return apiError("AD_TARGET_BLOCKED", "Ad inventory target is not allowed", 403);
+
+  const allowedParams = new Set(["key", "vstc", "uuid", "custom", "rb"]);
+  for (const key of target.searchParams.keys()) {
+    if (!allowedParams.has(key)) return apiError("AD_TARGET_BLOCKED", "Ad inventory parameters are not allowed", 403);
+  }
+
+  let upstream;
+  try {
+    upstream = await fetch(target.href, {
+      headers: {
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://nova-7.pages.dev/"
+      },
+      redirect: "error"
+    });
+  } catch (_) {
+    return apiError("AD_INVENTORY_UNAVAILABLE", "Ad inventory is temporarily unavailable", 502);
+  }
+
+  const body = await upstream.arrayBuffer();
+  const contentType = upstream.headers.get("Content-Type") || "";
+  if (body.byteLength > NOVA_AD_INVENTORY_MAX_BYTES) return apiError("AD_INVENTORY_TOO_LARGE", "Ad inventory response was too large", 502);
+  if (!/json|text\/plain/i.test(contentType)) return apiError("AD_INVENTORY_INVALID", "Ad inventory response was not JSON", 502);
+
+  return new Response(body, {
+    status: upstream.status,
+    headers: {
+      "Content-Type": contentType || "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
+}
 
 async function serveJetpackAsset(request, env, url) {
   const prefix = "/website/games/jetpack-joyride/assets/";

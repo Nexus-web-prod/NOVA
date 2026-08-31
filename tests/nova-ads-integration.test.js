@@ -7,6 +7,7 @@ const ads = fs.readFileSync('website/js/nova-ads.js','utf8');
 const tier = fs.readFileSync('website/js/nova-supernova-tier.js','utf8');
 const settings = fs.readFileSync('website/js/nova-settings-v7-ui.js','utf8');
 const headers = fs.readFileSync('_headers','utf8');
+const worker = fs.readFileSync('_worker.js','utf8');
 
 test('manual placements exist on approved public pages', () => {
   for (const page of ['home','games','game-player','apps','movies','plans','settings']) {
@@ -72,6 +73,16 @@ test('production ads preserve provider ordering, collapse unfilled slots, and pa
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/pixel\/ase/);
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/ntv\.json/);
   assert.doesNotMatch(headers, /connect-src[^;]*(?:^|\s)https:\s/);
+});
+
+test('rotating ad inventory uses a narrow same-origin relay instead of relying on third-party CORS', () => {
+  assert.match(ads, /installProductionInventoryRelay/);
+  assert.match(ads, /parsed\.pathname === "\/ntv\.json"/);
+  assert.match(ads, /"\/api\/ad-inventory\?target="/);
+  assert.match(worker, /url\.pathname === "\/api\/ad-inventory"/);
+  assert.match(worker, /target\.pathname !== "\/ntv\.json"/);
+  assert.match(worker, /NOVA_AD_INVENTORY_MAX_BYTES/);
+  assert.match(worker, /redirect: "error"/);
 });
 
 test('AdSense loader is absent from browser, diagnostics, gameplay, policy, and verification pages', () => {

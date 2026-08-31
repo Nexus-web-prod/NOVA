@@ -47,6 +47,25 @@
     productionUnit: null
   };
 
+  function installProductionInventoryRelay() {
+    if (window.__novaAdInventoryRelayInstalled || !window.XMLHttpRequest) return;
+    window.__novaAdInventoryRelayInstalled = true;
+    var originalOpen = window.XMLHttpRequest.prototype.open;
+    window.XMLHttpRequest.prototype.open = function (method, requestUrl) {
+      var nextUrl = requestUrl;
+      try {
+        var parsed = new URL(String(requestUrl), window.location.href);
+        if (
+          String(method).toUpperCase() === "GET" && parsed.protocol === "https:" &&
+          parsed.pathname === "/ntv.json" && parsed.searchParams.get("key") === CONFIG.productionNetwork.containerId.slice("container-".length)
+        ) nextUrl = "/api/ad-inventory?target=" + encodeURIComponent(parsed.href);
+      } catch (_) {}
+      var args = Array.prototype.slice.call(arguments);
+      args[1] = nextUrl;
+      return originalOpen.apply(this, args);
+    };
+  }
+
   function getCurrentPage() {
     var active = document.querySelector(".page.active[id^='page-']");
     if (active) return active.id.slice(5);
@@ -177,6 +196,8 @@
       slot.classList.toggle("nova-ad-slot--loading", state.productionUnit.dataset.novaAdFilled !== "true");
       return true;
     }
+
+    installProductionInventoryRelay();
 
     slot.replaceChildren();
     slot.classList.remove("nova-ad-slot--collapsed");
