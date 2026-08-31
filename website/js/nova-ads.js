@@ -179,6 +179,16 @@
 
     var container = document.createElement("div");
     container.id = network.containerId;
+    var filled = false;
+    var fillObserver = new MutationObserver(function () {
+      if (!container.childElementCount) return;
+      filled = true;
+      fillObserver.disconnect();
+      if (!slot.isConnected || !isEligible(page) || page !== getCurrentPage()) return;
+      slot.classList.remove("nova-ad-slot--loading");
+      document.documentElement.classList.add("nova-ads-active");
+    });
+    fillObserver.observe(container, { childList: true, subtree: true });
 
     var script = document.createElement("script");
     script.async = true;
@@ -186,9 +196,13 @@
     script.dataset.novaProductionAd = "true";
     script.src = network.scriptUrl;
     script.onload = function () {
-      if (!slot.isConnected || !isEligible(page) || page !== getCurrentPage()) return;
-      slot.classList.remove("nova-ad-slot--loading");
-      document.documentElement.classList.add("nova-ads-active");
+      window.setTimeout(function () {
+        if (filled || !slot.isConnected) return;
+        fillObserver.disconnect();
+        slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
+        slot.classList.add("nova-ad-slot--collapsed");
+        slot.replaceChildren();
+      }, 8000);
     };
     script.onerror = function () {
       slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
@@ -196,9 +210,9 @@
       slot.replaceChildren();
     };
 
-    // The provider looks up its fixed container as soon as the script executes.
-    // Insert that container first so cached script loads also render reliably.
-    slot.append(label, container, script);
+    // Keep the provider's documented script-before-container ordering. The
+    // script is async, so the container exists by the time it executes.
+    slot.append(label, script, container);
     return true;
   }
 

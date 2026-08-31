@@ -696,7 +696,7 @@ test('the profitable-rate ad unit is restricted to the production hostname', () 
   const index = read('website/html/index.html');
   const manager = read('website/js/nova-ads.js');
   const headers = read('_headers');
-  assert.match(index, /nova-ads\.js\?v=20260831-profitablerate-r2/);
+  assert.match(index, /nova-ads\.js\?v=20260831-profitablerate-r3/);
   assert.doesNotMatch(index, /pl31115444\.profitableratecpmnetwork\.com/);
   assert.match(manager, /hostname: "nova-7\.pages\.dev"/);
   assert.match(manager, /container-435f315cf07c1f3b07750aa1e9c321eb/);

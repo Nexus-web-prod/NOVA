@@ -61,8 +61,10 @@ test('AdSense traffic-quality runtime is allowed by CSP without opening script-s
   assert.doesNotMatch(headers, /script-src[^\n;]*(?:^|\s)https:\s/);
 });
 
-test('production ads create their container before loading and rotating pixels are path-scoped', () => {
-  assert.match(ads, /slot\.append\(label, container, script\)/);
+test('production ads preserve provider ordering, collapse unfilled slots, and path-scope rotating pixels', () => {
+  assert.match(ads, /slot\.append\(label, script, container\)/);
+  assert.match(ads, /fillObserver\.observe\(container/);
+  assert.match(ads, /slot\.classList\.add\("nova-ad-slot--collapsed"\)/);
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/pixel\/ase/);
   assert.doesNotMatch(headers, /connect-src[^;]*(?:^|\s)https:\s/);
 });
