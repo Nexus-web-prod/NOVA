@@ -43,7 +43,8 @@
     scriptLoaded: false,
     entitlementReady: false,
     currentPage: "home",
-    renderEpoch: 0
+    renderEpoch: 0,
+    productionUnit: null
   };
 
   function getCurrentPage() {
@@ -169,6 +170,14 @@
       return false;
     }
 
+    if (state.productionUnit) {
+      slot.replaceChildren(state.productionUnit);
+      slot.classList.remove("nova-ad-slot--collapsed");
+      slot.classList.add("nova-ad-slot--active");
+      slot.classList.toggle("nova-ad-slot--loading", state.productionUnit.dataset.novaAdFilled !== "true");
+      return true;
+    }
+
     slot.replaceChildren();
     slot.classList.remove("nova-ad-slot--collapsed");
     slot.classList.add("nova-ad-slot--active", "nova-ad-slot--loading");
@@ -177,15 +186,22 @@
     label.className = "nova-ad-label";
     label.textContent = "Sponsored";
 
+    var unit = document.createElement("div");
+    unit.className = "nova-production-ad-unit";
+    unit.dataset.novaAdFilled = "false";
+    state.productionUnit = unit;
+
     var container = document.createElement("div");
     container.id = network.containerId;
     var filled = false;
     var fillObserver = new MutationObserver(function () {
       if (!container.childElementCount) return;
       filled = true;
+      unit.dataset.novaAdFilled = "true";
       fillObserver.disconnect();
-      if (!slot.isConnected || !isEligible(page) || page !== getCurrentPage()) return;
-      slot.classList.remove("nova-ad-slot--loading");
+      var currentSlot = unit.closest(".nova-ad-slot");
+      if (!currentSlot || !isEligible(currentSlot.dataset.novaAdPage) || currentSlot.dataset.novaAdPage !== getCurrentPage()) return;
+      currentSlot.classList.remove("nova-ad-slot--loading");
       document.documentElement.classList.add("nova-ads-active");
     });
     fillObserver.observe(container, { childList: true, subtree: true });
@@ -197,22 +213,31 @@
     script.src = network.scriptUrl;
     script.onload = function () {
       window.setTimeout(function () {
-        if (filled || !slot.isConnected) return;
+        if (filled || !unit.isConnected) return;
         fillObserver.disconnect();
-        slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
-        slot.classList.add("nova-ad-slot--collapsed");
-        slot.replaceChildren();
+        var currentSlot = unit.closest(".nova-ad-slot");
+        if (currentSlot) {
+          currentSlot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
+          currentSlot.classList.add("nova-ad-slot--collapsed");
+          currentSlot.replaceChildren();
+        }
+        state.productionUnit = null;
       }, 8000);
     };
     script.onerror = function () {
-      slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
-      slot.classList.add("nova-ad-slot--collapsed");
-      slot.replaceChildren();
+      var currentSlot = unit.closest(".nova-ad-slot");
+      if (currentSlot) {
+        currentSlot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
+        currentSlot.classList.add("nova-ad-slot--collapsed");
+        currentSlot.replaceChildren();
+      }
+      state.productionUnit = null;
     };
 
     // Keep the provider's documented script-before-container ordering. The
     // script is async, so the container exists by the time it executes.
-    slot.append(label, script, container);
+    unit.append(label, script, container);
+    slot.append(unit);
     return true;
   }
 

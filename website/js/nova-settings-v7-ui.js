@@ -44,6 +44,8 @@
         </div>
       </header>
 
+      <div class="nova-ad-slot nova-ad-slot--collapsed" data-nova-ad-page="settings" data-nova-ad-location="settings-upper" aria-label="Sponsored content"></div>
+
       <div class="settings-shell">
         <nav class="settings-rail" role="tablist" aria-label="Settings sections">
           <span class="settings-rail-indicator" aria-hidden="true"></span>

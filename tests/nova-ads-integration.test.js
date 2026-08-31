@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const html = fs.readFileSync('website/html/index.html','utf8');
 const ads = fs.readFileSync('website/js/nova-ads.js','utf8');
 const tier = fs.readFileSync('website/js/nova-supernova-tier.js','utf8');
+const settings = fs.readFileSync('website/js/nova-settings-v7-ui.js','utf8');
 const headers = fs.readFileSync('_headers','utf8');
 
 test('manual placements exist on approved public pages', () => {
@@ -15,6 +16,7 @@ test('manual placements exist on approved public pages', () => {
     assert.equal(html.includes(`data-nova-ad-page="${page}"`), false);
   }
   assert.match(html, /browser-ad-free-note[\s\S]*No ads on this page/);
+  assert.equal((settings.match(/data-nova-ad-page="settings"/g) || []).length, 1);
 });
 
 test('publisher id is configured but ad unit ids are not fabricated', () => {
@@ -62,8 +64,10 @@ test('AdSense traffic-quality runtime is allowed by CSP without opening script-s
 });
 
 test('production ads preserve provider ordering, collapse unfilled slots, and path-scope rotating pixels', () => {
-  assert.match(ads, /slot\.append\(label, script, container\)/);
+  assert.match(ads, /unit\.append\(label, script, container\)/);
   assert.match(ads, /fillObserver\.observe\(container/);
+  assert.match(ads, /state\.productionUnit/);
+  assert.match(ads, /slot\.replaceChildren\(state\.productionUnit\)/);
   assert.match(ads, /slot\.classList\.add\("nova-ad-slot--collapsed"\)/);
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/pixel\/ase/);
   assert.doesNotMatch(headers, /connect-src[^;]*(?:^|\s)https:\s/);
