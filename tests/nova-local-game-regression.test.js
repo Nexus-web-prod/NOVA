@@ -708,6 +708,7 @@ test('the profitable-rate ad unit is restricted to the production hostname', () 
   for (const domain of [
     'sleepoverlimitprofound.com',
     'fizzyacerbitymellow.com',
+    'exemplarfederallithe.com',
     'protrafficinspector.com',
     'cdn.cloudvideosa.com',
     'mamshirt.com'
