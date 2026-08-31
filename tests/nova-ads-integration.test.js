@@ -70,6 +70,7 @@ test('production ads preserve provider ordering, collapse unfilled slots, and pa
   assert.match(ads, /slot\.replaceChildren\(state\.productionUnit\)/);
   assert.match(ads, /slot\.classList\.add\("nova-ad-slot--collapsed"\)/);
   assert.match(headers, /connect-src[^;]*https:\/\/\*\/pixel\/ase/);
+  assert.match(headers, /connect-src[^;]*https:\/\/\*\/ntv\.json/);
   assert.doesNotMatch(headers, /connect-src[^;]*(?:^|\s)https:\s/);
 });
 
