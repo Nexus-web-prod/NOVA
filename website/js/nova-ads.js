@@ -22,8 +22,6 @@
       maxAttempts: 2
     }),
     slots: Object.freeze({
-      // TODO(AdSense): Replace null with the numeric data-ad-slot ID from each
-      // manually-created responsive Display ad unit in Google AdSense.
       home: null,
       games: null,
       "game-player": null,
@@ -36,17 +34,19 @@
 
   var ALLOWED_PAGES = new Set(["home", "games", "game-player", "apps", "movies", "plans", "settings"]);
   var BLOCKED_PAGES = new Set([
-    "browser", "game-detail", "supernova", "social", "admin",
-    "dev", "support", "rewards", "login", "register", "account",
-    "profile", "checkout", "payment", "voice", "moderation"
+    "browser", "game-detail", "supernova", "social", "admin", "dev", "support",
+    "rewards", "login", "register", "account", "profile", "checkout", "payment",
+    "voice", "moderation"
   ]);
+
   var state = {
     initialized: false,
     loadingScript: null,
     scriptLoaded: false,
     entitlementReady: false,
     currentPage: "home",
-    renderEpoch: 0
+    renderEpoch: 0,
+    navigationToken: 0
   };
 
   function getCurrentPage() {
@@ -72,7 +72,7 @@
 
   function userHasSupernova() {
     var tier = window.NovaSupernovaTier;
-    if (!tier || typeof tier.isPro !== "function") return true; // fail closed
+    if (!tier || typeof tier.isPro !== "function") return true;
     return !!tier.isPro();
   }
 
@@ -87,7 +87,7 @@
   }
 
   function isEligible(page) {
-    page = page || getCurrentPage();
+    page = page || state.currentPage || getCurrentPage();
     if (!hasAdConsent()) return false;
     if (!isEntitlementReady()) return false;
     if (userHasSupernova()) return false;
@@ -114,8 +114,7 @@
 
   function collapseSlot(slot) {
     if (!slot) return;
-    var unit = slot.querySelector(".nova-production-ad-unit");
-    cleanupProductionUnit(unit);
+    cleanupProductionUnit(slot.querySelector(".nova-production-ad-unit"));
     slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
     slot.classList.add("nova-ad-slot--collapsed");
     slot.replaceChildren();
@@ -136,12 +135,8 @@
   }
 
   function removeAdSenseScript() {
-    document.querySelectorAll("script[data-nova-adsense]").forEach(function (script) {
-      script.remove();
-    });
+    document.querySelectorAll("script[data-nova-adsense]").forEach(function (script) { script.remove(); });
     state.loadingScript = null;
-    // A script that already executed cannot be fully unloaded from the JS realm.
-    // We still remove all Nova ad units and prevent all future Nova render calls.
   }
 
   function ensureSupernovaAdFree() {
@@ -160,15 +155,7 @@
       return Promise.resolve(true);
     }
     if (state.loadingScript) return state.loadingScript;
-
     state.loadingScript = new Promise(function (resolve) {
-      var existing = document.querySelector("script[data-nova-adsense]");
-      if (existing) {
-        existing.addEventListener("load", function () { state.scriptLoaded = true; resolve(true); }, { once: true });
-        existing.addEventListener("error", function () { resolve(false); }, { once: true });
-        return;
-      }
-
       var script = document.createElement("script");
       script.async = true;
       script.crossOrigin = "anonymous";
@@ -186,27 +173,18 @@
       if (epoch !== state.renderEpoch || !slot.isConnected) return;
       var status = ins.getAttribute("data-ad-status");
       var hasFrame = !!ins.querySelector("iframe");
-      if (status === "unfilled" || (!hasFrame && status !== "filled")) {
-        slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
-        slot.classList.add("nova-ad-slot--collapsed");
-        slot.replaceChildren();
-      }
+      if (status === "unfilled" || (!hasFrame && status !== "filled")) collapseSlot(slot);
     }, 7000);
   }
 
   function productionStillEligible(slot, page, epoch) {
-    return !!(
-      slot && slot.isConnected &&
-      epoch === state.renderEpoch &&
-      isEligible(page) &&
-      page === getCurrentPage()
-    );
+    return !!(slot && slot.isConnected && epoch === state.renderEpoch && isEligible(page) && page === state.currentPage);
   }
 
   function renderProductionNetwork(slot, page, attempt) {
     var network = CONFIG.productionNetwork;
     attempt = Number(attempt || 1);
-    if (window.location.hostname !== network.hostname || !isEligible(page) || page !== getCurrentPage()) {
+    if (window.location.hostname !== network.hostname || !isEligible(page) || page !== state.currentPage) {
       collapseSlot(slot);
       return false;
     }
@@ -259,9 +237,7 @@
       unit.dataset.novaAdFailure = reason || "no-fill";
       if (attempt < network.maxAttempts) {
         unit._novaRetryTimer = window.setTimeout(function () {
-          if (productionStillEligible(slot, page, epoch)) {
-            renderProductionNetwork(slot, page, attempt + 1);
-          }
+          if (productionStillEligible(slot, page, epoch)) renderProductionNetwork(slot, page, attempt + 1);
         }, 900);
       } else {
         collapseSlot(slot);
@@ -269,20 +245,10 @@
     }
 
     script.onload = function () {
-      // Adsterra's native banner can fill after invoke.js itself has loaded.
-      // Keep the exact provider container mounted long enough for that request,
-      // but do not leave a permanent empty Sponsored rectangle on no-fill.
-      unit._novaFillTimer = window.setTimeout(function () {
-        retryOrCollapse("fill-timeout");
-      }, network.fillTimeoutMs);
+      unit._novaFillTimer = window.setTimeout(function () { retryOrCollapse("fill-timeout"); }, network.fillTimeoutMs);
     };
-    script.onerror = function () {
-      retryOrCollapse("script-error");
-    };
+    script.onerror = function () { retryOrCollapse("script-error"); };
 
-    // Preserve Adsterra's documented native-banner order: invoke.js first,
-    // followed immediately by its container. Because invoke.js is async, the
-    // container is present before the provider code executes.
     unit.append(label, script, container);
     slot.append(unit);
     return true;
@@ -290,9 +256,9 @@
 
   async function render(slot) {
     if (!(slot instanceof Element)) return false;
-    var page = slot.dataset.novaAdPage || getCurrentPage();
-    if (!isEligible(page) || page !== getCurrentPage()) {
-      slot.classList.add("nova-ad-slot--collapsed");
+    var page = slot.dataset.novaAdPage || state.currentPage || getCurrentPage();
+    if (!isEligible(page) || page !== state.currentPage) {
+      collapseSlot(slot);
       return false;
     }
 
@@ -302,23 +268,20 @@
 
     var slotId = CONFIG.slots[page];
     if (!slotId) {
-      // Intentionally collapse until the real AdSense ad-unit ID is configured.
       slot.classList.add("nova-ad-slot--collapsed");
       return false;
     }
 
     var epoch = state.renderEpoch;
     var loaded = await loadAdSense();
-    if (!loaded || epoch !== state.renderEpoch || !isEligible(page) || page !== getCurrentPage()) return false;
+    if (!loaded || epoch !== state.renderEpoch || !isEligible(page) || page !== state.currentPage) return false;
 
     slot.replaceChildren();
     slot.classList.remove("nova-ad-slot--collapsed");
     slot.classList.add("nova-ad-slot--active", "nova-ad-slot--loading");
-
     var label = document.createElement("div");
     label.className = "nova-ad-label";
     label.textContent = "Sponsored";
-
     var ins = document.createElement("ins");
     ins.className = "adsbygoogle";
     ins.style.display = "block";
@@ -326,7 +289,6 @@
     ins.setAttribute("data-ad-slot", String(slotId));
     ins.setAttribute("data-ad-format", "auto");
     ins.setAttribute("data-full-width-responsive", "true");
-
     slot.append(label, ins);
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
@@ -335,25 +297,33 @@
       collapseIfUnfilled(slot, ins, epoch);
       return true;
     } catch (_) {
-      slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
-      slot.classList.add("nova-ad-slot--collapsed");
-      slot.replaceChildren();
+      collapseSlot(slot);
       return false;
     }
   }
 
   async function refreshForNavigation(page) {
     state.currentPage = page || getCurrentPage();
-    state.renderEpoch++;
     removeAll();
-
     if (ensureSupernovaAdFree()) return;
     if (!isEligible(state.currentPage)) return;
-
     var selector = ".nova-ad-slot[data-nova-ad-page='" + CSS.escape(state.currentPage) + "']";
     var slots = Array.prototype.slice.call(document.querySelectorAll(selector)).slice(0, 2);
     if (!slots.length) return;
     await Promise.all(slots.map(render));
+  }
+
+  function scheduleNavigationRefresh(page) {
+    var token = ++state.navigationToken;
+    var requestedPage = page || "";
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (token !== state.navigationToken) return;
+        var settledPage = getCurrentPage();
+        var target = requestedPage && document.getElementById("page-" + requestedPage)?.classList.contains("active") ? requestedPage : settledPage;
+        refreshForNavigation(target);
+      });
+    });
   }
 
   async function verifyEntitlement() {
@@ -377,7 +347,8 @@
     return {
       version: CONFIG.version,
       page: getCurrentPage(),
-      eligible: isEligible(getCurrentPage()),
+      statePage: state.currentPage,
+      eligible: isEligible(state.currentPage),
       hostname: window.location.hostname,
       productionNetwork: window.location.hostname === CONFIG.productionNetwork.hostname,
       legacyInventoryRelayInstalled: !!window.__novaAdInventoryRelayInstalled,
@@ -400,40 +371,40 @@
     state.initialized = true;
     state.currentPage = getCurrentPage();
     await verifyEntitlement();
-    await refreshForNavigation(state.currentPage);
+    scheduleNavigationRefresh(state.currentPage);
   }
 
   document.addEventListener("nova:page-change", function (event) {
-    refreshForNavigation(event.detail && event.detail.page);
+    scheduleNavigationRefresh(event.detail && event.detail.page);
   });
   document.addEventListener("nova:navigate", function () {
-    refreshForNavigation("browser");
+    scheduleNavigationRefresh("browser");
   });
   document.addEventListener("nova:account-changed", async function () {
     await verifyEntitlement();
-    refreshForNavigation(getCurrentPage());
+    scheduleNavigationRefresh(getCurrentPage());
   });
   window.addEventListener("nova:session-changed", async function () {
     await verifyEntitlement();
-    refreshForNavigation(getCurrentPage());
+    scheduleNavigationRefresh(getCurrentPage());
   });
   document.addEventListener("nova:supernova-state", function () {
     state.entitlementReady = isEntitlementReady();
-    refreshForNavigation(getCurrentPage());
+    scheduleNavigationRefresh(getCurrentPage());
   });
   document.addEventListener("fullscreenchange", function () {
     if (document.fullscreenElement) removeAll();
-    else refreshForNavigation(getCurrentPage());
+    else scheduleNavigationRefresh(getCurrentPage());
   });
-
   window.addEventListener("storage", function (event) {
-    if (event.key === "nova_consent") refreshForNavigation(getCurrentPage());
+    if (event.key === "nova_consent") scheduleNavigationRefresh(getCurrentPage());
   });
   document.addEventListener("click", function (event) {
     if (event.target && (event.target.id === "consent-accept" || event.target.id === "consent-decline")) {
-      setTimeout(function () { refreshForNavigation(getCurrentPage()); }, 0);
+      setTimeout(function () { scheduleNavigationRefresh(getCurrentPage()); }, 0);
     }
   }, true);
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
 
