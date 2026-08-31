@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Nova Ad Test</title>
+  <style>
+    :root{color-scheme:dark;--bg:#05050b;--card:#0d0d18;--line:#24243a;--text:#f2f2fb;--muted:#9999b7;--accent:#8b8fff}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    main{width:min(1120px,calc(100% - 32px));margin:36px auto 80px}.top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:24px}
+    h1{font-size:28px;margin:0 0 6px}.muted{color:var(--muted)}.badge{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;min-height:220px;overflow:hidden}
+    .card h2{font-size:15px;margin:0 0 4px}.card p{margin:0 0 14px;color:var(--muted)}.stage{display:flex;align-items:center;justify-content:center;min-height:140px;border:1px dashed var(--line);border-radius:12px;background:#080812;overflow:auto}
+    iframe{display:block;border:0;max-width:100%}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.btn{appearance:none;border:1px solid #363657;background:#171728;color:var(--text);padding:9px 12px;border-radius:9px;text-decoration:none;cursor:pointer;font-weight:600}.btn:hover{border-color:var(--accent)}
+    .status{font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);margin-top:10px;word-break:break-word}.wide{grid-column:1/-1}.warning{border:1px solid #4b4020;background:#171406;padding:10px 12px;border-radius:10px;color:#d9c98d;margin-bottom:18px}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div><h1>Nova Ad Test</h1><div class="muted">Isolated test page for the four Adsterra placements supplied for Nova.</div></div>
+    <div class="badge">TEST ONLY</div>
+  </div>
+  <div class="warning">The direct-link/SmartLink test only opens when you click it. It is not auto-triggered, so loading this test page cannot unexpectedly redirect the whole page.</div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Placement A</h2>
+      <p>Script: 335e7094bc05e4abd6dd6e86ef3ac613.js</p>
+      <div class="stage"><iframe title="Placement A" width="100%" height="180" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin" srcdoc='<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#080812;color:#fff;min-height:100%}</style><script src="https://professionalsusceptible.com/33/5e/70/335e7094bc05e4abd6dd6e86ef3ac613.js"><\/script>'></iframe></div>
+      <div class="status">professionalsusceptible.com/33/5e/70/335e7094bc05e4abd6dd6e86ef3ac613.js</div>
+    </article>
+
+    <article class="card">
+      <h2>Placement B</h2>
+      <p>Script: f50599e9a0933be27ade5b02e4b8e816.js</p>
+      <div class="stage"><iframe title="Placement B" width="100%" height="180" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin" srcdoc='<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#080812;color:#fff;min-height:100%}</style><script src="https://professionalsusceptible.com/f5/05/99/f50599e9a0933be27ade5b02e4b8e816.js"><\/script>'></iframe></div>
+      <div class="status">professionalsusceptible.com/f5/05/99/f50599e9a0933be27ade5b02e4b8e816.js</div>
+    </article>
+
+    <article class="card wide">
+      <h2>468 × 60 Banner</h2>
+      <p>Iframe banner using key 46c8e7cbe9f38ec259efbfb9e49919a6.</p>
+      <div class="stage" style="min-height:100px"><iframe title="468x60 banner" width="500" height="90" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin" srcdoc='<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#080812;display:flex;align-items:center;justify-content:center;min-height:90px}</style><script>window.atOptions={"key":"46c8e7cbe9f38ec259efbfb9e49919a6","format":"iframe","height":60,"width":468,"params":{}};<\/script><script src="https://professionalsusceptible.com/46c8e7cbe9f38ec259efbfb9e49919a6/invoke.js"><\/script>'></iframe></div>
+      <div class="status">professionalsusceptible.com/46c8e7cbe9f38ec259efbfb9e49919a6/invoke.js</div>
+    </article>
+
+    <article class="card wide">
+      <h2>SmartLink / Direct Link</h2>
+      <p>This placement is intentionally click-to-test rather than automatically loaded.</p>
+      <div class="stage" style="min-height:110px;flex-direction:column;gap:8px">
+        <a class="btn" rel="noopener noreferrer sponsored" target="_blank" href="https://professionalsusceptible.com/rrunkqjxin?key=e7e95aae1d773d3619a33820503378ab">Open SmartLink in new tab</a>
+        <span class="muted">A new tab may redirect as part of the ad campaign.</span>
+      </div>
+      <div class="status">professionalsusceptible.com/rrunkqjxin?key=e7e95aae1d773d3619a33820503378ab</div>
+    </article>
+  </section>
+</main>
+</body>
+</html>
