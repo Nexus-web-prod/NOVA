@@ -12,7 +12,7 @@
   "use strict";
 
   var CONFIG = Object.freeze({
-    version: "20260831-adsterra-r7",
+    version: "20260831-adsterra-r8",
     publisherId: "ca-pub-6082584609878503",
     productionNetwork: Object.freeze({
       hostname: "nova-7.pages.dev",
@@ -46,10 +46,17 @@
     entitlementReady: false,
     currentPage: "home",
     renderEpoch: 0,
-    navigationToken: 0
+    navigationToken: 0,
+    productionUnit: null
   };
 
   function getCurrentPage() {
+    if (typeof window.novaGetCurrentPage === "function") {
+      try {
+        var runtimePage = window.novaGetCurrentPage();
+        if (runtimePage) return runtimePage;
+      } catch (_) {}
+    }
     var active = document.querySelector(".page.active[id^='page-']");
     if (active) return active.id.slice(5);
     var nav = document.querySelector(".nav-tab.active[data-page]");
@@ -112,9 +119,22 @@
     }
   }
 
-  function collapseSlot(slot) {
+  function destroyProductionUnit() {
+    var unit = state.productionUnit;
+    if (!unit) return;
+    cleanupProductionUnit(unit);
+    try { unit.remove(); } catch (_) {}
+    state.productionUnit = null;
+  }
+
+  function collapseSlot(slot, preserveProduction) {
     if (!slot) return;
-    cleanupProductionUnit(slot.querySelector(".nova-production-ad-unit"));
+    var unit = slot.querySelector(".nova-production-ad-unit");
+    if (unit && unit === state.productionUnit && preserveProduction !== false) {
+      unit.remove();
+    } else if (unit) {
+      cleanupProductionUnit(unit);
+    }
     slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
     slot.classList.add("nova-ad-slot--collapsed");
     slot.replaceChildren();
@@ -123,14 +143,24 @@
     }
   }
 
-  function removeAll() {
+  function removeAll(options) {
+    options = options || {};
+    var destroyProduction = !!options.destroyProduction;
     state.renderEpoch++;
+
     document.querySelectorAll(".nova-ad-slot").forEach(function (slot) {
-      cleanupProductionUnit(slot.querySelector(".nova-production-ad-unit"));
+      var unit = slot.querySelector(".nova-production-ad-unit");
+      if (unit && unit === state.productionUnit && !destroyProduction) {
+        unit.remove();
+      } else if (unit) {
+        cleanupProductionUnit(unit);
+      }
       slot.classList.remove("nova-ad-slot--active", "nova-ad-slot--loading");
       slot.classList.add("nova-ad-slot--collapsed");
       slot.replaceChildren();
     });
+
+    if (destroyProduction) destroyProductionUnit();
     document.documentElement.classList.remove("nova-ads-active");
   }
 
@@ -141,7 +171,7 @@
 
   function ensureSupernovaAdFree() {
     if (userHasSupernova() || !isEntitlementReady()) {
-      removeAll();
+      removeAll({ destroyProduction: true });
       removeAdSenseScript();
       return true;
     }
@@ -173,28 +203,54 @@
       if (epoch !== state.renderEpoch || !slot.isConnected) return;
       var status = ins.getAttribute("data-ad-status");
       var hasFrame = !!ins.querySelector("iframe");
-      if (status === "unfilled" || (!hasFrame && status !== "filled")) collapseSlot(slot);
+      if (status === "unfilled" || (!hasFrame && status !== "filled")) collapseSlot(slot, false);
     }, 7000);
   }
 
-  function productionStillEligible(slot, page, epoch) {
-    return !!(slot && slot.isConnected && epoch === state.renderEpoch && isEligible(page) && page === state.currentPage);
+  function currentProductionPlacement(unit) {
+    var slot = unit && unit.closest ? unit.closest(".nova-ad-slot") : null;
+    var page = slot ? (slot.dataset.novaAdPage || "") : "";
+    return { slot: slot, page: page };
+  }
+
+  function showProductionUnitInSlot(slot, page) {
+    var unit = state.productionUnit;
+    if (!unit || !slot) return false;
+
+    slot.replaceChildren(unit);
+    slot.classList.remove("nova-ad-slot--collapsed");
+    slot.classList.add("nova-ad-slot--active");
+    slot.classList.toggle("nova-ad-slot--loading", unit.dataset.novaAdFilled !== "true");
+    unit.dataset.novaAdPage = page;
+
+    if (unit.dataset.novaAdFilled === "true") {
+      document.documentElement.classList.add("nova-ads-active");
+    }
+    return true;
   }
 
   function renderProductionNetwork(slot, page, attempt) {
     var network = CONFIG.productionNetwork;
     attempt = Number(attempt || 1);
+
     if (window.location.hostname !== network.hostname || !isEligible(page) || page !== state.currentPage) {
       collapseSlot(slot);
       return false;
     }
 
-    cleanupProductionUnit(slot.querySelector(".nova-production-ad-unit"));
+    // Adsterra's invoke runtime is effectively a one-unit-per-document runtime.
+    // Once Nova has a live production unit, do not delete/re-run it on every
+    // client-side page change. Move the same filled unit into the new eligible
+    // slot instead. Re-running invoke.js repeatedly is what caused ads to flash
+    // for a moment and then disappear after SPA navigation.
+    if (state.productionUnit) {
+      return showProductionUnitInSlot(slot, page);
+    }
+
     slot.replaceChildren();
     slot.classList.remove("nova-ad-slot--collapsed");
     slot.classList.add("nova-ad-slot--active", "nova-ad-slot--loading");
 
-    var epoch = state.renderEpoch;
     var label = document.createElement("div");
     label.className = "nova-ad-label";
     label.textContent = "Sponsored";
@@ -204,6 +260,8 @@
     unit.dataset.novaAdFilled = "false";
     unit.dataset.novaAdAttempt = String(attempt);
     unit.dataset.novaAdProvider = "adsterra";
+    unit.dataset.novaAdPage = page;
+    state.productionUnit = unit;
 
     var container = document.createElement("div");
     container.id = network.containerId;
@@ -212,9 +270,9 @@
       if (!container.childElementCount) return;
       unit.dataset.novaAdFilled = "true";
       cleanupProductionUnit(unit);
-      var currentSlot = unit.closest(".nova-ad-slot");
-      if (!productionStillEligible(currentSlot, page, epoch)) return;
-      currentSlot.classList.remove("nova-ad-slot--loading");
+      var placement = currentProductionPlacement(unit);
+      if (!placement.slot || !isEligible(placement.page) || placement.page !== state.currentPage) return;
+      placement.slot.classList.remove("nova-ad-slot--loading");
       document.documentElement.classList.add("nova-ads-active");
     });
     unit._novaFillObserver = fillObserver;
@@ -228,19 +286,27 @@
     script.src = network.scriptUrl;
 
     function retryOrCollapse(reason) {
-      if (!productionStillEligible(slot, page, epoch)) {
-        cleanupProductionUnit(unit);
-        return;
-      }
+      if (unit !== state.productionUnit) return;
       if (unit.dataset.novaAdFilled === "true" || container.childElementCount) return;
+
+      var placement = currentProductionPlacement(unit);
+      if (!placement.slot) return;
+      if (!isEligible(placement.page) || placement.page !== state.currentPage) return;
+
       cleanupProductionUnit(unit);
       unit.dataset.novaAdFailure = reason || "no-fill";
+
       if (attempt < network.maxAttempts) {
-        unit._novaRetryTimer = window.setTimeout(function () {
-          if (productionStillEligible(slot, page, epoch)) renderProductionNetwork(slot, page, attempt + 1);
+        state.productionUnit = null;
+        try { unit.remove(); } catch (_) {}
+        window.setTimeout(function () {
+          if (placement.slot.isConnected && isEligible(placement.page) && placement.page === state.currentPage) {
+            renderProductionNetwork(placement.slot, placement.page, attempt + 1);
+          }
         }, 900);
       } else {
-        collapseSlot(slot);
+        destroyProductionUnit();
+        collapseSlot(placement.slot, false);
       }
     }
 
@@ -297,16 +363,21 @@
       collapseIfUnfilled(slot, ins, epoch);
       return true;
     } catch (_) {
-      collapseSlot(slot);
+      collapseSlot(slot, false);
       return false;
     }
   }
 
   async function refreshForNavigation(page) {
     state.currentPage = page || getCurrentPage();
-    removeAll();
+
+    // Hide the current placement, but preserve the live Adsterra unit so SPA
+    // page changes do not restart the third-party runtime.
+    removeAll({ destroyProduction: false });
+
     if (ensureSupernovaAdFree()) return;
     if (!isEligible(state.currentPage)) return;
+
     var selector = ".nova-ad-slot[data-nova-ad-page='" + CSS.escape(state.currentPage) + "']";
     var slots = Array.prototype.slice.call(document.querySelectorAll(selector)).slice(0, 2);
     if (!slots.length) return;
@@ -316,11 +387,12 @@
   function scheduleNavigationRefresh(page) {
     var token = ++state.navigationToken;
     var requestedPage = page || "";
+
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         if (token !== state.navigationToken) return;
         var settledPage = getCurrentPage();
-        var target = requestedPage && document.getElementById("page-" + requestedPage)?.classList.contains("active") ? requestedPage : settledPage;
+        var target = requestedPage && requestedPage === settledPage ? requestedPage : settledPage;
         refreshForNavigation(target);
       });
     });
@@ -351,6 +423,8 @@
       eligible: isEligible(state.currentPage),
       hostname: window.location.hostname,
       productionNetwork: window.location.hostname === CONFIG.productionNetwork.hostname,
+      hasPersistentProductionUnit: !!state.productionUnit,
+      productionFilled: !!(state.productionUnit && state.productionUnit.dataset.novaAdFilled === "true"),
       legacyInventoryRelayInstalled: !!window.__novaAdInventoryRelayInstalled,
       slots: Array.prototype.map.call(document.querySelectorAll(".nova-ad-slot"), function (slot) {
         var unit = slot.querySelector(".nova-production-ad-unit");
@@ -390,10 +464,11 @@
   });
   document.addEventListener("nova:supernova-state", function () {
     state.entitlementReady = isEntitlementReady();
+    if (userHasSupernova() || !state.entitlementReady) removeAll({ destroyProduction: true });
     scheduleNavigationRefresh(getCurrentPage());
   });
   document.addEventListener("fullscreenchange", function () {
-    if (document.fullscreenElement) removeAll();
+    if (document.fullscreenElement) removeAll({ destroyProduction: false });
     else scheduleNavigationRefresh(getCurrentPage());
   });
   window.addEventListener("storage", function (event) {
