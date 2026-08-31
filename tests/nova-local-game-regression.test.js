@@ -616,7 +616,7 @@ test('UGS replacements are complete local games and preserve Nova artwork', () =
   assert.doesNotMatch(crossyRoad && crossyRoad.url || '', /website\/games\/crossy-road/);
 });
 
-test('Monkey Mart and the best packaged Doom build are local with existing icons', () => {
+test('Monkey Mart is local and DOOM uses its original remote build', () => {
   const games = JSON.parse(read('website/data/games.json'));
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
@@ -624,10 +624,6 @@ test('Monkey Mart and the best packaged Doom build are local with existing icons
     {
       name: 'Monkey Mart', slug: 'monkey-mart', image: '/website/assets/media/icons/mm.webp',
       payload: 'MonkeyMart.wasm', minimum: 2_000_000
-    },
-    {
-      name: 'DOOM', slug: 'doom', image: '/website/assets/media/icons/DOOM.webp',
-      payload: '2doom/2DOOM.js', minimum: 5_000_000
     }
   ];
 
@@ -642,6 +638,14 @@ test('Monkey Mart and the best packaged Doom build are local with existing icons
     assert.match(index, new RegExp(`website\\/games\\/${entry.slug}`));
     assert.match(player, new RegExp(`'${entry.slug}'`));
   }
+
+  const doom = games.find(item => item.name === 'DOOM');
+  assert.deepEqual(
+    { url: doom.url, image: doom.image, local: doom.local },
+    { url: 'https://arcader.com/roms/doom.html', image: '/website/assets/media/icons/DOOM.webp', local: undefined }
+  );
+  assert.doesNotMatch(index, /website\/games\/doom/);
+  assert.doesNotMatch(player, /'doom'/);
 
   const escapeRoad = games.find(item => item.name === 'Escape Road 2');
   assert.notEqual(escapeRoad.local, true);

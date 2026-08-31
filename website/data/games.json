@@ -231,9 +231,8 @@
     },
     {
         "name": "DOOM",
-        "url": "https://main.nova-7.pages.dev/website/games/doom/",
-        "image": "/website/assets/media/icons/DOOM.webp",
-        "local": true
+        "url": "https://arcader.com/roms/doom.html",
+        "image": "/website/assets/media/icons/DOOM.webp"
     },
     {
         "name": "FNAF 2",
