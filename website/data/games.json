@@ -396,9 +396,10 @@
         "image": "/website/assets/media/icons/osm.webp"
     },
     {
-        "name": "Paper.io",
-        "url": "https://paper-io.com/",
-        "image": "/website/assets/media/icons/paperio.webp"
+        "name": "Paper.io 2",
+        "url": "https://main.nova-7.pages.dev/website/games/paper-2-io/",
+        "image": "/website/assets/media/icons/paperio.webp",
+        "local": true
     },
     {
         "name": "Pixel Shooter",

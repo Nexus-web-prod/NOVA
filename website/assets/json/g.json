@@ -1787,9 +1787,10 @@
     ]
   },
   {
-    "name": "Paper.io",
-    "link": "https://paper-io.com/",
+    "name": "Paper.io 2",
+    "link": "https://main.nova-7.pages.dev/website/games/paper-2-io/",
     "image": "/website/assets/media/icons/paperio.webp",
+    "local": true,
     "categories": [
       "all"
     ]

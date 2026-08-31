@@ -460,6 +460,20 @@ test('Moto X3M is a local build that preserves its Nova icon and does not wait f
   assert.ok(fs.statSync(path.join(root, 'website/games/moto-x3m/motox3m2.min.js')).size > 1_000_000);
 });
 
+test('Paper.io 2 uses the uploaded local build and preserves the existing Paper.io icon', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(entry => entry.name === 'Paper.io 2');
+  const legacyGame = legacyGames.find(entry => entry.name === 'Paper.io 2');
+  const url = 'https://main.nova-7.pages.dev/website/games/paper-2-io/';
+  const image = '/website/assets/media/icons/paperio.webp';
+  assert.deepEqual({ url: game.url, image: game.image, local: game.local }, { url, image, local: true });
+  assert.deepEqual({ link: legacyGame.link, image: legacyGame.image, local: legacyGame.local }, { link: url, image, local: true });
+  assert.match(read('website/games/paper-2-io/index.html'), /src="js\/app-new-gm\.js\?26"/);
+  assert.ok(fs.statSync(path.join(root, 'website/games/paper-2-io/main.min.js')).size > 1_000_000);
+  assert.match(read('website/html/index.html'), /'\/website\/games\/paper-2-io\/': \{name:'Paper\.io 2',slug:'paper-2-io'\}/);
+});
+
 test('local games open in the dedicated Nova game player', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
