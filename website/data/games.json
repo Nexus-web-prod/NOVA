@@ -89,8 +89,9 @@
     },
     {
         "name": "Geo Dash",
-        "url": "https://geometrydashlitefree.com/play/gdlite/",
-        "image": "/website/assets/media/icons/geodash.png"
+        "url": "https://main.nova-7.pages.dev/website/games/geo-dash/",
+        "image": "/website/assets/media/icons/geodash.png",
+        "local": true
     },
     {
         "name": "Vote for Apps & Games",

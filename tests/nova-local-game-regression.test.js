@@ -647,3 +647,16 @@ test('Monkey Mart and the best packaged Doom build are local with existing icons
   assert.notEqual(escapeRoad.local, true);
   assert.doesNotMatch(escapeRoad.url, /website\/games\/escape-road-2/);
 });
+
+test('Geo Dash uses the selected local gdash build and preserves its Nova icon', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const game = games.find(item => item.name === 'Geo Dash');
+  const url = 'https://main.nova-7.pages.dev/website/games/geo-dash/';
+  const image = '/website/assets/media/icons/geodash.png';
+
+  assert.deepEqual({ url: game.url, image: game.image, local: game.local }, { url, image, local: true });
+  assert.match(read('website/games/geo-dash/index.html'), /assets\/index-game\.js/);
+  assert.ok(fs.statSync(path.join(root, 'website/games/geo-dash/assets/index-game.js')).size > 3_000_000);
+  assert.match(read('website/html/index.html'), /website\/games\/geo-dash/);
+  assert.match(read('website/html/game.html'), /'geo-dash'/);
+});
