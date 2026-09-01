@@ -13,13 +13,17 @@ test('chat photos open the accessible Nova photo viewer', () => {
   assert.match(social, /setAttribute\("role","dialog"\)/);
   assert.match(social, /const photo=el\.querySelector\("\.social-chat-photo"\)/);
   assert.match(social, /openPhotoViewer\(msg\.text,e\.currentTarget\)/);
-  assert.match(html, /social-photo-viewer-r2/);
+  assert.match(html, /social-photo-viewer-r3/);
 });
 
 test('photo viewer supports visible and gesture zoom controls', () => {
   assert.match(social, /data-photo-action="zoom-out"/);
   assert.match(social, /data-photo-action="zoom-in"/);
   assert.match(social, /addEventListener\("wheel"/);
+  assert.match(social, /pointX-\(pointX-state\.x\)\*ratio/);
+  assert.match(social, /zoom\(event\.deltaY<0\?1\.15:1\/1\.15,event\.clientX,event\.clientY\)/);
+  assert.match(social, /zoom\(2,event\.clientX,event\.clientY\)/);
+  assert.match(social, /zoom\(distance\/state\.lastPinchDistance,midX,midY\)/);
   assert.match(social, /state\.pointers\.size===2/);
   assert.match(social, /event\.key==="Escape"/);
   assert.match(css, /\.social-photo-viewer-controls button\{[^}]*min-width:44px/);
