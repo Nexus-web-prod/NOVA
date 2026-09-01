@@ -396,6 +396,13 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (url.pathname === "/ads.txt") {
+      return new Response("Not found", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
     const jetpackAsset = await serveJetpackAsset(request, env, url);
     if (jetpackAsset) return jetpackAsset;
 

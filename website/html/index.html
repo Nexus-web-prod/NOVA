@@ -1947,33 +1947,33 @@ document.addEventListener('nova:navigate', function(){ setTimeout(renderRecents,
 </div>
 </div>
 <style>
-#nova-adsense-real-home{display:none}
-body:has(#nova-shell[style*="display: none"])>#nova-adsense-real-home,
-body:has(#nova-shell[style*="display:none"])>#nova-adsense-real-home{
+#nova-static-fallback-home{display:none}
+body:has(#nova-shell[style*="display: none"])>#nova-static-fallback-home,
+body:has(#nova-shell[style*="display:none"])>#nova-static-fallback-home{
   display:flex!important;position:fixed;inset:0;z-index:12;align-items:center;justify-content:center;
   padding:5vh min(34vw,430px) 5vh 5vw;background:transparent;color:var(--text);font-family:"Space Mono",monospace
 }
-#nova-adsense-real-home .home-inner{display:flex;flex-direction:column;align-items:center;width:min(700px,90vw)}
-#nova-adsense-real-home .bookmarks-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-#nova-adsense-real-home .adsense-real-chip{display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid rgba(139,143,255,.18);border-radius:999px;background:rgba(139,143,255,.06);color:var(--text);font-size:.48rem}
-#nova-adsense-real-island{position:fixed;right:18px;top:18px;bottom:18px;width:min(370px,31vw);z-index:14;padding:28px 22px;border:1px solid rgba(139,143,255,.24);border-radius:28px;background:rgba(8,8,22,.92);box-shadow:0 22px 70px rgba(0,0,0,.45);overflow:hidden}
-#nova-adsense-real-island .nap-real-tabs{display:flex;justify-content:space-around;padding-bottom:18px;border-bottom:1px solid rgba(139,143,255,.15);font-size:.48rem;letter-spacing:.12em;color:var(--muted)}
-#nova-adsense-real-island .nap-real-tabs b{color:var(--white)}
-#nova-adsense-real-island .nap-real-page{display:flex;align-items:center;gap:13px;padding:12px 8px;color:var(--text)}
-#nova-adsense-real-island .nap-real-page i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(139,143,255,.12);color:var(--accent);font-style:normal}
-#nova-adsense-real-island .nap-real-page strong{display:block;font-size:.58rem;color:var(--white)}
-#nova-adsense-real-island .nap-real-page small{display:block;margin-top:4px;font-size:.42rem;color:var(--muted)}
-@media(max-width:760px){body:has(#nova-shell[style*="display"])>#nova-adsense-real-home{padding:28px 20px}#nova-adsense-real-island{display:none}}
+#nova-static-fallback-home .home-inner{display:flex;flex-direction:column;align-items:center;width:min(700px,90vw)}
+#nova-static-fallback-home .bookmarks-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+#nova-static-fallback-home .static-fallback-chip{display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid rgba(139,143,255,.18);border-radius:999px;background:rgba(139,143,255,.06);color:var(--text);font-size:.48rem}
+#nova-static-fallback-island{position:fixed;right:18px;top:18px;bottom:18px;width:min(370px,31vw);z-index:14;padding:28px 22px;border:1px solid rgba(139,143,255,.24);border-radius:28px;background:rgba(8,8,22,.92);box-shadow:0 22px 70px rgba(0,0,0,.45);overflow:hidden}
+#nova-static-fallback-island .nap-real-tabs{display:flex;justify-content:space-around;padding-bottom:18px;border-bottom:1px solid rgba(139,143,255,.15);font-size:.48rem;letter-spacing:.12em;color:var(--muted)}
+#nova-static-fallback-island .nap-real-tabs b{color:var(--white)}
+#nova-static-fallback-island .nap-real-page{display:flex;align-items:center;gap:13px;padding:12px 8px;color:var(--text)}
+#nova-static-fallback-island .nap-real-page i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(139,143,255,.12);color:var(--accent);font-style:normal}
+#nova-static-fallback-island .nap-real-page strong{display:block;font-size:.58rem;color:var(--white)}
+#nova-static-fallback-island .nap-real-page small{display:block;margin-top:4px;font-size:.42rem;color:var(--muted)}
+@media(max-width:760px){body:has(#nova-shell[style*="display"])>#nova-static-fallback-home{padding:28px 20px}#nova-static-fallback-island{display:none}}
 </style>
-<section id="nova-adsense-real-home" aria-label="Nova home">
+<section id="nova-static-fallback-home" aria-label="Nova home">
   <div class="home-inner">
     <div class="nova-hero"><div class="nova-hero-wordmark nova7-wordmark"><span class="nova7-logo-part nova7-logo-n">N</span><svg class="nova7-logo-star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg><span class="nova7-logo-va"><span class="nova7-logo-v">V</span><span class="nova7-logo-a">A</span></span></div></div>
     <div class="home-stats home-stats--summary"><div class="home-stat"><div class="home-stat-num">7.0</div><div class="home-stat-lbl">Version</div></div><div class="home-stat-div"></div><div class="home-stat"><div class="home-stat-num">89</div><div class="home-stat-lbl">Games</div></div><div class="home-stat-div"></div><div class="home-stat"><div class="home-stat-num">69</div><div class="home-stat-lbl">Apps</div></div></div>
     <div class="nexus-footer nexus-footer--home"><svg class="nexus-footer-logo" viewBox="0 0 80 80" width="20" height="20"><circle cx="40" cy="40" r="36" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="4" x2="40" y2="18" stroke="currentColor" stroke-width="2.5"/><line x1="40" y1="62" x2="40" y2="76" stroke="currentColor" stroke-width="2.5"/><line x1="4" y1="40" x2="18" y2="40" stroke="currentColor" stroke-width="2.5"/><line x1="62" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="2.5"/><circle cx="40" cy="40" r="3.5" fill="currentColor"/><line x1="40" y1="40" x2="54" y2="28" stroke="currentColor" stroke-width="2"/><circle cx="54" cy="28" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="nexus-footer-text">Nova is owned by <strong>NEXUS</strong> · The Future of the Open Web</span></div>
     <div class="search-wrap"><div class="glass-pill glass-pill--home"><span style="flex:1;padding:.7rem 1rem;color:var(--muted);font-size:.55rem">Search or enter a URL...</span><div class="pill-sep"></div><span style="padding:.65rem 1rem;color:var(--accent)">→</span></div></div>
-    <div class="home-section"><div class="home-section-header"><span class="home-section-label">Quick Links</span><span class="home-section-action">Edit</span></div><div class="bookmarks-row"><span class="adsense-real-chip">◉ Brave</span><span class="adsense-real-chip">▣ YouTube</span><span class="adsense-real-chip">◆ Twitch</span><span class="adsense-real-chip">◈ GitHub</span><span class="adsense-real-chip">＋ Add</span></div></div>
+    <div class="home-section"><div class="home-section-header"><span class="home-section-label">Quick Links</span><span class="home-section-action">Edit</span></div><div class="bookmarks-row"><span class="static-fallback-chip">◉ Brave</span><span class="static-fallback-chip">▣ YouTube</span><span class="static-fallback-chip">◆ Twitch</span><span class="static-fallback-chip">◈ GitHub</span><span class="static-fallback-chip">＋ Add</span></div></div>
   </div>
-  <aside id="nova-adsense-real-island"><div class="nap-real-tabs"><b>PAGES</b><span>SOCIAL</span><span>RECENT</span></div><div class="nap-real-page"><i>⌂</i><span><strong>Home</strong><small>Nova start page</small></span></div><div class="nap-real-page"><i>◎</i><span><strong>Browser</strong><small>Browse freely</small></span></div><div class="nap-real-page"><i>▣</i><span><strong>Games</strong><small>89 games to play</small></span></div><div class="nap-real-page"><i>▯</i><span><strong>Apps</strong><small>Tools &amp; platforms</small></span></div><div class="nap-real-page"><i>▤</i><span><strong>Movies</strong><small>Watch &amp; stream</small></span></div><div class="nap-real-page"><i>☆</i><span><strong>Rewards</strong><small>Badges, XP &amp; shop</small></span></div><div class="nap-real-page"><i>✦</i><span><strong>Supernova</strong><small>Your Pro power layer</small></span></div><div class="nap-real-page"><i>⚙</i><span><strong>Settings</strong><small>Configure Nova</small></span></div></aside>
+  <aside id="nova-static-fallback-island"><div class="nap-real-tabs"><b>PAGES</b><span>SOCIAL</span><span>RECENT</span></div><div class="nap-real-page"><i>⌂</i><span><strong>Home</strong><small>Nova start page</small></span></div><div class="nap-real-page"><i>◎</i><span><strong>Browser</strong><small>Browse freely</small></span></div><div class="nap-real-page"><i>▣</i><span><strong>Games</strong><small>89 games to play</small></span></div><div class="nap-real-page"><i>▯</i><span><strong>Apps</strong><small>Tools &amp; platforms</small></span></div><div class="nap-real-page"><i>▤</i><span><strong>Movies</strong><small>Watch &amp; stream</small></span></div><div class="nap-real-page"><i>☆</i><span><strong>Rewards</strong><small>Badges, XP &amp; shop</small></span></div><div class="nap-real-page"><i>✦</i><span><strong>Supernova</strong><small>Your Pro power layer</small></span></div><div class="nap-real-page"><i>⚙</i><span><strong>Settings</strong><small>Configure Nova</small></span></div></aside>
 </section>
 <div id="nova-shell" class="island-open">
 <div style="display:none" id="ni-hidden-navtabs">
