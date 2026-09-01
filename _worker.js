@@ -403,6 +403,17 @@ export default {
       });
     }
 
+    if (url.pathname === "/348e760a61cebf857ebe2883c3702743.html") {
+      return new Response("348e760a61cebf857ebe2883c3702743", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300, must-revalidate",
+          "X-Content-Type-Options": "nosniff"
+        }
+      });
+    }
+
     const jetpackAsset = await serveJetpackAsset(request, env, url);
     if (jetpackAsset) return jetpackAsset;
 
