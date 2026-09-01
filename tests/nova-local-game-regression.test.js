@@ -682,37 +682,14 @@ test('Monkey Mart archive metadata matches its bundled files and uses a local SD
   assert.doesNotMatch(sdk, /poki-sdk-core|createElement\("script"\)/);
 });
 
-test('ads.txt is authorized and explicitly crawlable on the production site', () => {
-  assert.equal(
-    read('ads.txt').trim(),
-    'google.com, pub-6082584609878503, DIRECT, f08c47fec0942fa0'
-  );
-  assert.equal(read('robots.txt'), 'User-agent: *\nAllow: /\n');
-  const headers = read('_headers');
-  assert.match(headers, /\/ads\.txt\n  Content-Type: text\/plain; charset=utf-8\n  Cache-Control: public, max-age=300, must-revalidate\n  X-Robots-Tag: all/);
-});
-
-test('the profitable-rate ad unit is restricted to the production hostname', () => {
+test('Nova does not load or display advertising', () => {
   const index = read('website/html/index.html');
-  const manager = read('website/js/nova-ads.js');
+  const settings = read('website/js/nova-settings-v7-ui.js');
   const headers = read('_headers');
-  assert.match(index, /nova-ads\.js\?v=20260831-profitablerate-r5/);
-  assert.doesNotMatch(index, /pl31115444\.profitableratecpmnetwork\.com/);
-  assert.match(manager, /hostname: "nova-7\.pages\.dev"/);
-  assert.match(manager, /container-435f315cf07c1f3b07750aa1e9c321eb/);
-  assert.match(manager, /https:\/\/pl31115444\.profitableratecpmnetwork\.com\/435f315cf07c1f3b07750aa1e9c321eb\/invoke\.js/);
-  assert.match(manager, /script\.dataset\.cfasync = "false"/);
-  assert.match(manager, /if \(window\.location\.hostname === CONFIG\.productionNetwork\.hostname\)/);
-  assert.match(manager, /if \(!isEligible\(page\)/);
-  assert.match(headers, /https:\/\/\*\.profitableratecpmnetwork\.com/);
-  for (const domain of [
-    'sleepoverlimitprofound.com',
-    'fizzyacerbitymellow.com',
-    'exemplarfederallithe.com',
-    'protrafficinspector.com',
-    'cdn.cloudvideosa.com',
-    'mamshirt.com'
-  ]) {
-    assert.ok(headers.includes(`https://${domain}`), `CSP should allow ${domain}`);
-  }
+  assert.doesNotMatch(index, /nova-ad-slot|Sponsored content|google-adsense-account|profitableratecpmnetwork|nova-ads\.js|nova-ads\.css/i);
+  assert.doesNotMatch(settings, /nova-ad-slot|Sponsored content/i);
+  assert.doesNotMatch(headers, /googlesyndication|doubleclick|adtrafficquality|profitableratecpmnetwork|pixel\/ase|ntv\.json/i);
+  assert.equal(fs.existsSync(path.join(root, 'ads.txt')), false);
+  assert.equal(fs.existsSync(path.join(root, 'website/js/nova-ads.js')), false);
+  assert.equal(fs.existsSync(path.join(root, 'website/css/nova-ads.css')), false);
 });

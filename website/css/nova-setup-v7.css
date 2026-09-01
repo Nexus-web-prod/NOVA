@@ -44,11 +44,6 @@ html.nova-setup-active:has(.nova-setup) #nova-shell {
   pointer-events: none !important;
 }
 
-html.nova-setup-pending #nova-adsense-real-home,
-html.nova-setup-active:has(.nova-setup) #nova-adsense-real-home {
-  visibility: hidden !important;
-}
-
 html.nova-setup-active #consent-banner,
 html.nova-setup-active #whats-new-overlay,
 html.nova-setup-active .nova-site-banner,
