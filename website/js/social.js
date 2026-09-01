@@ -879,6 +879,34 @@ async function copyMessage(msg,button){
   try{if(msg.type==="image")await copyImageMessage(msg.text);else await copyPlainText(msg.text||"");button.classList.add("is-copied");button.setAttribute("aria-label","Copied");toast(msg.type==="image"?"Photo copied":"Message copied");setTimeout(()=>{button.classList.remove("is-copied");button.setAttribute("aria-label","Copy message");},1100);}
   catch(error){toast(error.message||"Could not copy message");}
 }
+let _photoViewer=null;
+function openPhotoViewer(src,trigger){
+  if(!_photoViewer){
+    const viewer=document.createElement("div");viewer.className="social-photo-viewer";viewer.hidden=true;viewer.setAttribute("role","dialog");viewer.setAttribute("aria-modal","true");viewer.setAttribute("aria-label","Photo viewer");
+    viewer.innerHTML='<div class="social-photo-viewer-toolbar"><span>PHOTO</span><div class="social-photo-viewer-controls"><button type="button" data-photo-action="zoom-out" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M8 11h6M16.5 16.5 21 21"></path></svg></button><button type="button" class="social-photo-viewer-level" data-photo-action="reset" aria-label="Reset zoom" title="Reset zoom">100%</button><button type="button" data-photo-action="zoom-in" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M8 11h6M11 8v6M16.5 16.5 21 21"></path></svg></button><button type="button" data-photo-action="rotate" aria-label="Rotate photo" title="Rotate photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg></button><button type="button" data-photo-action="close" aria-label="Close photo viewer" title="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div></div><div class="social-photo-viewer-stage"><img alt="Expanded chat photo" draggable="false"></div><div class="social-photo-viewer-hint">Scroll or pinch to zoom · drag to move · double-click to zoom</div>';
+    document.body.appendChild(viewer);
+    const image=viewer.querySelector("img"),stage=viewer.querySelector(".social-photo-viewer-stage"),level=viewer.querySelector(".social-photo-viewer-level");
+    const state={scale:1,x:0,y:0,rotation:0,pointers:new Map(),dragged:false,trigger:null};
+    const apply=()=>{image.style.transform=`translate3d(${state.x}px,${state.y}px,0) scale(${state.scale}) rotate(${state.rotation}deg)`;level.textContent=Math.round(state.scale*100)+"%";stage.classList.toggle("can-pan",state.scale>1);};
+    const reset=()=>{state.scale=1;state.x=0;state.y=0;state.rotation=0;apply();};
+    const zoom=amount=>{state.scale=Math.max(.5,Math.min(5,state.scale*amount));if(state.scale<=1){state.x=0;state.y=0;}apply();};
+    const close=()=>{viewer.classList.remove("open");setTimeout(()=>{viewer.hidden=true;image.removeAttribute("src");},160);const prior=state.trigger;state.trigger=null;prior?.focus?.();};
+    viewer.querySelector('[data-photo-action="zoom-out"]').onclick=()=>zoom(1/1.25);
+    viewer.querySelector('[data-photo-action="zoom-in"]').onclick=()=>zoom(1.25);
+    viewer.querySelector('[data-photo-action="reset"]').onclick=reset;
+    viewer.querySelector('[data-photo-action="rotate"]').onclick=()=>{state.rotation=(state.rotation+90)%360;apply();};
+    viewer.querySelector('[data-photo-action="close"]').onclick=close;
+    stage.addEventListener("wheel",event=>{event.preventDefault();zoom(event.deltaY<0?1.15:1/1.15);},{passive:false});
+    stage.addEventListener("dblclick",event=>{event.preventDefault();state.scale>1?reset():zoom(2);});
+    stage.addEventListener("pointerdown",event=>{state.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});state.dragged=false;stage.setPointerCapture(event.pointerId);});
+    stage.addEventListener("pointermove",event=>{const previous=state.pointers.get(event.pointerId);if(!previous)return;const dx=event.clientX-previous.x,dy=event.clientY-previous.y;state.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(Math.abs(dx)+Math.abs(dy)>2)state.dragged=true;if(state.pointers.size===1&&state.scale>1){state.x+=dx;state.y+=dy;apply();}else if(state.pointers.size===2){const points=[...state.pointers.values()];const distance=Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);if(state.lastPinchDistance)zoom(distance/state.lastPinchDistance);state.lastPinchDistance=distance;}});
+    const release=event=>{state.pointers.delete(event.pointerId);if(state.pointers.size<2)state.lastPinchDistance=0;};stage.addEventListener("pointerup",release);stage.addEventListener("pointercancel",release);
+    stage.addEventListener("click",event=>{if(event.target===stage&&!state.dragged)close();});
+    viewer.addEventListener("keydown",event=>{if(event.key==="Escape")close();else if(event.key==="+"||event.key==="=")zoom(1.25);else if(event.key==="-")zoom(1/1.25);else if(event.key==="0")reset();else if(state.scale>1&&["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)){event.preventDefault();state.x+=(event.key==="ArrowLeft"?24:event.key==="ArrowRight"?-24:0);state.y+=(event.key==="ArrowUp"?24:event.key==="ArrowDown"?-24:0);apply();}});
+    _photoViewer={viewer,image,state,reset,close};
+  }
+  _photoViewer.state.trigger=trigger||null;_photoViewer.reset();_photoViewer.image.src=src;_photoViewer.viewer.hidden=false;requestAnimationFrame(()=>_photoViewer.viewer.classList.add("open"));_photoViewer.viewer.querySelector('[data-photo-action="close"]').focus();
+}
 function renderEveryonePinned(){
   const bar=document.getElementById("social-everyone-pinned"),text=document.getElementById("social-everyone-pinned-text"),unpin=document.getElementById("social-everyone-unpin");if(!bar)return;
   bar.hidden=!_everyonePinned;if(!_everyonePinned)return;
@@ -998,6 +1026,8 @@ function makeMsg(msg,mine,showSender){
   });
   el.querySelector('[data-message-action="react"]')?.addEventListener("click",e=>{e.stopPropagation();openReactionPicker(e.currentTarget,msg,el);});
   el.querySelector('[data-message-action="copy"]')?.addEventListener("click",e=>{e.stopPropagation();copyMessage(msg,e.currentTarget);});
+  const photo=el.querySelector(".social-chat-photo");
+  if(photo){photo.tabIndex=0;photo.setAttribute("role","button");photo.setAttribute("aria-label","Open photo viewer");photo.addEventListener("click",e=>{e.stopPropagation();openPhotoViewer(msg.text,e.currentTarget);});photo.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openPhotoViewer(msg.text,e.currentTarget);}});}
   el.querySelector('[data-message-action="pin"]')?.addEventListener("click",async e=>{e.stopPropagation();const button=e.currentTarget;button.disabled=true;try{const data=await NovaAPI.pinEveryoneMessage(msg._id);_everyonePinned=data.pinnedMessage;renderEveryonePinned();toast("Message pinned");}catch(error){toast(error.message||"Could not pin message");}finally{button.disabled=false;}});
   el.querySelectorAll("[data-poll-option]").forEach(button=>button.addEventListener("click",async e=>{e.stopPropagation();button.disabled=true;try{const data=await NovaAPI.voteEveryonePoll(msg._id,Number(button.dataset.pollOption));msg.poll=data.poll;_everyonePolls[String(msg._id)]=data.poll;const replacement=makeMsg(msg,mine,showSender);el.replaceWith(replacement);}catch(error){button.disabled=false;toast(error.message||"Could not record vote");}}));
   el.querySelector("[data-poll-end]")?.addEventListener("click",async e=>{e.stopPropagation();const button=e.currentTarget;if(!confirm("End this poll? Voting will be locked."))return;button.disabled=true;button.textContent="Ending…";try{const data=await NovaAPI.endEveryonePoll(msg._id);msg.poll=data.poll;_everyonePolls[String(msg._id)]=data.poll;el.replaceWith(makeMsg(msg,mine,showSender));toast("Poll ended");}catch(error){button.disabled=false;button.textContent="End poll";toast(error.message||"Could not end poll");}});
