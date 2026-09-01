@@ -23,5 +23,7 @@ test('photo viewer supports visible and gesture zoom controls', () => {
   assert.match(social, /state\.pointers\.size===2/);
   assert.match(social, /event\.key==="Escape"/);
   assert.match(css, /\.social-photo-viewer-controls button\{[^}]*min-width:44px/);
+  assert.match(css, /\.social-photo-viewer-stage img\{pointer-events:auto;cursor:inherit\}/);
+  assert.match(social, /event\.target===stage&&!state\.dragged/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\).*social-photo-viewer/);
 });
