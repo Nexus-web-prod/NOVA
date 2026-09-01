@@ -602,6 +602,25 @@ function wireAttachmentDrop(wrap,acceptCb,guard){
   document.addEventListener("dragend",hideAttachmentDrops,true);
   document.addEventListener("drop",event=>{const target=activeAttachmentDropTarget();if(!target||!attachmentDragSupported(event.dataTransfer))return;event.preventDefault();event.stopPropagation();const file=Array.from(event.dataTransfer?.files||[]).find(item=>item.type.startsWith("image/"))||Array.from(event.dataTransfer?.items||[]).map(item=>item.kind==="file"?item.getAsFile():null).find(item=>item?.type.startsWith("image/"));const url=droppedImageUrl(event.dataTransfer);hideAttachmentDrops();handleDroppedImage(file,url,target.acceptCb);},true);
 }
+function pastedImage(event){
+  const clipboard=event.clipboardData;
+  const file=Array.from(clipboard?.files||[]).find(item=>item.type.startsWith("image/"))||
+    Array.from(clipboard?.items||[]).map(item=>item.kind==="file"?item.getAsFile():null).find(item=>item?.type.startsWith("image/"));
+  if(file)return{file,url:""};
+  const html=clipboard?.getData("text/html")||"";
+  if(html){try{const url=new DOMParser().parseFromString(html,"text/html").querySelector("img")?.src||"";if(/^data:image\//i.test(url))return{file:null,url};}catch{}}
+  const text=(clipboard?.getData("text/plain")||"").trim();
+  return /^data:image\/(?:webp|jpeg|png);base64,/i.test(text)?{file:null,url:text}:null;
+}
+function wireAttachmentPaste(input,acceptCb,guard){
+  if(!input||input.dataset.imagePasteWired)return;input.dataset.imagePasteWired="1";
+  input.addEventListener("paste",event=>{
+    if(!guard())return;
+    const image=pastedImage(event);if(!image)return;
+    event.preventDefault();event.stopPropagation();
+    handleDroppedImage(image.file,image.url,acceptCb);
+  });
+}
 function wireAttachmentButton(buttonId,wrapId,fileInput,cameraInput,acceptCb,guard){
   const button=document.getElementById(buttonId),wrap=document.getElementById(wrapId);if(!button)return;
   button.addEventListener("click",()=>{if(!guard())return;openAttachmentMenu(button,fileInput,cameraInput,acceptCb);});
@@ -1654,6 +1673,9 @@ function wireDom(){
   wireAttachmentButton("social-everyone-photo-btn","social-everyone-input-wrap",_evPhotoInput,_evCameraInput,sendEveryoneImage,()=>!!getAccount()&&activePane==="everyone");
   wireAttachmentButton("social-photo-btn","social-input-wrap",_dmPhotoInput,_dmCameraInput,sendDMImage,()=>!!getAccount()&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"));
   wireAttachmentButton("social-group-photo-btn","social-group-input-wrap",_grpPhotoInput,_grpCameraInput,sendGroupImage,()=>!!getAccount()&&!!activeGroupId);
+  wireAttachmentPaste(document.getElementById("social-everyone-input"),sendEveryoneImage,()=>!!getAccount()&&activePane==="everyone");
+  wireAttachmentPaste(document.getElementById("social-msg-input"),sendDMImage,()=>!!getAccount()&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"));
+  wireAttachmentPaste(document.getElementById("social-group-msg-input"),sendGroupImage,()=>!!getAccount()&&!!activeGroupId);
 
   document.getElementById("social-everyone-tab")?.addEventListener("click",()=>{if(!getAccount())return toast("Sign in to chat");openEveryone();});
   const pollButton=document.getElementById("social-everyone-poll-btn");if(pollButton){pollButton.hidden=!currentUserIsAdmin();pollButton.addEventListener("click",openEveryonePollModal);}
