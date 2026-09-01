@@ -3333,8 +3333,10 @@ async function getMessages(request, url, db) {
     polls = await loadEveryonePolls(db, auth.id);
     const pin = await db.prepare(`${messageSelect()} JOIN social_channel_pins cp ON cp.message_id=m.id AND cp.channel_id=m.channel_id WHERE cp.channel_id='everyone' AND m.deleted_at IS NULL LIMIT 1`).first();
     pinnedMessage = pin ? exposeMessage(pin) : null;
+    if (pinnedMessage && polls[String(pinnedMessage.id)]) pinnedMessage.type = "poll";
   }
-  return apiJson({ channel: channel.publicId, messages: rows.map(exposeMessage), reactions, polls, pinnedMessage });
+  const messages = rows.map(exposeMessage).map(message => polls[String(message.id)] ? { ...message, type: "poll" } : message);
+  return apiJson({ channel: channel.publicId, messages, reactions, polls, pinnedMessage });
 }
 
 async function loadEveryonePolls(db, userId) {
@@ -3366,14 +3368,17 @@ async function createEveryonePoll(request, db) {
     return apiError("INVALID_POLL", "Add a question and 2–6 unique choices", 400);
   }
   const now = Date.now();
+  // The original Nova Social schema constrains message_type to text/image.
+  // Poll identity lives in social_polls, so keep the base message compatible
+  // and expose it as type=poll when messages are serialized.
   const inserted = await db.prepare("INSERT INTO social_messages(channel_id,sender_id,body,message_type,created_at) VALUES('everyone',?,?,?,?)")
-    .bind(auth.id, question, "poll", now).run();
+    .bind(auth.id, question, "text", now).run();
   const messageId = Number(inserted.meta.last_row_id);
   await db.prepare("INSERT INTO social_polls(message_id,question,created_by,created_at) VALUES(?,?,?,?)").bind(messageId, question, auth.id, now).run();
   await db.batch(options.map((label, index) => db.prepare("INSERT INTO social_poll_options(poll_message_id,option_index,label) VALUES(?,?,?)").bind(messageId, index, label)));
   const row = await db.prepare(`${messageSelect()} WHERE m.id=?`).bind(messageId).first();
   const polls = await loadEveryonePolls(db, auth.id);
-  return apiJson({ message: exposeMessage(row), poll: polls[String(messageId)] }, 201);
+  return apiJson({ message: { ...exposeMessage(row), type: "poll" }, poll: polls[String(messageId)] }, 201);
 }
 
 async function voteEveryonePoll(request, db) {
@@ -3406,7 +3411,9 @@ async function setEveryonePin(request, db) {
     ON CONFLICT(channel_id) DO UPDATE SET message_id=excluded.message_id,pinned_by=excluded.pinned_by,pinned_at=excluded.pinned_at`)
     .bind(messageId, auth.id, Date.now()).run();
   const row = await db.prepare(`${messageSelect()} WHERE m.id=?`).bind(messageId).first();
-  return apiJson({ ok: true, pinnedMessage: exposeMessage(row) });
+  const pinnedMessage = exposeMessage(row);
+  if (await db.prepare("SELECT 1 AS found FROM social_polls WHERE message_id=?").bind(messageId).first()) pinnedMessage.type = "poll";
+  return apiJson({ ok: true, pinnedMessage });
 }
 
 async function getMessageReactions(request, url, db) {

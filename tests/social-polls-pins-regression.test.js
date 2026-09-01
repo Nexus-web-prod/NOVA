@@ -17,6 +17,8 @@ test("Everyone polls and pins have server-enforced permissions", () => {
   assert.match(worker, /async function voteEveryonePoll[\s\S]*?requireSocialUser\(request, db\)/);
   assert.match(worker, /CREATE TABLE IF NOT EXISTS social_polls/);
   assert.match(worker, /CREATE TABLE IF NOT EXISTS social_channel_pins/);
+  assert.match(worker, /bind\(auth\.id, question, "text", now\)/, "polls must respect the original text\/image message type constraint");
+  assert.match(worker, /polls\[String\(message\.id\)\].*type: "poll"/, "poll messages must be exposed to the client as polls");
 });
 
 test("Everyone chat exposes accessible poll and pin controls", () => {
