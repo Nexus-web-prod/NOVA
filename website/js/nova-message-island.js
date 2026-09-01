@@ -1,5 +1,6 @@
 (function(){
   'use strict';
+  var POLL_INTERVAL_MS = 15000;
   var state = {
     poll: null,
     current: null,
@@ -43,7 +44,8 @@
     var dock = document.getElementById('ni-social-dock');
     var island = document.getElementById('nova-island');
     var socialTab = document.querySelector('.ni-tab.active[data-ni-tab="friends"]');
-    var pageVisible = !!(page && page.classList.contains('active'));
+    var currentPage = typeof window.novaGetCurrentPage === 'function' ? window.novaGetCurrentPage() : '';
+    var pageVisible = !!(page && page.classList.contains('active') && currentPage === 'social');
     var islandVisible = !!(dock && dock.classList.contains('open') && island && island.classList.contains('open') && socialTab);
     if (!pageVisible && !islandVisible) return false;
     var active = typeof window._novaSocialActivePane === 'function' ? window._novaSocialActivePane() : '';
@@ -410,18 +412,20 @@
         state.lastPollResult = 'tab hidden';
         return;
       }
-      var username = me.username.toLowerCase();
-      var rows = [];
+      var username = String(me.username || '').trim().toLowerCase();
+      if (!username) {
+        state.lastPollResult = 'account missing username';
+        return;
+      }
       if (!state.baselineReady) {
         state.serverBaselineId = 0;
-        await buildBaseline(username, rows || []);
+        state.baselineReady = true;
         state.lastPollResult = 'baseline ready';
-        return;
       }
       var serverResult = await pollServerIncoming(username);
       if (serverResult === true) state.lastPollResult = 'shown from server';
       else if (serverResult === false) state.lastPollResult = 'no new messages';
-      else state.lastPollResult = await pollStreams(username, rows) ? 'shown from stream fallback' : 'no new messages';
+      else state.lastPollResult = 'message service unavailable';
     } finally {
       state.polling = false;
     }
@@ -436,7 +440,7 @@
     state.peerCache = [];
     state.peerCacheAt = 0;
     poll(true);
-    state.poll = setInterval(poll, 12000);
+    state.poll = setInterval(poll, POLL_INTERVAL_MS);
     if (state.demoScheduled) return;
     if (location.hash === '#test-message-island') {
       state.demoScheduled = true;
@@ -461,7 +465,7 @@
   }
   function status(){
     return {
-      intervalMs: 3000,
+      intervalMs: POLL_INTERVAL_MS,
       baselineReady: state.baselineReady,
       lastPollAt: state.lastPollAt ? new Date(state.lastPollAt).toISOString() : null,
       lastPollResult: state.lastPollResult,
