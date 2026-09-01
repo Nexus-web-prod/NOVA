@@ -303,6 +303,33 @@ async function ensureTursoSchema(db) {
         db.prepare("CREATE INDEX IF NOT EXISTS social_reactions_user_message_idx ON social_message_reactions(user_id,message_id)"),
         db.prepare("CREATE INDEX IF NOT EXISTS social_group_invites_user_idx ON social_group_invites(invited_user_id,created_at DESC)"),
         db.prepare("CREATE INDEX IF NOT EXISTS social_typing_channel_updated_idx ON social_typing(channel_id,updated_at DESC)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS social_channel_pins(
+          channel_id TEXT PRIMARY KEY,
+          message_id INTEGER NOT NULL,
+          pinned_by TEXT NOT NULL,
+          pinned_at INTEGER NOT NULL
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS social_polls(
+          message_id INTEGER PRIMARY KEY,
+          question TEXT NOT NULL,
+          created_by TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          closed_at INTEGER
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS social_poll_options(
+          poll_message_id INTEGER NOT NULL,
+          option_index INTEGER NOT NULL,
+          label TEXT NOT NULL,
+          PRIMARY KEY(poll_message_id,option_index)
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS social_poll_votes(
+          poll_message_id INTEGER NOT NULL,
+          user_id TEXT NOT NULL,
+          option_index INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY(poll_message_id,user_id)
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS social_poll_votes_poll_idx ON social_poll_votes(poll_message_id,option_index)"),
         db.prepare("CREATE INDEX IF NOT EXISTS user_presence_seen_idx ON user_presence(last_seen_at DESC,user_id)"),
         db.prepare("CREATE INDEX IF NOT EXISTS uno_members_user_lobby_idx ON uno_lobby_members(user_id,lobby_id)"),
         db.prepare("CREATE INDEX IF NOT EXISTS uno_lobbies_status_updated_idx ON uno_lobbies(status,updated_at DESC)"),
@@ -665,6 +692,9 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/social/blocks" && method === "DELETE") return unblockSocialUser(request, getDb(env));
   if (pathname === "/api/social/messages" && method === "GET") return getMessages(request, url, getDb(env));
   if (pathname === "/api/social/messages" && method === "POST") return sendMessage(request, getDb(env));
+  if (pathname === "/api/social/everyone/polls" && method === "POST") return createEveryonePoll(request, getDb(env));
+  if (pathname === "/api/social/everyone/polls/vote" && method === "POST") return voteEveryonePoll(request, getDb(env));
+  if (pathname === "/api/social/everyone/pin" && method === "POST") return setEveryonePin(request, getDb(env));
   if (pathname === "/api/social/reactions" && method === "GET") return getMessageReactions(request, url, getDb(env));
   if (pathname === "/api/social/reactions" && method === "POST") return toggleMessageReaction(request, getDb(env));
   if (pathname === "/api/social/typing" && method === "GET") return getTyping(request, url, getDb(env));
@@ -3298,7 +3328,85 @@ async function getMessages(request, url, db) {
   const reactions = await loadChannelReactions(db, channel.id, auth.id);
   const rows = result.results || [];
   if (!after) rows.reverse();
-  return apiJson({ channel: channel.publicId, messages: rows.map(exposeMessage), reactions });
+  let polls = {}, pinnedMessage = null;
+  if (channel.publicId === "everyone") {
+    polls = await loadEveryonePolls(db, auth.id);
+    const pin = await db.prepare(`${messageSelect()} JOIN social_channel_pins cp ON cp.message_id=m.id AND cp.channel_id=m.channel_id WHERE cp.channel_id='everyone' AND m.deleted_at IS NULL LIMIT 1`).first();
+    pinnedMessage = pin ? exposeMessage(pin) : null;
+  }
+  return apiJson({ channel: channel.publicId, messages: rows.map(exposeMessage), reactions, polls, pinnedMessage });
+}
+
+async function loadEveryonePolls(db, userId) {
+  const result = await db.prepare(`SELECT p.message_id,p.question,p.closed_at,o.option_index,o.label,
+      COUNT(v.user_id) AS vote_count,MAX(CASE WHEN v.user_id=? THEN 1 ELSE 0 END) AS mine
+    FROM social_polls p JOIN social_messages m ON m.id=p.message_id AND m.channel_id='everyone' AND m.deleted_at IS NULL
+    JOIN social_poll_options o ON o.poll_message_id=p.message_id
+    LEFT JOIN social_poll_votes v ON v.poll_message_id=p.message_id AND v.option_index=o.option_index
+    WHERE p.message_id IN (SELECT id FROM social_messages WHERE channel_id='everyone' AND deleted_at IS NULL ORDER BY id DESC LIMIT 200)
+    GROUP BY p.message_id,p.question,p.closed_at,o.option_index,o.label ORDER BY p.message_id,o.option_index`).bind(userId).all();
+  const polls = {};
+  for (const row of result.results || []) {
+    const id = String(row.message_id);
+    if (!polls[id]) polls[id] = { messageId: Number(row.message_id), question: row.question, closed: !!row.closed_at, options: [], totalVotes: 0 };
+    const option = { index: Number(row.option_index), label: row.label, votes: Number(row.vote_count || 0), mine: !!row.mine };
+    polls[id].options.push(option);
+    polls[id].totalVotes += option.votes;
+  }
+  return polls;
+}
+
+async function createEveryonePoll(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const body = await readJson(request);
+  const question = cleanText(body.question, 240);
+  const options = Array.isArray(body.options) ? body.options.map(value => cleanText(value, 100)).filter(Boolean) : [];
+  if (!question || options.length < 2 || options.length > 6 || new Set(options.map(value => value.toLowerCase())).size !== options.length) {
+    return apiError("INVALID_POLL", "Add a question and 2–6 unique choices", 400);
+  }
+  const now = Date.now();
+  const inserted = await db.prepare("INSERT INTO social_messages(channel_id,sender_id,body,message_type,created_at) VALUES('everyone',?,?,?,?)")
+    .bind(auth.id, question, "poll", now).run();
+  const messageId = Number(inserted.meta.last_row_id);
+  await db.prepare("INSERT INTO social_polls(message_id,question,created_by,created_at) VALUES(?,?,?,?)").bind(messageId, question, auth.id, now).run();
+  await db.batch(options.map((label, index) => db.prepare("INSERT INTO social_poll_options(poll_message_id,option_index,label) VALUES(?,?,?)").bind(messageId, index, label)));
+  const row = await db.prepare(`${messageSelect()} WHERE m.id=?`).bind(messageId).first();
+  const polls = await loadEveryonePolls(db, auth.id);
+  return apiJson({ message: exposeMessage(row), poll: polls[String(messageId)] }, 201);
+}
+
+async function voteEveryonePoll(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireSocialUser(request, db);
+  await enforceUserRateLimit(db, auth.id, "poll-vote", 30, 60 * 1000, 60 * 1000);
+  const body = await readJson(request), messageId = Math.max(0, Number(body.messageId || 0)), optionIndex = Number(body.optionIndex);
+  const option = await db.prepare(`SELECT o.option_index FROM social_poll_options o JOIN social_polls p ON p.message_id=o.poll_message_id
+    JOIN social_messages m ON m.id=p.message_id WHERE p.message_id=? AND o.option_index=? AND p.closed_at IS NULL AND m.channel_id='everyone' AND m.deleted_at IS NULL`)
+    .bind(messageId, optionIndex).first();
+  if (!option) return apiError("POLL_OPTION_NOT_FOUND", "That poll choice is unavailable", 404);
+  await db.prepare(`INSERT INTO social_poll_votes(poll_message_id,user_id,option_index,created_at) VALUES(?,?,?,?)
+    ON CONFLICT(poll_message_id,user_id) DO UPDATE SET option_index=excluded.option_index,created_at=excluded.created_at`)
+    .bind(messageId, auth.id, optionIndex, Date.now()).run();
+  const polls = await loadEveryonePolls(db, auth.id);
+  return apiJson({ ok: true, poll: polls[String(messageId)] });
+}
+
+async function setEveryonePin(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const body = await readJson(request), messageId = Math.max(0, Number(body.messageId || 0));
+  if (!messageId) {
+    await db.prepare("DELETE FROM social_channel_pins WHERE channel_id='everyone'").run();
+    return apiJson({ ok: true, pinnedMessage: null });
+  }
+  const message = await db.prepare("SELECT id FROM social_messages WHERE id=? AND channel_id='everyone' AND deleted_at IS NULL").bind(messageId).first();
+  if (!message) return apiError("MESSAGE_NOT_FOUND", "Message not found", 404);
+  await db.prepare(`INSERT INTO social_channel_pins(channel_id,message_id,pinned_by,pinned_at) VALUES('everyone',?,?,?)
+    ON CONFLICT(channel_id) DO UPDATE SET message_id=excluded.message_id,pinned_by=excluded.pinned_by,pinned_at=excluded.pinned_at`)
+    .bind(messageId, auth.id, Date.now()).run();
+  const row = await db.prepare(`${messageSelect()} WHERE m.id=?`).bind(messageId).first();
+  return apiJson({ ok: true, pinnedMessage: exposeMessage(row) });
 }
 
 async function getMessageReactions(request, url, db) {

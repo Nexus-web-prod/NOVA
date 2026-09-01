@@ -31,7 +31,8 @@ async function streamRange(stream,afterId,count){
   try{
     const channel=streamToChannel(stream),a=await NovaAPI.messages(channel,afterId||0),reactionMap=a.reactions||{};
     applyReactionSnapshot(reactionMap,channel);
-    return (a.messages||[]).map(m=>({_id:String(m.id),from:m.from,text:m.body,type:m.type||"text",ts:m.createdAt||m.ts,replyToId:m.replyToId,replyFrom:m.replyFrom,replyText:m.replyBody,replyType:m.replyType,avatarUrl:m.avatarUrl,displayName:m.displayName,reactions:reactionMap[String(m.id)]||[],_channel:channel}));
+    if(channel==="everyone"){_everyonePolls=a.polls||_everyonePolls;_everyonePinned=a.pinnedMessage||null;renderEveryonePinned();}
+    return (a.messages||[]).map(m=>({_id:String(m.id),from:m.from,text:m.body,type:m.type||"text",ts:m.createdAt||m.ts,replyToId:m.replyToId,replyFrom:m.replyFrom,replyText:m.replyBody,replyType:m.replyType,avatarUrl:m.avatarUrl,displayName:m.displayName,reactions:reactionMap[String(m.id)]||[],poll:(a.polls||{})[String(m.id)]||null,_channel:channel}));
   }catch(e){console.warn("[nova] message load failed",e);return[];}
 }
 
@@ -56,10 +57,17 @@ const _socialProfiles={};
 let activePane="everyone";
 let sendLock=false,domWired=false;
 let replyTarget=null;
+let _everyonePolls={},_everyonePinned=null;
 const _seenByPane={};
 function _getSeenIds(p){if(!_seenByPane[p])_seenByPane[p]=new Set();return _seenByPane[p]}
 let seenIds={has:id=>_getSeenIds(activePane).has(id),add:id=>_getSeenIds(activePane).add(id),delete:id=>_getSeenIds(activePane).delete(id),clear:()=>{if(_seenByPane[activePane])_seenByPane[activePane].clear()}};
 let activeGroupId=null;
+
+function currentUserIsAdmin(){
+  const user=window.__novaV7User||getAccount()||{},roles=[...(Array.isArray(user.roles)?user.roles:[]),user.role].filter(Boolean).map(String);
+  const username=String(user.username||getAccount()?.username||"").toLowerCase();
+  return !!user.staff||roles.some(role=>["admin","developer","owner"].includes(role.toLowerCase()))||!!(_adminSet&&_adminSet.has(username));
+}
 
 // Cursor: track last seen stream id per pane for efficient polling
 const _cursors={};
@@ -723,6 +731,7 @@ async function loadSocial(){
   (overview.friends||[]).forEach(p=>{_socialProfiles[p.username.toLowerCase()]=p;if(p.avatarUrl)_avatarCache[p.username.toLowerCase()]=p.avatarUrl;});
   _adminSet=new Set((overview.friends||[]).filter(p=>p.staff).map(p=>p.username.toLowerCase()));
   if(window.__novaV7User?.staff)_adminSet.add(window.__novaV7User.username.toLowerCase());
+  const pollButton=document.getElementById("social-everyone-poll-btn");if(pollButton)pollButton.hidden=!currentUserIsAdmin();renderEveryonePinned();
   friends=(overview.friends||[]).map(r=>r.username);
   requests=(overview.incoming||[]).map(r=>r.username);
   _lastRequestsHash=JSON.stringify(requests);
@@ -851,8 +860,20 @@ async function copyMessage(msg,button){
   try{if(msg.type==="image")await copyImageMessage(msg.text);else await copyPlainText(msg.text||"");button.classList.add("is-copied");button.setAttribute("aria-label","Copied");toast(msg.type==="image"?"Photo copied":"Message copied");setTimeout(()=>{button.classList.remove("is-copied");button.setAttribute("aria-label","Copy message");},1100);}
   catch(error){toast(error.message||"Could not copy message");}
 }
-function messageActionsHtml(){
-  return '<div class="social-msg-actions" role="toolbar" aria-label="Message actions"><button type="button" class="social-msg-action" data-message-action="reply" title="Reply" aria-label="Reply"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button><button type="button" class="social-msg-action" data-message-action="react" title="React" aria-label="React"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></button><button type="button" class="social-msg-action" data-message-action="copy" title="Copy message" aria-label="Copy message"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg></button></div>';
+function renderEveryonePinned(){
+  const bar=document.getElementById("social-everyone-pinned"),text=document.getElementById("social-everyone-pinned-text"),unpin=document.getElementById("social-everyone-unpin");if(!bar)return;
+  bar.hidden=!_everyonePinned;if(!_everyonePinned)return;
+  if(text)text.textContent=(_everyonePinned.type==="poll"?"Poll: ":"")+String(_everyonePinned.body||"").slice(0,120);
+  if(unpin)unpin.hidden=!currentUserIsAdmin();
+}
+function pollBubbleHtml(poll){
+  if(!poll)return '<div class="social-msg-bubble social-poll-card"><b>Poll unavailable</b></div>';
+  const total=Math.max(0,Number(poll.totalVotes||0));
+  return '<div class="social-msg-bubble social-poll-card"><small>POLL</small><strong>'+esc(poll.question)+'</strong><div class="social-poll-options">'+poll.options.map(option=>{const percent=total?Math.round(Number(option.votes||0)*100/total):0;return '<button type="button" class="social-poll-option'+(option.mine?' is-selected':'')+'" data-poll-option="'+option.index+'" '+(poll.closed?'disabled':'')+'><span class="social-poll-fill" style="width:'+percent+'%"></span><span class="social-poll-label">'+esc(option.label)+'</span><span class="social-poll-count">'+Number(option.votes||0)+'</span></button>';}).join('')+'</div><span class="social-poll-total">'+total+' vote'+(total===1?'':'s')+(poll.closed?' · Closed':'')+'</span></div>';
+}
+function messageActionsHtml(msg){
+  const pin=currentUserIsAdmin()&&msg?._channel==="everyone"&&msg?._id?'<button type="button" class="social-msg-action" data-message-action="pin" title="Pin message" aria-label="Pin message"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 17 1 5-3-5-5-2 4-4V5L7 3h10l-2 2v6l4 4-7 2Z"/></svg></button>':'';
+  return '<div class="social-msg-actions" role="toolbar" aria-label="Message actions"><button type="button" class="social-msg-action" data-message-action="reply" title="Reply" aria-label="Reply"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button><button type="button" class="social-msg-action" data-message-action="react" title="React" aria-label="React"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></button><button type="button" class="social-msg-action" data-message-action="copy" title="Copy message" aria-label="Copy message"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg></button>'+pin+'</div>';
 }
 function openSocialUno(lobbyId,shellOnly){
   window.NovaSocialCheckersNative?.stop();
@@ -938,12 +959,14 @@ function makeMsg(msg,mine,showSender){
     bubble='<div class="social-msg-bubble social-uno-invite social-chess-invite"><div class="social-chess-mark" aria-hidden="true">♞</div><div class="social-uno-copy"><small>NOVA MATCH</small><strong>CHESS</strong><span>'+(mine?'Challenge sent — the board is ready.':'You were challenged to a match.')+'</span></div><button class="social-uno-join" type="button" data-social-chess-match="'+esc(chessMatch[1])+'">'+(mine?'Open':'Play')+' match<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>';
   }else if(connect4Match){
     bubble='<div class="social-msg-bubble social-uno-invite social-connect4-invite"><div class="social-connect4-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="social-uno-copy"><small>NOVA MATCH</small><strong>CONNECT FOUR</strong><span>'+(mine?'Challenge sent — the board is ready.':'You were challenged to connect four.')+'</span></div><button class="social-uno-join" type="button" data-social-connect4-match="'+esc(connect4Match[1])+'">'+(mine?'Open':'Play')+' match<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>';
+  }else if(msg.type==="poll"){
+    msg.poll=msg.poll||_everyonePolls[String(msg._id)]||null;bubble=pollBubbleHtml(msg.poll);
   }else if(msg.type==="image"){
     bubble='<div class="social-msg-bubble social-msg-bubble--img"><img src="'+esc(msg.text)+'" alt="photo" class="social-chat-photo" loading="lazy"></div>';
   }else{
     bubble='<div class="social-msg-bubble">'+esc(msg.text)+"</div>";
   }
-  el.innerHTML=sender+replyCtx+'<div class="social-msg-main">'+bubble+messageActionsHtml()+'</div><div class="social-msg-reactions"></div>'+time;
+  el.innerHTML=sender+replyCtx+'<div class="social-msg-main">'+bubble+messageActionsHtml(msg)+'</div><div class="social-msg-reactions"></div>'+time;
   el.querySelector("[data-social-uno-lobby]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialUno(e.currentTarget.dataset.socialUnoLobby);});
   el.querySelector("[data-social-checkers-match]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialCheckers(e.currentTarget.dataset.socialCheckersMatch);});
   el.querySelector("[data-social-chess-match]")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openSocialChess(e.currentTarget.dataset.socialChessMatch);});
@@ -955,6 +978,8 @@ function makeMsg(msg,mine,showSender){
   });
   el.querySelector('[data-message-action="react"]')?.addEventListener("click",e=>{e.stopPropagation();openReactionPicker(e.currentTarget,msg,el);});
   el.querySelector('[data-message-action="copy"]')?.addEventListener("click",e=>{e.stopPropagation();copyMessage(msg,e.currentTarget);});
+  el.querySelector('[data-message-action="pin"]')?.addEventListener("click",async e=>{e.stopPropagation();const button=e.currentTarget;button.disabled=true;try{const data=await NovaAPI.pinEveryoneMessage(msg._id);_everyonePinned=data.pinnedMessage;renderEveryonePinned();toast("Message pinned");}catch(error){toast(error.message||"Could not pin message");}finally{button.disabled=false;}});
+  el.querySelectorAll("[data-poll-option]").forEach(button=>button.addEventListener("click",async e=>{e.stopPropagation();button.disabled=true;try{const data=await NovaAPI.voteEveryonePoll(msg._id,Number(button.dataset.pollOption));msg.poll=data.poll;_everyonePolls[String(msg._id)]=data.poll;const replacement=makeMsg(msg,mine,showSender);el.replaceWith(replacement);}catch(error){button.disabled=false;toast(error.message||"Could not record vote");}}));
   renderReactionChips(el,msg);
   if(showSender&&msg.from&&!_avatarCache[msg.from.toLowerCase()]){
     const avEl=el.querySelector(".social-msg-avatar");if(avEl)applyAvatarToEl(avEl,msg.from);
@@ -1592,6 +1617,17 @@ function openFeatureRequestModal(){
 }
 window._novaOpenFeatureRequest=openFeatureRequestModal;
 
+function openEveryonePollModal(){
+  if(!currentUserIsAdmin())return toast("Only admins can create polls");
+  const overlay=document.createElement("div");overlay.className="social-poll-modal";overlay.setAttribute("role","dialog");overlay.setAttribute("aria-modal","true");overlay.setAttribute("aria-labelledby","social-poll-modal-title");
+  overlay.innerHTML='<form class="social-poll-form"><header><small>EVERYONE CHAT</small><h2 id="social-poll-modal-title">Create a poll</h2></header><label>Question<input id="social-poll-question" maxlength="240" required placeholder="What should everyone vote on?"></label><div id="social-poll-fields"><label>Choice 1<input maxlength="100" required></label><label>Choice 2<input maxlength="100" required></label></div><button class="social-poll-add" type="button">+ Add choice</button><p class="social-poll-error" role="alert"></p><footer><button type="button" data-poll-cancel>Cancel</button><button type="submit" class="primary">Create poll</button></footer></form>';
+  document.body.appendChild(overlay);const form=overlay.querySelector("form"),fields=overlay.querySelector("#social-poll-fields"),close=()=>overlay.remove();
+  overlay.querySelector("[data-poll-cancel]").addEventListener("click",close);overlay.addEventListener("click",e=>{if(e.target===overlay)close();});
+  overlay.querySelector(".social-poll-add").addEventListener("click",()=>{const count=fields.querySelectorAll("label").length;if(count>=6)return;const label=document.createElement("label");label.textContent="Choice "+(count+1);label.innerHTML+=' <input maxlength="100" required><button type="button" aria-label="Remove choice">×</button>';label.querySelector("button").addEventListener("click",()=>label.remove());fields.appendChild(label);label.querySelector("input").focus();});
+  form.addEventListener("submit",async e=>{e.preventDefault();const question=overlay.querySelector("#social-poll-question").value.trim(),options=[...fields.querySelectorAll("input")].map(input=>input.value.trim()).filter(Boolean),submit=form.querySelector('[type="submit"]'),error=form.querySelector(".social-poll-error");if(!question||options.length<2){error.textContent="Add a question and at least two choices.";return;}submit.disabled=true;submit.textContent="Creating…";try{const data=await NovaAPI.createEveryonePoll(question,options),msg={_id:String(data.message.id),from:data.message.from,text:data.message.body,type:"poll",ts:data.message.createdAt,poll:data.poll,_channel:"everyone"};_everyonePolls[msg._id]=data.poll;const container=document.getElementById("social-everyone-messages");container?.appendChild(makeMsg(msg,String(msg.from).toLowerCase()===String(getAccount()?.username||"").toLowerCase(),true));if(container)container.scrollTop=container.scrollHeight;setCursor("everyone",msg._id);close();toast("Poll created");}catch(err){error.textContent=err.message||"Could not create poll";submit.disabled=false;submit.textContent="Create poll";}});
+  overlay.addEventListener("keydown",e=>{if(e.key==="Escape")close();});overlay.querySelector("#social-poll-question").focus();
+}
+
 // ── Wire DOM ──────────────────────────────────────────────────────────────────
 function wireDom(){
   if(domWired)return;domWired=true;
@@ -1618,6 +1654,9 @@ function wireDom(){
   wireAttachmentButton("social-group-photo-btn","social-group-input-wrap",_grpPhotoInput,_grpCameraInput,sendGroupImage,()=>!!getAccount()&&!!activeGroupId);
 
   document.getElementById("social-everyone-tab")?.addEventListener("click",()=>{if(!getAccount())return toast("Sign in to chat");openEveryone();});
+  const pollButton=document.getElementById("social-everyone-poll-btn");if(pollButton){pollButton.hidden=!currentUserIsAdmin();pollButton.addEventListener("click",openEveryonePollModal);}
+  document.getElementById("social-everyone-pinned-jump")?.addEventListener("click",()=>{const target=document.querySelector('[data-stream-id="'+String(_everyonePinned?.id||'')+'"]');target?.scrollIntoView({block:"center",behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});target?.focus();});
+  document.getElementById("social-everyone-unpin")?.addEventListener("click",async()=>{try{await NovaAPI.pinEveryoneMessage(null);_everyonePinned=null;renderEveryonePinned();toast("Message unpinned");}catch(error){toast(error.message||"Could not unpin message");}});
   document.getElementById("social-edit-profile-btn")?.addEventListener("click",()=>{
     if(!getAccount())return toast("Sign in to edit your profile");
     if(window._novaOpenProfileSettings)window._novaOpenProfileSettings();
