@@ -694,6 +694,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/social/messages" && method === "POST") return sendMessage(request, getDb(env));
   if (pathname === "/api/social/everyone/polls" && method === "POST") return createEveryonePoll(request, getDb(env));
   if (pathname === "/api/social/everyone/polls/vote" && method === "POST") return voteEveryonePoll(request, getDb(env));
+  if (pathname === "/api/social/everyone/polls/end" && method === "POST") return endEveryonePoll(request, getDb(env));
   if (pathname === "/api/social/everyone/pin" && method === "POST") return setEveryonePin(request, getDb(env));
   if (pathname === "/api/social/reactions" && method === "GET") return getMessageReactions(request, url, getDb(env));
   if (pathname === "/api/social/reactions" && method === "POST") return toggleMessageReaction(request, getDb(env));
@@ -3393,6 +3394,18 @@ async function voteEveryonePoll(request, db) {
   await db.prepare(`INSERT INTO social_poll_votes(poll_message_id,user_id,option_index,created_at) VALUES(?,?,?,?)
     ON CONFLICT(poll_message_id,user_id) DO UPDATE SET option_index=excluded.option_index,created_at=excluded.created_at`)
     .bind(messageId, auth.id, optionIndex, Date.now()).run();
+  const polls = await loadEveryonePolls(db, auth.id);
+  return apiJson({ ok: true, poll: polls[String(messageId)] });
+}
+
+async function endEveryonePoll(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const body = await readJson(request), messageId = Math.max(0, Number(body.messageId || 0));
+  const poll = await db.prepare(`SELECT p.message_id,p.closed_at FROM social_polls p JOIN social_messages m ON m.id=p.message_id
+    WHERE p.message_id=? AND m.channel_id='everyone' AND m.deleted_at IS NULL`).bind(messageId).first();
+  if (!poll) return apiError("POLL_NOT_FOUND", "Poll not found", 404);
+  if (!poll.closed_at) await db.prepare("UPDATE social_polls SET closed_at=? WHERE message_id=?").bind(Date.now(), messageId).run();
   const polls = await loadEveryonePolls(db, auth.id);
   return apiJson({ ok: true, poll: polls[String(messageId)] });
 }

@@ -14,6 +14,7 @@ test("Everyone polls and pins have server-enforced permissions", () => {
   assert.match(worker, /setEveryonePin\(request, getDb\(env\)\)/);
   assert.match(worker, /async function createEveryonePoll[\s\S]*?requireRole\(request, db, ADMIN_ROLES\)/);
   assert.match(worker, /async function setEveryonePin[\s\S]*?requireRole\(request, db, ADMIN_ROLES\)/);
+  assert.match(worker, /async function endEveryonePoll[\s\S]*?requireRole\(request, db, ADMIN_ROLES\)/);
   assert.match(worker, /async function voteEveryonePoll[\s\S]*?requireSocialUser\(request, db\)/);
   assert.match(worker, /CREATE TABLE IF NOT EXISTS social_polls/);
   assert.match(worker, /CREATE TABLE IF NOT EXISTS social_channel_pins/);
@@ -24,10 +25,12 @@ test("Everyone polls and pins have server-enforced permissions", () => {
 test("Everyone chat exposes accessible poll and pin controls", () => {
   assert.match(api, /createEveryonePoll/);
   assert.match(api, /voteEveryonePoll/);
+  assert.match(api, /endEveryonePoll/);
   assert.match(api, /pinEveryoneMessage/);
   assert.match(html, /id="social-everyone-poll-btn"[^>]*hidden/);
   assert.match(html, /id="social-everyone-pinned"[^>]*hidden/);
   assert.match(social, /function currentUserIsAdmin/);
   assert.match(social, /function pollBubbleHtml/);
   assert.match(social, /Only admins can create polls/);
+  assert.match(social, /data-poll-end/);
 });
