@@ -3603,11 +3603,21 @@ function moderationLongestCharacterRun(text) {
 
 function containsSevereTerm(forms) {
   const separated = moderationSingleLetterRuns(forms.leet);
+  const leetTokens = String(forms.leet || "").split(/\s+/).filter(Boolean);
+  const collapseRuns = value => String(value || "").replace(/([\p{L}\p{N}])\1+/gu, "$1");
   for (const term of MODERATION_SEVERE_TERMS) {
     if (forms.tokens.includes(term) || separated.some(run => run.includes(term))) return true;
+    const collapsedTerm = collapseRuns(term);
+    for (let start = 0; start < leetTokens.length; start += 1) {
+      let joined = "";
+      for (let length = 1; length <= 3 && start + length <= leetTokens.length; length += 1) {
+        joined += leetTokens[start + length - 1];
+        if (collapseRuns(joined) === collapsedTerm) return true;
+      }
+    }
     if (!MODERATION_CONFIG.fuzzyFilterEnabled || term.length < 5) continue;
     const allowance = term.length >= 8 ? 1 : 1;
-    if (forms.tokens.some(token => token.length >= 5 && damerauLevenshteinWithin(token, term, allowance))) return true;
+    if (forms.tokens.some(token => token.length >= 5 && token[0] === term[0] && damerauLevenshteinWithin(token, term, allowance))) return true;
   }
   return false;
 }

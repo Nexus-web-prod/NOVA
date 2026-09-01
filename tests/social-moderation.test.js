@@ -43,6 +43,8 @@ assert.strictEqual(baseModerationDecision("n1gger").action, "block");
 assert.strictEqual(baseModerationDecision("nіgger").action, "block");
 assert.strictEqual(baseModerationDecision("niggre").action, "block");
 assert.strictEqual(baseModerationDecision("n.i.g.g.e.r").action, "block");
+assert.strictEqual(baseModerationDecision("nigggggggg ggger").action, "block");
+assert.strictEqual(baseModerationDecision("snigger").action, "allow");
 assert.strictEqual(baseModerationDecision("please go kill yourself").severity, 5);
 assert.strictEqual(baseModerationDecision("@a @b @c @d @e @f hello").rule, "mention_spam");
 assert.match(social, /streamAdd\(stream,fields,optimisticEl\)/, "Social sends must accept the optimistic bubble for reconciliation");
