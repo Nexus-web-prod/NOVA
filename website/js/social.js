@@ -898,10 +898,10 @@ function openPhotoViewer(src,trigger){
     viewer.querySelector('[data-photo-action="close"]').onclick=close;
     stage.addEventListener("wheel",event=>{event.preventDefault();zoom(event.deltaY<0?1.15:1/1.15);},{passive:false});
     stage.addEventListener("dblclick",event=>{event.preventDefault();state.scale>1?reset():zoom(2);});
-    stage.addEventListener("pointerdown",event=>{state.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});state.dragged=false;stage.setPointerCapture(event.pointerId);});
+    stage.addEventListener("pointerdown",event=>{state.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});state.dragged=false;state.backgroundPress=event.target===stage;stage.setPointerCapture(event.pointerId);});
     stage.addEventListener("pointermove",event=>{const previous=state.pointers.get(event.pointerId);if(!previous)return;const dx=event.clientX-previous.x,dy=event.clientY-previous.y;state.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(Math.abs(dx)+Math.abs(dy)>2)state.dragged=true;if(state.pointers.size===1&&state.scale>1){state.x+=dx;state.y+=dy;apply();}else if(state.pointers.size===2){const points=[...state.pointers.values()];const distance=Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);if(state.lastPinchDistance)zoom(distance/state.lastPinchDistance);state.lastPinchDistance=distance;}});
     const release=event=>{state.pointers.delete(event.pointerId);if(state.pointers.size<2)state.lastPinchDistance=0;};stage.addEventListener("pointerup",release);stage.addEventListener("pointercancel",release);
-    stage.addEventListener("click",event=>{if(event.target===stage&&!state.dragged)close();});
+    stage.addEventListener("click",()=>{if(state.backgroundPress&&!state.dragged)close();state.backgroundPress=false;});
     viewer.addEventListener("keydown",event=>{if(event.key==="Escape")close();else if(event.key==="+"||event.key==="=")zoom(1.25);else if(event.key==="-")zoom(1/1.25);else if(event.key==="0")reset();else if(state.scale>1&&["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)){event.preventDefault();state.x+=(event.key==="ArrowLeft"?24:event.key==="ArrowRight"?-24:0);state.y+=(event.key==="ArrowUp"?24:event.key==="ArrowDown"?-24:0);apply();}});
     _photoViewer={viewer,image,state,reset,close};
   }
