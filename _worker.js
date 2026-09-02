@@ -5573,7 +5573,10 @@ async function adminAudit(request, url, db) {
 async function resolveChannel(db, userId, requested, create) {
   if (requested === "everyone") return { id: "everyone", publicId: "everyone", kind: "everyone" };
   if (requested === "announcements") {
-    if (create) await db.prepare("INSERT OR IGNORE INTO social_channels(id,kind,name) VALUES('announcements','announcements','Announcements')").run();
+    // The deployed Social schema only permits its established storage kinds.
+    // Announcements remains a distinct public channel at the API layer, while
+    // using a non-DM backing row solely to satisfy the message foreign key.
+    if (create) await db.prepare("INSERT OR IGNORE INTO social_channels(id,kind,name) VALUES('announcements','group','Announcements')").run();
     return { id: "announcements", publicId: "announcements", kind: "announcements" };
   }
   if (requested.startsWith("group:")) {
