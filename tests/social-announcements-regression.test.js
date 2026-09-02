@@ -17,6 +17,7 @@ test("Everyone remains the normal default and unread announcements take priority
   assert.match(social, /options\?\.chooseInitialPane&&announcementLatest>seen/);
   assert.match(social, /else _openEveryoneWithMsgs\(everyoneMsgs\|\|\[\]\)/);
   assert.match(social, /localStorage\.setItem\(announcementsSeenKey\(\),String\(latest\)\)/);
+  assert.doesNotMatch(social, /else\{_socialEntryPending=true;/, "automatic announcement opening must only be armed once per Nova page load");
 });
 
 test("Announcements use the shared message channel with server-side admin-only posting", () => {

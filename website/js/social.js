@@ -1887,7 +1887,7 @@ function wireNtShortcuts(){
 document.addEventListener("DOMContentLoaded",()=>{wireDom();wireNtShortcuts();if(document.querySelector("#page-social.active"))initSocial();});
 document.addEventListener("nova:social-open",()=>{wireDom();initSocial();});
 document.addEventListener("nova:social-open-everyone",()=>{wireDom();initSocial();setTimeout(()=>{document.getElementById("social-everyone-tab")?.click();},300);});
-document.addEventListener("nova:page-change",e=>{if(e.detail?.page==="social"){wireDom();initSocial();}else{_socialEntryPending=true;if(e.detail?.page==="browser")wireNtShortcuts();else if(!document.body.classList.contains("ni-social-sidebar-open"))teardownSocial();}});
+document.addEventListener("nova:page-change",e=>{if(e.detail?.page==="social"){wireDom();initSocial();}else{if(e.detail?.page==="browser")wireNtShortcuts();else if(!document.body.classList.contains("ni-social-sidebar-open"))teardownSocial();}});
 document.addEventListener("nova:social-dock-closed",()=>{if(!document.getElementById("page-social")?.classList.contains("active"))teardownSocial();});
 document.addEventListener("nova:login",()=>{if(document.getElementById("page-social")?.classList.contains("active"))initSocial();});
 document.addEventListener("nova:logout",()=>{if(document.getElementById("page-social")?.classList.contains("active"))showLoginOverlay();else teardownSocial();});

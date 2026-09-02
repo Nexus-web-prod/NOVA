@@ -13,7 +13,7 @@ test('chat photos open the accessible Nova photo viewer', () => {
   assert.match(social, /setAttribute\("role","dialog"\)/);
   assert.match(social, /const photo=el\.querySelector\("\.social-chat-photo"\)/);
   assert.match(social, /openPhotoViewer\(msg\.text,e\.currentTarget\)/);
-  assert.match(html, /social-announcements-r1/);
+  assert.match(html, /social-announcements-r2/);
 });
 
 test('photo viewer supports visible and gesture zoom controls', () => {
