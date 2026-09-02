@@ -1639,10 +1639,11 @@ window._novaOpenSocialPane=async function(which){
   await loadSocial();
   startSocialPolling();
   startFriendsPolling();
-  if(!which||which==="everyone")await openEveryone();
-  else if(which==="announcements")await openAnnouncements();
+  // loadSocial owns the default choice: unread announcements first, otherwise Everyone.
+  // Do not force Everyone afterward or it overwrites the unread-announcement decision.
+  if(which==="announcements")await openAnnouncements();
   else if(String(which).startsWith("group:"))await openGroup(String(which).slice(6));
-  else await openDM(String(which).toLowerCase());
+  else if(which&&which!=="everyone")await openDM(String(which).toLowerCase());
   return true;
 };
 

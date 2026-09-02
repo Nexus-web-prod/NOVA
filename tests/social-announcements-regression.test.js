@@ -18,6 +18,7 @@ test("Everyone remains the normal default and unread announcements take priority
   assert.match(social, /else _openEveryoneWithMsgs\(everyoneMsgs\|\|\[\]\)/);
   assert.match(social, /localStorage\.setItem\(announcementsSeenKey\(\),String\(latest\)\)/);
   assert.doesNotMatch(social, /_socialEntryPending/, "background initialization timing must not consume the unread announcement decision");
+  assert.doesNotMatch(social, /if\(!which\|\|which==="everyone"\)await openEveryone\(\)/, "the Island Social opener must not overwrite the unread-announcement choice with Everyone");
 });
 
 test("Announcements use the shared message channel with server-side admin-only posting", () => {

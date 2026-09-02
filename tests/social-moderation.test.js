@@ -57,7 +57,7 @@ assert.doesNotMatch(worker, /DUPLICATE_MESSAGE/, "a harmless repeated message mu
 assert.match(worker, /persistAutomaticChatTimeout\(db, auth\.id, channel\.kind, moderation\)/, "automatic timeouts must be persisted for Chat Moderation");
 assert.match(worker, /id LIKE 'auto_chat_%'/, "automatic restrictions must remain distinguishable from staff actions");
 assert.doesNotMatch(social, /startEveryoneCooldown|_everyoneCooldownUntil/, "the client must not impose a cooldown after every message");
-assert.match(fs.readFileSync(path.join(__dirname, "..", "website", "html", "index.html"), "utf8"), /social\.js\?v=20260901-social-announcements-r3/, "Social client cache key must be current");
+assert.match(fs.readFileSync(path.join(__dirname, "..", "website", "html", "index.html"), "utf8"), /social\.js\?v=20260901-social-announcements-r4/, "Social client cache key must be current");
 
 (async () => {
   const first = await moderateMessage({ userId:"fragment-user", text:"nig", now:1000 });
