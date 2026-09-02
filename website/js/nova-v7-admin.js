@@ -902,12 +902,13 @@
   }
 
   async function loadChatView(content) {
-    content.innerHTML = viewHeading("Manage", "Chat moderation", "Search safely, review filter events, and manage Nova Social timeouts.", '<div class="nova-admin-heading-actions"><button type="button" class="nova-admin-danger" id="nova-admin-clear-everyone-chat">Clear Everyone chat</button><button type="button" class="nova-admin-primary" id="nova-admin-chat-ban-new">' + icons.shield + '<span>Timeout Social</span></button></div>') +
+    content.innerHTML = viewHeading("Manage", "Chat moderation", "Search safely, review filter events, and manage Nova Social timeouts.", '<div class="nova-admin-heading-actions"><button type="button" class="nova-admin-danger" id="nova-admin-clear-announcements-chat">Clear Announcements</button><button type="button" class="nova-admin-danger" id="nova-admin-clear-everyone-chat">Clear Everyone chat</button><button type="button" class="nova-admin-primary" id="nova-admin-chat-ban-new">' + icons.shield + '<span>Timeout Social</span></button></div>') +
       '<div class="nova-admin-chat-search"><div class="nova-admin-toolbar"><div class="nova-admin-search">' + icons.search + '<input id="nova-admin-chat-q" type="search" placeholder="Message text" autocomplete="off"></div><input id="nova-admin-chat-user" type="search" placeholder="Username" autocomplete="off"><select id="nova-admin-chat-channel" aria-label="Channel type"><option value="">All chats</option><option value="everyone">Everyone</option><option value="dm">Direct messages</option><option value="group">Groups</option></select></div><div class="nova-admin-toolbar nova-admin-chat-audit"><input id="nova-admin-chat-reason" maxlength="240" placeholder="Investigation reason (recorded in the audit log)"><button type="button" class="nova-admin-primary" id="nova-admin-chat-search-btn">Search chat</button></div></div>' +
       '<section class="nova-admin-panel nova-admin-chat-restrictions"><header><div><h2>Active Social timeouts</h2><p>Timeouts restrict Social actions without locking the whole account</p></div><button type="button" class="nova-admin-text-btn" id="nova-admin-chat-refresh">Refresh</button></header><div id="nova-admin-chat-restrictions-list">' + loadingView() + '</div></section>' +
       '<div id="nova-admin-chat-results">' + emptyState("Search chat evidence", "Enter a username or message text and record why you are investigating.") + '</div>';
     document.getElementById("nova-admin-chat-ban-new").onclick = function () { openChatTimeoutDialog(""); };
     document.getElementById("nova-admin-clear-everyone-chat").onclick = openClearEveryoneChatDialog;
+    document.getElementById("nova-admin-clear-announcements-chat").onclick = openClearAnnouncementsChatDialog;
     document.getElementById("nova-admin-chat-search-btn").onclick = searchChatMessages;
     document.getElementById("nova-admin-chat-refresh").onclick = refreshChatRestrictions;
     ["nova-admin-chat-q", "nova-admin-chat-user", "nova-admin-chat-reason"].forEach(function (id) {
@@ -986,6 +987,26 @@
         toast(error.message, "error");
         setBusy(button, false);
       }
+    };
+  }
+
+  function openClearAnnouncementsChatDialog() {
+    var layer = document.getElementById("nova-admin-layer");
+    if (!layer) return;
+    layer.innerHTML = '<div class="nova-admin-layer-backdrop" data-close-layer></div><div class="nova-admin-dialog" role="dialog" aria-modal="true" aria-labelledby="nova-admin-clear-announcements-title"><header><div><span>Nova Social moderation</span><h2 id="nova-admin-clear-announcements-title">Clear Announcements</h2></div><button type="button" class="nova-admin-icon-btn" data-close-layer aria-label="Close">' + icons.close + '</button></header><p>This removes every currently visible post from the Announcements channel. Everyone chat, direct messages, and groups are not affected.</p><label for="nova-admin-clear-announcements-reason">Audit reason</label><textarea id="nova-admin-clear-announcements-reason" maxlength="240" placeholder="Why are you clearing Announcements?"></textarea><footer><button type="button" class="nova-admin-secondary" data-close-layer>Cancel</button><button type="button" class="nova-admin-danger" id="nova-admin-clear-announcements-confirm">Clear Announcements</button></footer></div>';
+    layer.classList.add("open");
+    layer.querySelectorAll("[data-close-layer]").forEach(function (button) { button.onclick = closeLayer; });
+    var reason = document.getElementById("nova-admin-clear-announcements-reason");
+    if (reason) reason.focus();
+    document.getElementById("nova-admin-clear-announcements-confirm").onclick = async function () {
+      var button = this, auditReason = (reason && reason.value || "").trim();
+      if (!auditReason) return toast("An audit reason is required", "error");
+      setBusy(button, true, "Clearing");
+      try {
+        var result = await NovaAPI.adminClearAnnouncementsChat(auditReason);
+        toast("Announcements cleared (" + Number(result.deletedMessages || 0) + " messages)", "success");
+        closeLayer();
+      } catch (error) { toast(error.message, "error"); setBusy(button, false); }
     };
   }
 

@@ -266,6 +266,7 @@
     adminCreateChatRestriction: function (body) { return request("/api/admin/chat/restrictions", { method: "POST", body: body }); },
     adminRevokeChatRestriction: function (body) { return request("/api/admin/chat/restrictions", { method: "DELETE", body: body }); },
     adminClearEveryoneChat: function (reason) { return request("/api/admin/chat/everyone/clear", { method: "DELETE", body: { reason: reason } }); },
+    adminClearAnnouncementsChat: function (reason) { return request("/api/admin/chat/announcements/clear", { method: "DELETE", body: { reason: reason } }); },
     adminReports: function (status) { return request("/api/admin/reports?status=" + encodeURIComponent(status || "")); },
     adminReportAction: function (body) { return request("/api/admin/reports/action", { method: "POST", body: body }); },
     adminTickets: function (status, query) { return request("/api/admin/tickets?status=" + encodeURIComponent(status || "") + "&q=" + encodeURIComponent(query || "")); },

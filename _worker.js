@@ -768,6 +768,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/admin/chat/restrictions" && method === "POST") return adminCreateChatRestriction(request, getDb(env));
   if (pathname === "/api/admin/chat/restrictions" && method === "DELETE") return adminRevokeChatRestriction(request, getDb(env));
   if (pathname === "/api/admin/chat/everyone/clear" && method === "DELETE") return adminClearEveryoneChat(request, getDb(env));
+  if (pathname === "/api/admin/chat/announcements/clear" && method === "DELETE") return adminClearAnnouncementsChat(request, getDb(env));
   if (pathname === "/api/admin/reports" && method === "GET") return adminReports(request, url, getDb(env));
   if (pathname === "/api/admin/reports/action" && method === "POST") return adminReportAction(request, getDb(env));
   if (pathname === "/api/admin/tickets" && method === "GET") return adminTickets(request, url, getDb(env));
@@ -5304,6 +5305,24 @@ async function adminClearEveryoneChat(request, db) {
   }
 
   await audit(db, auth.id, "chat.everyone_clear", "social_channel", "everyone", reason, { deletedMessages: count });
+  return apiJson({ ok: true, deletedMessages: count });
+}
+
+async function adminClearAnnouncementsChat(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const body = await readJson(request);
+  const reason = cleanText(body.reason, 240);
+  if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
+
+  const now = Date.now();
+  const countRow = await db.prepare("SELECT COUNT(*) AS count FROM social_messages WHERE channel_id='announcements' AND deleted_at IS NULL").first();
+  const count = Number(countRow?.count || 0);
+  if (count > 0) {
+    await db.prepare("UPDATE social_messages SET deleted_at=? WHERE channel_id='announcements' AND deleted_at IS NULL").bind(now).run();
+  }
+
+  await audit(db, auth.id, "chat.announcements_clear", "social_channel", "announcements", reason, { deletedMessages: count });
   return apiJson({ ok: true, deletedMessages: count });
 }
 
