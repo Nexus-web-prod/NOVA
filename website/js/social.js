@@ -756,7 +756,7 @@ function updateAnnouncementsUnread(latestId){
   const badge=document.getElementById("social-announcements-unread"),seen=Number(localStorage.getItem(announcementsSeenKey())||0);
   if(badge)badge.hidden=!(Number(latestId||getCursor("announcements")||0)>seen);
 }
-async function loadSocial(options){
+async function loadSocial(){
   const acct=getAccount();if(!acct)return;
   const [overview,everyoneMsgs,announcementMsgs]=await Promise.all([NovaAPI.social(),streamRange("nova:stream:everyone",0,200),streamRange("nova:stream:announcements",0,200)]);
   (overview.friends||[]).forEach(p=>{_socialProfiles[p.username.toLowerCase()]=p;if(p.avatarUrl)_avatarCache[p.username.toLowerCase()]=p.avatarUrl;});
@@ -776,7 +776,7 @@ async function loadSocial(options){
   renderFriendsList();
   const announcementLatest=latestMessageId(announcementMsgs||[]),seen=Number(localStorage.getItem(announcementsSeenKey())||0);
   updateAnnouncementsUnread(announcementLatest);
-  if((options?.chooseInitialPane&&announcementLatest>seen)||(!options?.chooseInitialPane&&activePane==="announcements"))_openAnnouncementsWithMsgs(announcementMsgs||[]);
+  if(announcementLatest>seen||activePane==="announcements")_openAnnouncementsWithMsgs(announcementMsgs||[]);
   else _openEveryoneWithMsgs(everyoneMsgs||[]);
 }
 
@@ -1617,14 +1617,12 @@ function removeLoginOverlay(){
 }
 
 // ── Init / teardown ───────────────────────────────────────────────────────────
-let _socialEntryPending=true;
 function initSocial(){
   removeLoginOverlay();
   if(getAccount()){
     const me=getAccount();
     if(me&&me.avatar&&!me.avatar.startsWith("__builtin__"))_avatarCache[me.username.toLowerCase()]=me.avatar;
-    const chooseInitialPane=_socialEntryPending;_socialEntryPending=false;
-    refreshAdminList();loadSocial({chooseInitialPane});startSocialPolling();startFriendsPolling();
+    refreshAdminList();loadSocial();startSocialPolling();startFriendsPolling();
   }else showLoginOverlay();
 }
 function teardownSocial(){clearMyTyping();stopTypingPolling();stopSocialPolling();stopFriendsPolling();stopChatPolling();}
