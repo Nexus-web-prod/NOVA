@@ -4720,3 +4720,12 @@ html[data-text-size="xl"] .nav-tab{
   text-transform:uppercase;
   white-space:nowrap;
 }
+#social-announcements-tab{position:relative;margin-bottom:.25rem;background:linear-gradient(135deg,rgba(139,143,255,.09),rgba(139,143,255,.035));border-color:rgba(139,143,255,.22)}
+#social-announcements-tab.active{background:linear-gradient(135deg,rgba(139,143,255,.2),rgba(139,143,255,.09));border-color:rgba(139,143,255,.42)}
+.social-announcements-unread{width:7px;height:7px;margin-left:auto;border-radius:50%;background:#ff7b8f;box-shadow:0 0 0 3px rgba(255,123,143,.12),0 0 12px rgba(255,123,143,.65)}
+.social-announcements-avatar{background:linear-gradient(135deg,rgba(139,143,255,.3),rgba(93,93,246,.12));display:flex;align-items:center;justify-content:center}
+.social-announcements-header{background:linear-gradient(90deg,rgba(139,143,255,.08),var(--bg2) 55%)}
+.social-announcements-readonly{flex-shrink:0;padding:.72rem 1.2rem;border-top:1px solid var(--glass-b);background:var(--bg2);color:var(--muted);font:500 .46rem/1.45 "Space Mono",monospace;letter-spacing:.035em;text-align:center}
+.social-announcements-panel{flex-direction:column;height:100%;overflow:hidden}.social-announcements-panel .social-msg{max-width:min(82%,720px)}
+.social-announcements-panel .social-msg-bubble{border-color:rgba(139,143,255,.18);background:rgba(139,143,255,.075)}
+html[data-everyone-chat="off"] #social-announcements-tab{display:flex!important}

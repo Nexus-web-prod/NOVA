@@ -3753,6 +3753,9 @@ async function sendMessage(request, db) {
   const body = await readJson(request);
   const channel = await resolveChannel(db, auth.id, cleanText(body.channel, 80) || "everyone", true);
   if (!channel) return apiError("CHANNEL_NOT_FOUND", "Chat not found", 404);
+  if (channel.kind === "announcements" && !auth.roles.some(role => ADMIN_ROLES.has(role))) {
+    return apiError("FORBIDDEN", "Only Nova admins can post announcements", 403);
+  }
   const restrictionError = await chatRestrictionError(db, auth.id, channel.kind);
   if (restrictionError) return restrictionError;
   const type = body.messageType === "image" ? "image" : "text";
@@ -3770,7 +3773,7 @@ async function sendMessage(request, db) {
     const moderation = await moderateMessage({
       userId: auth.id,
       text,
-      context: channel.kind === "everyone" ? "social_public" : channel.kind === "group" ? "group_chat" : "direct_message"
+      context: channel.kind === "everyone" || channel.kind === "announcements" ? "social_public" : channel.kind === "group" ? "group_chat" : "direct_message"
     });
     if (!moderation.allowed) {
       await recordChatModerationEvent(db, auth.id, channel.id, moderation.rule, text);
@@ -5569,6 +5572,10 @@ async function adminAudit(request, url, db) {
 
 async function resolveChannel(db, userId, requested, create) {
   if (requested === "everyone") return { id: "everyone", publicId: "everyone", kind: "everyone" };
+  if (requested === "announcements") {
+    if (create) await db.prepare("INSERT OR IGNORE INTO social_channels(id,kind,name) VALUES('announcements','announcements','Announcements')").run();
+    return { id: "announcements", publicId: "announcements", kind: "announcements" };
+  }
   if (requested.startsWith("group:")) {
     const id = cleanText(requested.slice(6), 80);
     const member = await db.prepare("SELECT 1 FROM social_channel_members m JOIN social_channels c ON c.id=m.channel_id WHERE m.channel_id=? AND m.user_id=? AND c.kind='group'").bind(id, userId).first();

@@ -29,7 +29,7 @@ gtag('config', 'G-MQJZKQNHQ9');
 <title>Nova 7.0</title>
 <link rel="icon" id="favicon-link" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' ry='22' fill='%230a0a14'/><path d='M50,24 C51.5,35 62,47.5 76,50 C62,52.5 51.5,65 50,76 C48.5,65 38,52.5 24,50 C38,47.5 48.5,35 50,24Z' fill='%23ffffff' opacity='0.92'/><circle cx='50' cy='50' r='3' fill='%23ffffff'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-<link rel="stylesheet" href="/website/css/nova.css?v=20260901-social-photo-viewer-r2">
+<link rel="stylesheet" href="/website/css/nova.css?v=20260901-social-announcements-r1">
 <style id="nova-account-modal-fix">.acct-modal-box{background:#0d0d1d!important;color:#eeeef6!important;z-index:1;border-color:rgba(139,143,255,.34)!important;box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(139,143,255,.12),0 0 70px rgba(107,92,255,.14)!important}</style>
 <link rel="stylesheet" href="/website/css/nova-game-detail.css?v=20260825-stability-r1">
 <link rel="stylesheet" href="/website/css/nova-vc.css?v=20260825-stability-r1">
@@ -3020,7 +3020,12 @@ General
 </button>
 </div>
 </div>
-<div class="social-everyone-tab" id="social-everyone-tab">
+<div class="social-everyone-tab social-announcements-tab" id="social-announcements-tab" role="button" tabindex="0" aria-label="Open announcements">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3Z"/><path d="M11.6 16.1 13 21H7l-1.7-6"/></svg>
+            Announcements
+            <span class="social-announcements-unread" id="social-announcements-unread" hidden aria-label="New announcement"></span>
+          </div>
+<div class="social-everyone-tab" id="social-everyone-tab" role="button" tabindex="0" aria-label="Open Everyone chat">
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Everyone
           </div>
@@ -3141,6 +3146,25 @@ General
   <div class="social-game-picker-grid"><button id="social-pick-uno" type="button"><span class="game-pick-art uno"><i></i><i></i><i></i></span><b>UNO</b><small>2–4 players · cards</small></button><button id="social-pick-checkers" type="button"><span class="game-pick-art checkers"><i></i><i></i><i></i><i></i></span><b>CHECKERS</b><small>2 players · strategy</small></button><button id="social-pick-chess" type="button"><span class="game-pick-art chess" aria-hidden="true"><i>♞</i><i>♟</i><i>♙</i><i>♘</i></span><b>CHESS</b><small>2 players · full rules</small></button><button id="social-pick-connect4" type="button"><span class="game-pick-art connect4" aria-hidden="true"><i></i><b></b><i></i><b></b><i></i><b></b></span><b>CONNECT FOUR</b><small>2 players · quick strategy</small></button></div>
 </section>
 </div>
+</div>
+<div class="social-announcements-panel" id="social-announcements-panel" style="display:none;flex-direction:column;height:100%;">
+<div class="social-chat-header social-announcements-header">
+<div class="social-chat-peer-avatar social-announcements-avatar">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3Z"/><path d="M11.6 16.1 13 21H7l-1.7-6"/></svg>
+</div>
+<div class="social-chat-peer-info">
+<div class="social-chat-peer-name">Announcements</div>
+<div class="social-chat-peer-status"><span class="social-status-dot"></span> Official updates from Nova admins</div>
+</div>
+</div>
+<div class="social-messages" id="social-announcements-messages" aria-live="polite"></div>
+<div class="social-announcements-readonly" id="social-announcements-readonly">Only Nova admins can post announcements.</div>
+<div id="social-announcements-input-wrap" hidden><div class="social-input-row">
+<input class="social-msg-input" id="social-announcements-input" placeholder="Post an announcement…" maxlength="2000" autocomplete="off" spellcheck="true"/>
+<button class="social-send-btn" id="social-announcements-send-btn" type="button" aria-label="Post announcement">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+</button>
+</div></div>
 </div>
 <div class="social-everyone-panel" id="social-everyone-panel" style="display:none;flex-direction:column;height:100%;">
 <div class="social-chat-header">
@@ -3367,7 +3391,7 @@ General
 <script src="/website/js/social-checkers-native.js?v=20260825-stability-r1"></script>
 <script src="/website/js/social-chess-native.js?v=20260825-stability-r1"></script>
 <script src="/website/js/social-connect4-native.js?v=20260825-stability-r1"></script>
-<script src="/website/js/social.js?v=20260901-social-photo-viewer-r3" defer></script>
+<script src="/website/js/social.js?v=20260901-social-announcements-r1" defer></script>
 <script src="/website/js/nova-realtime-voice.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-social-vc.js?v=20260825-stability-r1" defer></script>
 <script src="/website/js/nova-tickets.js?v=20260825-stability-r1" defer></script>

@@ -38,6 +38,7 @@ async function streamRange(stream,afterId,count){
 
 function streamToChannel(stream){
   if(stream==="nova:stream:everyone")return"everyone";
+  if(stream==="nova:stream:announcements")return"announcements";
   if(stream.startsWith("nova:stream:group:"))return"group:"+stream.slice("nova:stream:group:".length);
   if(stream.startsWith("nova:stream:dm:")){
     const me=(getAccount()?.username||"").toLowerCase();
@@ -77,7 +78,7 @@ function setCursor(pane,id){_cursors[pane]=parseInt(id)||0}
 // ── polling timers ─────────────────────────────────────────────────────────────
 let _chatPollTimer=null,_socialPollTimer=null,_friendsPollTimer=null,_reactionPollTimer=null;
 let _friendsPollBusy=false,_socialPollBusy=false,_reactionPollBusy=false;
-const _pollLocks={everyone:false,dm:false,group:false};
+const _pollLocks={everyone:false,announcements:false,dm:false,group:false};
 const _socialPollTabId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
 const _socialLeaderKey="nova_social_poll_leader_v1";
 function _isSocialPollLeader(){
@@ -106,8 +107,9 @@ function _bindVisibility(){
       _pollFriendsList();
       _pollSocialData();
       if(activePane==="everyone")_pollEveryone();
+      else if(activePane==="announcements")_pollAnnouncements();
       else if(activePane.startsWith("group:"))_pollGroup();
-      else if(activePane!=="none")_pollDM();
+      else if(activePane!=="none"&&activePane!=="announcements")_pollDM();
       _pollReactions();
     }
   });
@@ -163,8 +165,9 @@ function startChatPolling(){
         if(document.hidden){_scheduleNext();return;}
         let hadMessages=false;
         if(activePane==="everyone")hadMessages=await _pollEveryone();
+        else if(activePane==="announcements")hadMessages=await _pollAnnouncements();
         else if(activePane.startsWith("group:"))hadMessages=await _pollGroup();
-        else if(activePane!=="none")hadMessages=await _pollDM();
+        else if(activePane!=="none"&&activePane!=="announcements")hadMessages=await _pollDM();
         _chatBackoff(!!hadMessages);
         _scheduleNext();
       },_chatCurrentMs);
@@ -196,7 +199,7 @@ function stopReactionPolling(){clearInterval(_reactionPollTimer);_reactionPollTi
 let _typingPollTimer=null,_typingStopTimer=null,_typingLastSent=0;
 function typingChannel(){
   if(activePane.startsWith("group:")&&activeGroupId)return"group:"+activeGroupId;
-  if(activePane!=="everyone"&&activePane!=="none")return"dm:"+activePane;
+  if(activePane!=="everyone"&&activePane!=="announcements"&&activePane!=="none")return"dm:"+activePane;
   return"";
 }
 function typingIndicator(){return document.getElementById(activePane.startsWith("group:")?"social-group-typing":"social-dm-typing");}
@@ -641,16 +644,19 @@ function updateUnreadBadge(){
 // ── Panel switch ──────────────────────────────────────────────────────────────
 function showPane(which){
   const evPanel=document.getElementById("social-everyone-panel");
+  const announcementsPanel=document.getElementById("social-announcements-panel");
   const chatPanel=document.getElementById("social-chat-inner");
   const groupPanel=document.getElementById("social-group-chat-inner");
   const noChat=document.getElementById("social-no-chat");
   const isGroup=which.startsWith("group:");
-  const isDM=which!=="everyone"&&which!=="none"&&!isGroup;
+  const isDM=which!=="everyone"&&which!=="announcements"&&which!=="none"&&!isGroup;
   if(evPanel)evPanel.style.display=which==="everyone"?"flex":"none";
+  if(announcementsPanel)announcementsPanel.style.display=which==="announcements"?"flex":"none";
   if(chatPanel){chatPanel.style.display=isDM?"flex":"none";chatPanel.style.flexDirection="column";}
   if(groupPanel){groupPanel.style.display=isGroup?"flex":"none";groupPanel.style.flexDirection="column";}
   if(noChat)noChat.style.display=which==="none"?"flex":"none";
   document.getElementById("social-everyone-tab")?.classList.toggle("active",which==="everyone");
+  document.getElementById("social-announcements-tab")?.classList.toggle("active",which==="announcements");
 }
 
 // ── Friends list render ───────────────────────────────────────────────────────
@@ -744,13 +750,22 @@ function renderFriendsListDebounced(){
 
 // ── Load social data (friends/requests/groups/invites) ────────────────────────
 let _lastRequestsHash="",_lastFriendsHash="";
-async function loadSocial(){
+function announcementsSeenKey(){return"nova:social:announcements:last-seen:"+String(getAccount()?.username||"guest").toLowerCase();}
+function latestMessageId(messages){return messages.length?Number(messages[messages.length-1]._id||0):0;}
+function updateAnnouncementsUnread(latestId){
+  const badge=document.getElementById("social-announcements-unread"),seen=Number(localStorage.getItem(announcementsSeenKey())||0);
+  if(badge)badge.hidden=!(Number(latestId||getCursor("announcements")||0)>seen);
+}
+async function loadSocial(options){
   const acct=getAccount();if(!acct)return;
-  const [overview,everyoneMsgs]=await Promise.all([NovaAPI.social(),streamRange("nova:stream:everyone",0,200)]);
+  const [overview,everyoneMsgs,announcementMsgs]=await Promise.all([NovaAPI.social(),streamRange("nova:stream:everyone",0,200),streamRange("nova:stream:announcements",0,200)]);
   (overview.friends||[]).forEach(p=>{_socialProfiles[p.username.toLowerCase()]=p;if(p.avatarUrl)_avatarCache[p.username.toLowerCase()]=p.avatarUrl;});
   _adminSet=new Set((overview.friends||[]).filter(p=>p.staff).map(p=>p.username.toLowerCase()));
   if(window.__novaV7User?.staff)_adminSet.add(window.__novaV7User.username.toLowerCase());
   const pollButton=document.getElementById("social-everyone-poll-btn");if(pollButton)pollButton.hidden=!currentUserIsAdmin();renderEveryonePinned();
+  const announcementInput=document.getElementById("social-announcements-input-wrap"),announcementReadonly=document.getElementById("social-announcements-readonly");
+  if(announcementInput)announcementInput.hidden=!currentUserIsAdmin();
+  if(announcementReadonly)announcementReadonly.hidden=currentUserIsAdmin();
   friends=(overview.friends||[]).map(r=>r.username);
   requests=(overview.incoming||[]).map(r=>r.username);
   _lastRequestsHash=JSON.stringify(requests);
@@ -759,8 +774,10 @@ async function loadSocial(){
   blockedUsers=overview.blocked||[];
   groupInvites=(overview.groupInvites||[]).map(r=>({gid:r.id,name:r.name,from:r.fromUsername,ts:r.createdAt}));
   renderFriendsList();
-  // Use the already-fetched messages — no second round trip
-  _openEveryoneWithMsgs(everyoneMsgs||[]);
+  const announcementLatest=latestMessageId(announcementMsgs||[]),seen=Number(localStorage.getItem(announcementsSeenKey())||0);
+  updateAnnouncementsUnread(announcementLatest);
+  if((options?.chooseInitialPane&&announcementLatest>seen)||(!options?.chooseInitialPane&&activePane==="announcements"))_openAnnouncementsWithMsgs(announcementMsgs||[]);
+  else _openEveryoneWithMsgs(everyoneMsgs||[]);
 }
 
 // ── Live friend-request and group-invite polling ──────────────────────────────
@@ -784,6 +801,7 @@ const MESSAGE_REACTIONS=["❤️","👍","😂","😮","😢","🔥"];
 let _reactionPicker=null,_reactionOutsideHandler=null;
 function currentPaneChannel(){
   if(activePane==="everyone")return"everyone";
+  if(activePane==="announcements")return"announcements";
   if(activePane.startsWith("group:"))return activePane;
   return"dm:"+activePane.toLowerCase();
 }
@@ -1220,6 +1238,32 @@ async function _pollEveryone(){
 }
 
 // ── DM chat ───────────────────────────────────────────────────────────────────
+function _openAnnouncementsWithMsgs(msgs){
+  activePane="announcements";activeGroupId=null;seenIds.clear();stopTypingPolling();
+  const container=document.getElementById("social-announcements-messages");
+  if(container){container.style.willChange="transform";container.style.contain="content";}
+  renderFriendsList();showPane("announcements");
+  const latest=latestMessageId(msgs);
+  if(latest){setCursor("announcements",latest);localStorage.setItem(announcementsSeenKey(),String(latest));}
+  updateAnnouncementsUnread(latest);renderMessages(msgs,"social-announcements-messages",true);startChatPolling();
+}
+async function openAnnouncements(){
+  activePane="announcements";activeGroupId=null;seenIds.clear();
+  document.dispatchEvent(new CustomEvent("nova:social-pane-opened",{detail:{pane:"announcements"}}));
+  renderFriendsList();showPane("announcements");
+  _openAnnouncementsWithMsgs(await streamRange("nova:stream:announcements",0,200));
+}
+async function _pollAnnouncements(){
+  if(activePane!=="announcements"||_pollLocks.announcements)return false;
+  _pollLocks.announcements=true;
+  try{
+    const msgs=await streamRange("nova:stream:announcements",getCursor("announcements"),50);
+    if(!msgs.length)return false;
+    const latest=latestMessageId(msgs);setCursor("announcements",latest);localStorage.setItem(announcementsSeenKey(),String(latest));updateAnnouncementsUnread(latest);appendMessages(msgs,"social-announcements-messages",true);return true;
+  }catch(e){console.warn("[nova] announcement poll error",e);return false;}
+  finally{_pollLocks.announcements=false;}
+}
+
 async function openDM(peer){
   const acct=getAccount();if(!acct)return;
   activePane=peer;activeGroupId=null;seenIds.clear();
@@ -1249,7 +1293,7 @@ async function openDM(peer){
 }
 async function _pollDM(){
   const acct=getAccount();
-  if(!acct||activePane==="everyone"||activePane==="none"||activePane.startsWith("group:"))return false;
+  if(!acct||activePane==="everyone"||activePane==="announcements"||activePane==="none"||activePane.startsWith("group:"))return false;
   if(_pollLocks.dm)return false;
   _pollLocks.dm=true;
   try{
@@ -1393,8 +1437,23 @@ async function sendEveryone(text,type){
   finally{sendLock=false;}
 }
 
+async function sendAnnouncement(text){
+  const acct=getAccount();if(!acct)return toast("Sign in to post");
+  if(!currentUserIsAdmin())return toast("Only Nova admins can post announcements");
+  if(sendLock)return;sendLock=true;
+  const me=acct.username.toLowerCase(),cid=uid(),msg={_clientId:cid,from:me,text,ts:Date.now(),type:"text"};
+  const container=document.getElementById("social-announcements-messages");let optEl=null;
+  if(container){optEl=makeMsg(msg,true,true);container.appendChild(optEl);container.scrollTop=container.scrollHeight;seenIds.add(cid);}
+  try{
+    const sid=await streamAdd("nova:stream:announcements",{from:me,text,ts:String(msg.ts),type:"text",cid},optEl);
+    if(!sid)throw new Error("Send failed");
+    setCursor("announcements",sid);seenIds.add(sid);localStorage.setItem(announcementsSeenKey(),String(sid));updateAnnouncementsUnread(sid);if(optEl)optEl.dataset.streamId=sid;
+  }catch(error){optEl?.remove();seenIds.delete(cid);const input=document.getElementById("social-announcements-input");if(input&&!input.value)input.value=text;showSendError(error);}
+  finally{sendLock=false;}
+}
+
 async function sendDM(){
-  const acct=getAccount();if(!acct||activePane==="everyone"||activePane==="none"||activePane.startsWith("group:"))return;
+  const acct=getAccount();if(!acct||activePane==="everyone"||activePane==="announcements"||activePane==="none"||activePane.startsWith("group:"))return;
   if(sendLock)return;
   const inputEl=document.getElementById("social-msg-input");
   const text=inputEl?.value?.trim();if(!text)return;
@@ -1418,7 +1477,7 @@ async function sendDM(){
 }
 
 async function sendDMPhoto(dataUrl){
-  const acct=getAccount();if(!acct||activePane==="everyone"||activePane==="none"||activePane.startsWith("group:"))return;
+  const acct=getAccount();if(!acct||activePane==="everyone"||activePane==="announcements"||activePane==="none"||activePane.startsWith("group:"))return;
   if(sendLock)return;sendLock=true;
   const me=acct.username.toLowerCase(),peer=activePane.toLowerCase();
   const cid=uid();
@@ -1558,12 +1617,14 @@ function removeLoginOverlay(){
 }
 
 // ── Init / teardown ───────────────────────────────────────────────────────────
+let _socialEntryPending=true;
 function initSocial(){
   removeLoginOverlay();
   if(getAccount()){
     const me=getAccount();
     if(me&&me.avatar&&!me.avatar.startsWith("__builtin__"))_avatarCache[me.username.toLowerCase()]=me.avatar;
-    refreshAdminList();loadSocial();startSocialPolling();startFriendsPolling();
+    const chooseInitialPane=_socialEntryPending;_socialEntryPending=false;
+    refreshAdminList();loadSocial({chooseInitialPane});startSocialPolling();startFriendsPolling();
   }else showLoginOverlay();
 }
 function teardownSocial(){clearMyTyping();stopTypingPolling();stopSocialPolling();stopFriendsPolling();stopChatPolling();}
@@ -1581,6 +1642,7 @@ window._novaOpenSocialPane=async function(which){
   startSocialPolling();
   startFriendsPolling();
   if(!which||which==="everyone")await openEveryone();
+  else if(which==="announcements")await openAnnouncements();
   else if(String(which).startsWith("group:"))await openGroup(String(which).slice(6));
   else await openDM(String(which).toLowerCase());
   return true;
@@ -1701,13 +1763,18 @@ function wireDom(){
   _dmPhotoInput=makeFileInput(sendDMImage,false);_dmCameraInput=makeFileInput(sendDMImage,true);
   _grpPhotoInput=makeFileInput(sendGroupImage,false);_grpCameraInput=makeFileInput(sendGroupImage,true);
   wireAttachmentButton("social-everyone-photo-btn","social-everyone-input-wrap",_evPhotoInput,_evCameraInput,sendEveryoneImage,()=>!!getAccount()&&activePane==="everyone");
-  wireAttachmentButton("social-photo-btn","social-input-wrap",_dmPhotoInput,_dmCameraInput,sendDMImage,()=>!!getAccount()&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"));
+  wireAttachmentButton("social-photo-btn","social-input-wrap",_dmPhotoInput,_dmCameraInput,sendDMImage,()=>!!getAccount()&&activePane!=="everyone"&&activePane!=="announcements"&&activePane!=="none"&&!activePane.startsWith("group:"));
   wireAttachmentButton("social-group-photo-btn","social-group-input-wrap",_grpPhotoInput,_grpCameraInput,sendGroupImage,()=>!!getAccount()&&!!activeGroupId);
   wireAttachmentPaste(document.getElementById("social-everyone-input"),sendEveryoneImage,()=>!!getAccount()&&activePane==="everyone");
-  wireAttachmentPaste(document.getElementById("social-msg-input"),sendDMImage,()=>!!getAccount()&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"));
+  wireAttachmentPaste(document.getElementById("social-msg-input"),sendDMImage,()=>!!getAccount()&&activePane!=="everyone"&&activePane!=="announcements"&&activePane!=="none"&&!activePane.startsWith("group:"));
   wireAttachmentPaste(document.getElementById("social-group-msg-input"),sendGroupImage,()=>!!getAccount()&&!!activeGroupId);
 
   document.getElementById("social-everyone-tab")?.addEventListener("click",()=>{if(!getAccount())return toast("Sign in to chat");openEveryone();});
+  const announcementsTab=document.getElementById("social-announcements-tab");
+  announcementsTab?.addEventListener("click",()=>{if(!getAccount())return toast("Sign in to view announcements");openAnnouncements();});
+  announcementsTab?.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();announcementsTab.click();}});
+  const everyoneTab=document.getElementById("social-everyone-tab");
+  everyoneTab?.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();everyoneTab.click();}});
   const pollButton=document.getElementById("social-everyone-poll-btn");if(pollButton){pollButton.hidden=!currentUserIsAdmin();pollButton.addEventListener("click",openEveryonePollModal);}
   document.getElementById("social-everyone-pinned-jump")?.addEventListener("click",()=>{const target=document.querySelector('[data-stream-id="'+String(_everyonePinned?.id||'')+'"]');target?.scrollIntoView({block:"center",behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});target?.focus();});
   document.getElementById("social-everyone-unpin")?.addEventListener("click",async()=>{try{await NovaAPI.pinEveryoneMessage(null);_everyonePinned=null;renderEveryonePinned();toast("Message unpinned");}catch(error){toast(error.message||"Could not unpin message");}});
@@ -1720,6 +1787,9 @@ function wireDom(){
   const evSendBtn=document.getElementById("social-everyone-send-btn");
   evSendBtn?.addEventListener("click",async()=>{if(!getAccount())return toast("Sign in to chat");const inp=document.getElementById("social-everyone-input");const t=inp?.value?.trim();if(t){inp.value="";await sendEveryone(t);}});
   document.getElementById("social-everyone-input")?.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();evSendBtn?.click();}});
+  const announcementSendButton=document.getElementById("social-announcements-send-btn");
+  announcementSendButton?.addEventListener("click",async()=>{const input=document.getElementById("social-announcements-input"),text=input?.value?.trim();if(text){input.value="";await sendAnnouncement(text);}});
+  document.getElementById("social-announcements-input")?.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();announcementSendButton?.click();}});
 
   let searchDebounce;
   document.getElementById("social-friend-search")?.addEventListener("input",()=>{clearTimeout(searchDebounce);searchDebounce=setTimeout(renderFriendsList,120);});
@@ -1744,11 +1814,11 @@ function wireDom(){
   document.getElementById("social-msg-input")?.addEventListener("blur",clearMyTyping);
 
   document.getElementById("social-chat-remove-btn")?.addEventListener("click",()=>{
-    if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:")){if(confirm("Remove "+activePane+" as a friend?"))removeFriend(activePane);}
+    if(activePane&&activePane!=="everyone"&&activePane!=="announcements"&&activePane!=="none"&&!activePane.startsWith("group:")){if(confirm("Remove "+activePane+" as a friend?"))removeFriend(activePane);}
   });
-  document.getElementById("social-chat-nickname-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openNicknameModal(activePane);});
-  document.getElementById("social-chat-report-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openReportUserModal(activePane);});
-  document.getElementById("social-chat-block-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="none"&&!activePane.startsWith("group:"))openBlockUserModal(activePane);});
+  document.getElementById("social-chat-nickname-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="announcements"&&activePane!=="none"&&!activePane.startsWith("group:"))openNicknameModal(activePane);});
+  document.getElementById("social-chat-report-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="announcements"&&activePane!=="none"&&!activePane.startsWith("group:"))openReportUserModal(activePane);});
+  document.getElementById("social-chat-block-btn")?.addEventListener("click",()=>{if(activePane&&activePane!=="everyone"&&activePane!=="announcements"&&activePane!=="none"&&!activePane.startsWith("group:"))openBlockUserModal(activePane);});
   const dmGames=document.getElementById("social-dm-games"),dmGamesButton=document.getElementById("social-dm-games-btn"),dmGamesMenu=document.getElementById("social-dm-games-menu");
   const closeDmGames=()=>{if(!dmGamesMenu||!dmGamesButton)return;dmGamesMenu.hidden=true;dmGamesButton.setAttribute("aria-expanded","false");};
   dmGamesButton?.addEventListener("click",e=>{e.stopPropagation();const opening=dmGamesMenu?.hidden!==false;if(dmGamesMenu)dmGamesMenu.hidden=!opening;dmGamesButton.setAttribute("aria-expanded",String(opening));if(opening)dmGamesMenu?.querySelector("button")?.focus();});
@@ -1817,7 +1887,7 @@ function wireNtShortcuts(){
 document.addEventListener("DOMContentLoaded",()=>{wireDom();wireNtShortcuts();if(document.querySelector("#page-social.active"))initSocial();});
 document.addEventListener("nova:social-open",()=>{wireDom();initSocial();});
 document.addEventListener("nova:social-open-everyone",()=>{wireDom();initSocial();setTimeout(()=>{document.getElementById("social-everyone-tab")?.click();},300);});
-document.addEventListener("nova:page-change",e=>{if(e.detail?.page==="social"){wireDom();initSocial();}else if(e.detail?.page==="browser"){wireNtShortcuts();}else if(!document.body.classList.contains("ni-social-sidebar-open")){teardownSocial();}});
+document.addEventListener("nova:page-change",e=>{if(e.detail?.page==="social"){wireDom();initSocial();}else{_socialEntryPending=true;if(e.detail?.page==="browser")wireNtShortcuts();else if(!document.body.classList.contains("ni-social-sidebar-open"))teardownSocial();}});
 document.addEventListener("nova:social-dock-closed",()=>{if(!document.getElementById("page-social")?.classList.contains("active"))teardownSocial();});
 document.addEventListener("nova:login",()=>{if(document.getElementById("page-social")?.classList.contains("active"))initSocial();});
 document.addEventListener("nova:logout",()=>{if(document.getElementById("page-social")?.classList.contains("active"))showLoginOverlay();else teardownSocial();});
@@ -1834,6 +1904,7 @@ document.addEventListener("visibilitychange",()=>{
   // This eliminates the "must hard-refresh to see new messages" bug without
   // clearing and re-rendering the whole chat on every tab switch.
   if(activePane==="everyone")_pollEveryone();
+  else if(activePane==="announcements")_pollAnnouncements();
   else if(activePane.startsWith("group:")&&activeGroupId)_pollGroup();
   else if(activePane!=="none")_pollDM();
 });
