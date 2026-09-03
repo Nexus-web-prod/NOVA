@@ -682,14 +682,15 @@ test('Monkey Mart archive metadata matches its bundled files and uses a local SD
   assert.doesNotMatch(sdk, /poki-sdk-core|createElement\("script"\)/);
 });
 
-test('Nova does not load or display advertising', () => {
+test('Nova does not load or display advertising and publishes its AdSense seller record', () => {
   const index = read('website/html/index.html');
   const settings = read('website/js/nova-settings-v7-ui.js');
   const headers = read('_headers');
   assert.doesNotMatch(index, /nova-ad-slot|Sponsored content|google-adsense-account|profitableratecpmnetwork|nova-ads\.js|nova-ads\.css/i);
   assert.doesNotMatch(settings, /nova-ad-slot|Sponsored content/i);
   assert.doesNotMatch(headers, /googlesyndication|doubleclick|adtrafficquality|profitableratecpmnetwork|pixel\/ase|ntv\.json/i);
-  assert.equal(fs.existsSync(path.join(root, 'ads.txt')), false);
+  assert.equal(read('ads.txt'), 'google.com, pub-6082584609878503, DIRECT, f08c47fec0942fa0\n');
+  assert.match(read('_worker.js'), /url\.pathname === "\/ads\.txt"[\s\S]*pub-6082584609878503[\s\S]*status: 200/);
   assert.equal(fs.existsSync(path.join(root, 'website/js/nova-ads.js')), false);
   assert.equal(fs.existsSync(path.join(root, 'website/css/nova-ads.css')), false);
 });

@@ -424,9 +424,13 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/ads.txt") {
-      return new Response("Not found", {
-        status: 404,
-        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+      return new Response("google.com, pub-6082584609878503, DIRECT, f08c47fec0942fa0\n", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=300, must-revalidate",
+          "X-Content-Type-Options": "nosniff"
+        }
       });
     }
 
