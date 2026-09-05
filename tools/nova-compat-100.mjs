@@ -2,10 +2,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+const require = createRequire(import.meta.url);
+const runtimeModules = process.env.CODEX_RUNTIME_NODE_MODULES ||
+  path.resolve(path.dirname(process.execPath), '..', 'node_modules');
 const OUT = path.resolve(ROOT, 'reports');
 const SHOTS = path.join(OUT, 'screenshots');
 const REPORT_JSON = path.join(OUT, 'report.json');
@@ -25,7 +29,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const readJson = (f, fallback) => { try { return JSON.parse(fs.readFileSync(f,'utf8')); } catch { return fallback; } };
 let report = RESUME ? readJson(REPORT_JSON, null) : null;
-if (!report) report = { generatedAt:new Date().toISOString(), baseUrl:BASE_URL, version:'20260822-sj2067-r8.17', results:[] };
+if (!report) report = { generatedAt:new Date().toISOString(), baseUrl:BASE_URL, version:'20260829-sj2067-r8.24', results:[] };
 const done = new Set(report.results.map(r => r.requestedUrl));
 let stopping = false;
 process.on('SIGINT', () => { stopping = true; });
@@ -33,9 +37,9 @@ process.on('SIGTERM', () => { stopping = true; });
 
 function renderHtml(data){
   const json = JSON.stringify(data).replace(/</g,'\\u003c');
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Nova R8.6 Compatibility Report</title><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Nova R8.24 Compatibility Report</title><style>
   body{font-family:system-ui,sans-serif;margin:24px;background:#0c0d12;color:#eee}input,select{background:#171923;color:#eee;border:1px solid #343847;border-radius:8px;padding:8px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:9px;border-bottom:1px solid #262a36;text-align:left;vertical-align:top}tr.FAIL{background:#2a1216}tr.PARTIAL{background:#2b2513}.shot{max-width:180px;border-radius:6px}.muted{color:#a7adbd}.summary{display:flex;gap:12px;flex-wrap:wrap}.pill{padding:8px 12px;border:1px solid #343847;border-radius:999px}</style></head><body>
-  <h1>Nova Resilience R8.6 compatibility report</h1><div id="summary" class="summary"></div><p><input id="q" placeholder="Search sites"> <select id="score"><option value="">All scores</option><option>PASS</option><option>PARTIAL</option><option>FAIL</option></select> <input id="err" placeholder="Filter error text"></p><table><thead><tr><th>Site</th><th>Score</th><th>Transport</th><th>Requested vs frame</th><th>Reasons / errors</th><th>Screenshot</th></tr></thead><tbody id="rows"></tbody></table>
+  <h1>Nova Resilience R8.24 compatibility report</h1><div id="summary" class="summary"></div><p><input id="q" placeholder="Search sites"> <select id="score"><option value="">All scores</option><option>PASS</option><option>PARTIAL</option><option>FAIL</option></select> <input id="err" placeholder="Filter error text"></p><table><thead><tr><th>Site</th><th>Score</th><th>Transport</th><th>Requested vs frame</th><th>Reasons / errors</th><th>Screenshot</th></tr></thead><tbody id="rows"></tbody></table>
   <script>const data=${json};const rows=document.querySelector('#rows');const q=document.querySelector('#q'),score=document.querySelector('#score'),err=document.querySelector('#err');function draw(){rows.innerHTML='';const term=q.value.toLowerCase(),sc=score.value,et=err.value.toLowerCase();for(const r of data.results){const hay=(r.name+' '+r.requestedUrl+' '+(r.reasons||[]).join(' ')+' '+(r.consoleErrors||[]).join(' ')).toLowerCase();if(term&&!hay.includes(term))continue;if(sc&&r.score!==sc)continue;if(et&&!hay.includes(et))continue;const tr=document.createElement('tr');tr.className=r.score;tr.innerHTML='<td><b>'+r.name+'</b><br><span class=muted>'+r.requestedUrl+'</span></td><td>'+r.score+'</td><td>'+((r.transport&&r.transport.transport)||'')+'</td><td><span class=muted>'+r.addressBarUrl+'</span><br>'+r.activeFrameUrl+'</td><td>'+[...(r.reasons||[]),...(r.consoleErrors||[]).slice(0,4)].map(x=>'<div>'+String(x).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</div>').join('')+'</td><td>'+(r.screenshot?'<a href="'+r.screenshot+'"><img class=shot src="'+r.screenshot+'"></a>':'')+'</td>';rows.appendChild(tr)}}function summary(){const c={PASS:0,PARTIAL:0,FAIL:0};for(const r of data.results)c[r.score]=(c[r.score]||0)+1;document.querySelector('#summary').innerHTML=Object.entries(c).map(([k,v])=>'<span class=pill>'+k+': '+v+'</span>').join('')+'<span class=pill>Total: '+data.results.length+'</span>'}for(const el of[q,score,err])el.addEventListener('input',draw);summary();draw();</script></body></html>`;
 }
 function flush(){ report.generatedAt = new Date().toISOString(); fs.writeFileSync(REPORT_JSON, JSON.stringify(report,null,2)); fs.writeFileSync(REPORT_HTML, renderHtml(report)); fs.writeFileSync(CHECKPOINT, JSON.stringify({updatedAt:new Date().toISOString(),completed:report.results.length,last:report.results.at(-1)?.requestedUrl||null},null,2)); }
@@ -73,7 +77,7 @@ function scoreResult(r){
 }
 
 let playwright;
-try { playwright = await import('playwright'); }
+try { playwright = require(path.join(runtimeModules, 'playwright')); }
 catch (e) { console.error('Playwright is required to run the live tester. Install it with: npm i -D playwright && npx playwright install chromium'); process.exit(2); }
 
 const globalDeadline = Date.now() + GLOBAL_TIMEOUT;
@@ -100,8 +104,8 @@ for (const [name, requestedUrl] of SITES) {
         // Fresh Nova tab per site while retaining one authenticated Chromium profile.
         r.transportBefore = await page.evaluate(url => window.NovaProxyDiagnostics?.captureTransportSnapshot?.(url) || window.NovaProxyManager?.captureTransportSnapshot?.(url) || window.NovaProxyManager?.getState?.() || null, requestedUrl);
         await page.evaluate(url => { const t=window._novaTab.newTab(); if(!t) throw new Error('could not create Nova tab'); window._novaTab.navigate(url); }, requestedUrl);
-        await page.waitForFunction(url => document.querySelector('#bm-url-input')?.value === url, requestedUrl, {timeout:8000});
-        r.addressBarUrl = await page.locator('#bm-url-input').inputValue();
+        await page.waitForFunction(url => document.querySelector('#url-bar')?.value === url, requestedUrl, {timeout:8000});
+        r.addressBarUrl = await page.locator('#url-bar').inputValue();
         const requestedHost = new URL(requestedUrl).hostname;
         let lastFrame='';
         const frameDeadline=Date.now()+15000;

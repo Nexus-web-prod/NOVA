@@ -141,8 +141,9 @@
   window.addEventListener("resize", resize);
   window.addEventListener("mousemove", function (event) { mouse.x = event.clientX; mouse.y = event.clientY; });
   document.addEventListener("nova:settings-changed", function () { sync(true); });
-  if (typeof MutationObserver !== "undefined") {
-    new MutationObserver(function () { sync(true); }).observe(document.documentElement, {
+  var observedRoot = document.documentElement;
+  if (observedRoot && typeof MutationObserver !== "undefined") {
+    new MutationObserver(function () { sync(true); }).observe(observedRoot, {
       attributes: true,
       attributeFilter: ["data-theme", "data-performance-mode", "data-bg-anim", "data-reduce-motion"]
     });

@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const runtimeModules = process.env.CODEX_RUNTIME_NODE_MODULES ||
-  '/Users/closcon000/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules';
+  path.resolve(path.dirname(process.execPath), '..', 'node_modules');
 const require = createRequire(import.meta.url);
 const { chromium } = require(path.join(runtimeModules, 'playwright'));
 const sharp = require(path.join(runtimeModules, 'sharp'));
@@ -17,8 +17,17 @@ const concurrency = Math.max(1, Number(process.env.NOVA_AUDIT_CONCURRENCY || 4))
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const outDir = path.resolve(process.env.NOVA_AUDIT_OUT || path.join(root, 'reports', `game-audit-${stamp}`));
 const shotDir = path.join(outDir, 'screenshots');
-const catalog = JSON.parse(fs.readFileSync(path.join(root, 'games.json'), 'utf8'))
-  .filter(game => !game.blank && game.name && /^https?:\/\//i.test(game.url || ''));
+const catalog = JSON.parse(fs.readFileSync(path.join(root, 'website', 'data', 'games.json'), 'utf8'))
+  .filter(game => {
+    if (game.blank || !game.name || !/^https?:\/\//i.test(game.url || '')) return false;
+    try {
+      const url = new URL(game.url);
+      const isNovaBundle = /(^|\.)nova-7\.pages\.dev$/i.test(url.hostname) && url.pathname.startsWith('/website/games/');
+      return !isNovaBundle;
+    } catch (_) {
+      return false;
+    }
+  });
 
 fs.mkdirSync(shotDir, { recursive: true });
 const slug = value => String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 72);

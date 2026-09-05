@@ -31,7 +31,7 @@
   },
   {
     "name": "Android",
-    "url": "https://now.gg/iframe/snippet?app_pkg=com.uncube.launcher3",
+    "url": "https://www.android.com/",
     "image": "/website/assets/media/icons/android.webp"
   },
   {
@@ -41,12 +41,12 @@
   },
   {
     "name": "Character AI",
-    "url": "https://now.gg/iframe/snippet?app_pkg=ai.character.app",
+    "url": "https://character.ai/",
     "image": "/website/assets/media/icons/characterai.webp"
   },
   {
     "name": "Aptoide",
-    "url": "https://now.gg/iframe/snippet?app_pkg=com.aptoide.partners.nowgg.store",
+    "url": "https://en.aptoide.com/",
     "image": "/website/assets/media/icons/aptoide.webp"
   },
   {
@@ -86,7 +86,7 @@
   },
   {
     "name": "Firefox Web Browser",
-    "url": "https://replit.com/@cooleddie001/Firefox-Legacy?v=1",
+    "url": "https://www.mozilla.org/firefox/",
     "image": "/website/assets/media/icons/firefox.webp"
   },
   {
@@ -237,7 +237,7 @@
   },
   {
     "name": "YouTube Alternative (Invidious)",
-    "url": "https://vid.puffyan.us/",
+    "url": "https://piped.video/",
     "image": "/website/assets/media/icons/youtube.webp"
   },
   {
@@ -257,8 +257,8 @@
     "blank": true
   },
   {
-    "name": "HD Today",
-    "url": "https://hdtoday.tv",
+    "name": "Pluto TV",
+    "url": "https://pluto.tv/",
     "image": "/website/assets/media/icons/hd.webp"
   },
   {
@@ -331,8 +331,8 @@
     "image": "/website/assets/media/icons/pdn.png"
   },
   {
-    "name": "Blooket Cheats",
-    "url": "https://github.com/005konz/Blooket-Cheats",
+    "name": "Blooket",
+    "url": "https://play.blooket.com/",
     "image": "/website/assets/media/icons/bl.webp"
   },
   {
