@@ -6,9 +6,10 @@ Run the local suite with:
 node --test tests/*.test.js tests/*.test.mjs
 ```
 
-Several historical R8 proxy tests assert superseded revision strings. Record
-the baseline before maintenance and require cleanup changes to introduce no new
-failures.
+Superseded R8 revision-pinning checks are retained in `tests/legacy/` for
+historical reference and are intentionally excluded from the current suite.
+The active proxy contract is covered by the R8.21-R8.23, compatibility, routing,
+and transport tests in `tests/`.
 
 Before release, manually verify boot, sign-in, home, browser navigation,
 social, games, voice, admin, settings, Nova Island, and every holiday theme.

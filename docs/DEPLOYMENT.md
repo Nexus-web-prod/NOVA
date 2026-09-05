@@ -9,7 +9,9 @@ For the normal release workflow, run `scripts/deploy/deploy.sh`. It deploys the
 selected production or branch-preview destination (or all four), then asks
 whether to commit and push the complete current Nova update to GitHub's `main`
 branch. One comment is entered at the beginning and reused for every
-selected Cloudflare deployment and the optional GitHub commit. It defaults to
+selected Cloudflare deployment and the optional GitHub commit. The “All four”
+choice deploys Production, Dev, Beta, and Main; Void remains a separate explicit
+choice. The release comment defaults to
 `pushed by nova deploy cmd`. It verifies GitHub CLI authentication and can open
 the browser login flow when needed. On the first push it can safely connect the
 working folder to `https://github.com/Nexus-web-prod/NOVA.git` and commit the

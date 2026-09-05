@@ -63,12 +63,11 @@ case "${deploy_choice}" in
     deploy_preview beta
     echo
     deploy_preview main
-    echo
-    deploy_preview void
     ;;
   6) cloudflare_deployed=0 ;;
+  7) deploy_preview void ;;
   *)
-    echo "Nothing was deployed: choose a number from 1 through 6." >&2
+    echo "Nothing was deployed: choose a number from 1 through 7." >&2
     exit 1
     ;;
 esac

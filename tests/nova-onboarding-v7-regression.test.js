@@ -86,10 +86,10 @@ test('Recent observes the actual tab state and advances after its real click', (
   assert.match(tour, /\[80,180,340\]/);
 });
 
-test('Nova Island outside clicks dismiss only on Browser and Settings', () => {
+test('Nova Island outside clicks dismiss only over focused work areas', () => {
   const index = fs.readFileSync(indexPath, 'utf8');
-  assert.match(index, /if\(islandCurrentPage !== 'browser' && islandCurrentPage !== 'settings'\) return;/);
+  assert.match(index, /if\(activePage !== 'browser' && activePage !== 'settings' && !activeGameplay\) return;/);
   assert.match(index, /if\(star\.classList\.contains\('open'\)[\s\S]*?\)\{\s*closeIsland\(\);/);
-  assert.match(index, /focused\.matches\('#frame-container iframe\.tab-iframe\.active'\)/);
+  assert.match(index, /focused\.matches\('#frame-container iframe\.tab-iframe\.active,#local-game-player-frame'\)/);
   assert.doesNotMatch(index, /if\(!islandShouldStayOpen\(\)\) closeIsland\(\);/);
 });
