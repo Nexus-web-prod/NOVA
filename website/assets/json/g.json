@@ -1,5 +1,17 @@
 [
   {
+    "name": "Nova Eaglercraft",
+    "link": "https://main.nova-7.pages.dev/website/games/nova-eaglercraft/",
+    "image": "/website/assets/media/icons/mc.webp",
+    "local": true,
+    "alwaysTop": true,
+    "categories": [
+      "all",
+      "Adventure",
+      "local"
+    ]
+  },
+  {
     "name": "Wrestle Bros",
     "link": "https://main.nova-7.pages.dev/website/games/wrestle-bros/",
     "image": "/website/assets/media/icons/wrestlebros.png",

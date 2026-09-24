@@ -11,6 +11,7 @@ assert.ok(start >= 0 && end > start, "moderation engine was not found in the Wor
 
 const prelude = `
 const MODERATION_VERSION = 3;
+const ADMIN_ROLES = new Set(["admin", "developer", "owner"]);
 const MODERATION_CONFIG = Object.freeze({
   mildProfanityEnabled:true,severeFilterEnabled:true,fuzzyFilterEnabled:true,
   spamShortLimit:4,spamShortWindowMs:4000,spamLongLimit:8,spamLongWindowMs:15000,
@@ -21,8 +22,8 @@ const moderationUserState = new Map();
 `;
 const context = { console };
 vm.createContext(context);
-vm.runInContext(`${prelude}${worker.slice(start, end)}\nthis.api={moderationForms,baseModerationDecision,moderateMessage};`, context);
-const { moderationForms, baseModerationDecision, moderateMessage } = context.api;
+vm.runInContext(`${prelude}${worker.slice(start, end)}\nthis.api={moderationForms,baseModerationDecision,moderateMessage,canBypassChatModeration};`, context);
+const { moderationForms, baseModerationDecision, moderateMessage, canBypassChatModeration } = context.api;
 
 assert.strictEqual(moderationForms("F.u.C.K!!!").leet, "f u c k");
 assert.strictEqual(moderationForms("w\u200bord").normal, "word");
@@ -47,6 +48,11 @@ assert.strictEqual(baseModerationDecision("nigggggggg ggger").action, "block");
 assert.strictEqual(baseModerationDecision("snigger").action, "allow");
 assert.strictEqual(baseModerationDecision("please go kill yourself").severity, 5);
 assert.strictEqual(baseModerationDecision("@a @b @c @d @e @f hello").rule, "mention_spam");
+assert.strictEqual(canBypassChatModeration({ roles: ["user", "admin"] }), true);
+assert.strictEqual(canBypassChatModeration({ role: "Developer" }), true);
+assert.strictEqual(canBypassChatModeration({ public_role: "owner" }), true);
+assert.strictEqual(canBypassChatModeration({ staff: true }), true);
+assert.strictEqual(canBypassChatModeration({ roles: ["user"] }), false);
 assert.match(social, /streamAdd\(stream,fields,optimisticEl\)/, "Social sends must accept the optimistic bubble for reconciliation");
 assert.match(social, /authoritativeText=String\(a\.message\.body/, "Social must render the server-moderated message body");
 assert.match(social, /streamAdd\("nova:stream:everyone",fields,optEl\)/, "Everyone chat must reconcile its optimistic bubble");
@@ -56,6 +62,11 @@ assert.doesNotMatch(worker, /EVERYONE_CHAT_COOLDOWN_MS|EVERYONE_COOLDOWN/, "Ever
 assert.doesNotMatch(worker, /DUPLICATE_MESSAGE/, "a harmless repeated message must use rolling spam limits instead of an immediate database rejection");
 assert.match(worker, /persistAutomaticChatTimeout\(db, auth\.id, channel\.kind, moderation\)/, "automatic timeouts must be persisted for Chat Moderation");
 assert.match(worker, /id LIKE 'auto_chat_%'/, "automatic restrictions must remain distinguishable from staff actions");
+assert.match(worker, /function canBypassChatModeration\(auth\)[\s\S]*?ADMIN_ROLES\.has\(role\)/, "admin, developer, and owner roles must be eligible to bypass automatic chat moderation");
+assert.match(worker, /async function sendMessage[\s\S]*?if \(!canBypassChatModeration\(auth\)\) {[\s\S]*?moderateMessage/, "admin roles must bypass automatic Social message moderation");
+assert.match(worker, /async function publishVoiceTranscript[\s\S]*?if \(!canBypassChatModeration\(auth\)\) {[\s\S]*?moderateMessage/, "admin roles must bypass automatic voice transcript moderation");
+assert.match(worker, /activeChatRestriction\(db, auth\.id, channelKind, !canBypassChatModeration\(auth\)\)/, "admin roles must bypass persisted automatic chat timeouts");
+assert.match(worker, /\?=1 OR id NOT LIKE 'auto_chat_%'/, "manual chat restrictions must remain enforceable for admin roles");
 assert.doesNotMatch(social, /startEveryoneCooldown|_everyoneCooldownUntil/, "the client must not impose a cooldown after every message");
 assert.match(fs.readFileSync(path.join(__dirname, "..", "website", "html", "index.html"), "utf8"), /social\.js\?v=20260901-social-announcements-r4/, "Social client cache key must be current");
 

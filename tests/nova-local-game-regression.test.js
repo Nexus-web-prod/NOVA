@@ -6,6 +6,29 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
+test('Nova Eaglercraft is a pinned, self-contained local game', () => {
+  const games = JSON.parse(read('website/data/games.json'));
+  const legacyGames = JSON.parse(read('website/assets/json/g.json'));
+  const game = games.find(item => item.name === 'Nova Eaglercraft');
+  const legacyGame = legacyGames.find(item => item.name === 'Nova Eaglercraft');
+  const packagedGame = path.join(root, 'website/games/nova-eaglercraft/index.html');
+
+  assert.deepEqual(
+    { url: game.url, local: game.local, alwaysTop: game.alwaysTop },
+    { url: 'https://main.nova-7.pages.dev/website/games/nova-eaglercraft/', local: true, alwaysTop: true }
+  );
+  assert.equal(legacyGame.link, game.url);
+  assert.equal(legacyGame.local, true);
+  assert.equal(legacyGame.alwaysTop, true);
+  assert.ok(fs.existsSync(packagedGame));
+  for (const part of ['game.part.00', 'game.part.01', 'game.part.02', 'game.part.03']) {
+    const partPath = path.join(root, 'website/games/nova-eaglercraft', part);
+    assert.ok(fs.existsSync(partPath));
+    assert.ok(fs.statSync(partPath).size < 25 * 1024 * 1024);
+  }
+  assert.match(read('website/games/nova-eaglercraft/index.html'), /<title>Nova Eaglercraft<\/title>/);
+});
+
 test('Pixel Shooter uses the current external game host', () => {
   const games = JSON.parse(read('website/data/games.json'));
   const legacyGames = JSON.parse(read('website/assets/json/g.json'));

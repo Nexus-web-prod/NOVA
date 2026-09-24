@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nova Eaglercraft</title>
+  <style>
+    html, body, iframe { width: 100%; height: 100%; margin: 0; border: 0; }
+    body { display: grid; place-items: center; overflow: hidden; background: #000; color: #fff; font: 600 16px system-ui, sans-serif; }
+    .loading { text-align: center; }
+    .loading small { display: block; margin-top: 8px; color: #b8b8b8; font-weight: 400; }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading" role="status">Loading Nova Eaglercraft…<small>Preparing the local game</small></div>
+  <script>
+    (async function () {
+      var parts = ['game.part.00', 'game.part.01', 'game.part.02', 'game.part.03'];
+      try {
+        var responses = await Promise.all(parts.map(function (part) {
+          return fetch(part).then(function (response) {
+            if (!response.ok) throw new Error('Missing game data');
+            return response.arrayBuffer();
+          });
+        }));
+        var size = responses.reduce(function (total, part) { return total + part.byteLength; }, 0);
+        var bytes = new Uint8Array(size);
+        var offset = 0;
+        responses.forEach(function (part) { bytes.set(new Uint8Array(part), offset); offset += part.byteLength; });
+        var game = new Blob([bytes], { type: 'text/html' });
+        var frame = document.createElement('iframe');
+        frame.title = 'Nova Eaglercraft';
+        frame.allow = 'autoplay; fullscreen; gamepad';
+        frame.src = URL.createObjectURL(game);
+        document.getElementById('loading').replaceWith(frame);
+      } catch (error) {
+        document.getElementById('loading').textContent = 'Nova Eaglercraft could not load. Refresh and try again.';
+      }
+    }());
+  </script>
+</body>
+</html>

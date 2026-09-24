@@ -2846,14 +2846,16 @@ async function publishVoiceTranscript(request, env) {
   if (!member || member.status !== "connected" || !member.dictation_enabled || member.muted_by_host) return apiError("VOICE_DICTATION_FORBIDDEN", "Dictation is not available for your microphone", 403);
   let text = cleanText(body.text, 500);
   if (!text) return apiError("EMPTY_DICTATION", "No dictated text was detected", 400);
-  const moderation = await moderateMessage({ userId: auth.id, text, context: "voice_text_chat" });
-  if (!moderation.allowed) {
-    await recordChatModerationEvent(getDb(env), auth.id, `voice:${room.id}`, moderation.rule, text);
-    if (moderation.timeoutSeconds) await persistAutomaticChatTimeout(getDb(env), auth.id, "all", moderation);
-    await voiceEvent(getDb(env), room.id, auth.id, auth.id, "dictation_filtered", { rule: moderation.rule });
-    return apiError("DICTATION_FILTERED", "That dictated segment was hidden by Nova safety", 422);
+  if (!canBypassChatModeration(auth)) {
+    const moderation = await moderateMessage({ userId: auth.id, text, context: "voice_text_chat" });
+    if (!moderation.allowed) {
+      await recordChatModerationEvent(getDb(env), auth.id, `voice:${room.id}`, moderation.rule, text);
+      if (moderation.timeoutSeconds) await persistAutomaticChatTimeout(getDb(env), auth.id, "all", moderation);
+      await voiceEvent(getDb(env), room.id, auth.id, auth.id, "dictation_filtered", { rule: moderation.rule });
+      return apiError("DICTATION_FILTERED", "That dictated segment was hidden by Nova safety", 422);
+    }
+    text = moderation.displayText;
   }
-  text = moderation.displayText;
   const createdAt = Date.now();
   const line = { id: randomToken(10), userId: auth.id, username: auth.username, displayName: auth.display_name || auth.username, avatarUrl: auth.avatar_url || "", text, createdAt };
   await notifyVoiceRoom(env, room.id, { type: "transcript", line }, false);
@@ -3711,6 +3713,15 @@ function moderateChatText(value, channelKind) {
   return baseModerationDecision(value, channelKind === "everyone" ? "social_public" : channelKind === "group" ? "group_chat" : "direct_message");
 }
 
+function canBypassChatModeration(auth) {
+  const roles = [
+    ...(Array.isArray(auth?.roles) ? auth.roles : []),
+    auth?.role,
+    auth?.public_role
+  ].filter(Boolean).map(role => String(role).toLowerCase());
+  return auth?.staff === true || roles.some(role => ADMIN_ROLES.has(role));
+}
+
 async function recordChatModerationEvent(db, userId, channelId, rule, excerpt) {
   const now = Date.now();
   await db.prepare("INSERT INTO chat_moderation_events(user_id,channel_id,rule_code,excerpt,created_at,expires_at) VALUES(?,?,?,?,?,?)")
@@ -3735,17 +3746,18 @@ async function persistAutomaticChatTimeout(db, userId, channelKind, decision) {
   return { id, scope, reason, expiresAt };
 }
 
-async function activeChatRestriction(db, userId, channelKind) {
+async function activeChatRestriction(db, userId, channelKind, includeAutomatic = true) {
   const now = Date.now();
   return db.prepare(`SELECT id,scope,action,reason,created_at,expires_at FROM chat_restrictions
     WHERE user_id=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>?)
     AND (scope='all' OR (scope='everyone' AND ?='everyone'))
+    AND (?=1 OR id NOT LIKE 'auto_chat_%')
     ORDER BY CASE scope WHEN 'all' THEN 2 ELSE 1 END DESC,created_at DESC LIMIT 1`)
-    .bind(userId, now, channelKind).first();
+    .bind(userId, now, channelKind, includeAutomatic ? 1 : 0).first();
 }
 
-async function chatRestrictionError(db, userId, channelKind) {
-  const restriction = await activeChatRestriction(db, userId, channelKind);
+async function chatRestrictionError(db, auth, channelKind) {
+  const restriction = await activeChatRestriction(db, auth.id, channelKind, !canBypassChatModeration(auth));
   if (!restriction) return null;
   const expiry = restriction.expires_at ? ` until ${new Date(Number(restriction.expires_at)).toISOString()}` : "";
   return apiError("CHAT_RESTRICTED", `You are timed out from Nova Social${expiry}. ${restriction.reason}`.trim(), 403, { restriction: { scope: restriction.scope, expiresAt: restriction.expires_at || null } });
@@ -3761,7 +3773,7 @@ async function sendMessage(request, db) {
   if (channel.kind === "announcements" && !auth.roles.some(role => ADMIN_ROLES.has(role))) {
     return apiError("FORBIDDEN", "Only Nova admins can post announcements", 403);
   }
-  const restrictionError = await chatRestrictionError(db, auth.id, channel.kind);
+  const restrictionError = await chatRestrictionError(db, auth, channel.kind);
   if (restrictionError) return restrictionError;
   const type = body.messageType === "image" ? "image" : "text";
   if (type === "image") {
@@ -3775,22 +3787,24 @@ async function sendMessage(request, db) {
     }
   } else {
     text = cleanText(body.body, 2000);
-    const moderation = await moderateMessage({
-      userId: auth.id,
-      text,
-      context: channel.kind === "everyone" || channel.kind === "announcements" ? "social_public" : channel.kind === "group" ? "group_chat" : "direct_message"
-    });
-    if (!moderation.allowed) {
-      await recordChatModerationEvent(db, auth.id, channel.id, moderation.rule, text);
-      if (moderation.timeoutSeconds) await persistAutomaticChatTimeout(db, auth.id, channel.kind, moderation);
-      if (moderation.action === "timeout") return apiError("CHAT_RESTRICTED", "You've been temporarily muted from Social chat for repeated prohibited messages.", 403, { retryAfterSeconds: moderation.timeoutSeconds });
-      if (moderation.timeoutSeconds) {
-        const spam = moderation.rule === "duplicate_spam" || moderation.rule === "rate_spam";
-        return apiError("CHAT_RESTRICTED", spam ? "You're sending messages too quickly. Social chat has been paused temporarily." : "You've been temporarily muted from Social chat for repeated prohibited messages.", 403, { retryAfterSeconds: moderation.timeoutSeconds });
+    if (!canBypassChatModeration(auth)) {
+      const moderation = await moderateMessage({
+        userId: auth.id,
+        text,
+        context: channel.kind === "everyone" || channel.kind === "announcements" ? "social_public" : channel.kind === "group" ? "group_chat" : "direct_message"
+      });
+      if (!moderation.allowed) {
+        await recordChatModerationEvent(db, auth.id, channel.id, moderation.rule, text);
+        if (moderation.timeoutSeconds) await persistAutomaticChatTimeout(db, auth.id, channel.kind, moderation);
+        if (moderation.action === "timeout") return apiError("CHAT_RESTRICTED", "You've been temporarily muted from Social chat for repeated prohibited messages.", 403, { retryAfterSeconds: moderation.timeoutSeconds });
+        if (moderation.timeoutSeconds) {
+          const spam = moderation.rule === "duplicate_spam" || moderation.rule === "rate_spam";
+          return apiError("CHAT_RESTRICTED", spam ? "You're sending messages too quickly. Social chat has been paused temporarily." : "You've been temporarily muted from Social chat for repeated prohibited messages.", 403, { retryAfterSeconds: moderation.timeoutSeconds });
+        }
+        return apiError("MESSAGE_FILTERED", moderation.rule === "duplicate_spam" || moderation.rule === "rate_spam" ? "Please slow down before sending more messages." : "Message blocked by Nova moderation. Please revise it and try again.", 422);
       }
-      return apiError("MESSAGE_FILTERED", moderation.rule === "duplicate_spam" || moderation.rule === "rate_spam" ? "Please slow down before sending more messages." : "Message blocked by Nova moderation. Please revise it and try again.", 422);
+      text = moderation.displayText;
     }
-    text = moderation.displayText;
   }
   if (!text) return apiError("EMPTY_MESSAGE", "Message cannot be empty", 400);
   const now = Date.now();

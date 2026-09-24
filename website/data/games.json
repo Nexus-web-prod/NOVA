@@ -1,5 +1,13 @@
 [
     {
+        "name": "Nova Eaglercraft",
+        "url": "https://main.nova-7.pages.dev/website/games/nova-eaglercraft/",
+        "image": "/website/assets/media/icons/mc.webp",
+        "local": true,
+        "alwaysTop": true,
+        "categories": ["Adventure"]
+    },
+    {
         "name": "Escape Road 2",
         "url": "https://azgames.io/escape-road-2.embed",
         "image": "/website/assets/media/icons/escape-road-2.png"
