@@ -21,7 +21,7 @@
 
   const fallback=`<style id="nova-native-fullbright">
   html,body{background:#000!important}
-  canvas{filter:brightness(1.35) contrast(1.04)}
+  html.nova-fullbright{filter:brightness(1.55) contrast(1.05)}
   #nova-fullbright-status{position:fixed;right:12px;bottom:12px;z-index:2147483647;
     display:none;padding:6px 9px;border-radius:6px;background:rgba(0,0,0,.72);
     color:#fff;font:12px system-ui,sans-serif;pointer-events:none}
@@ -29,7 +29,7 @@
   <script>
   (()=>{let enabled=localStorage.getItem("nova.fullbright")!=="off",box;
     const apply=()=>{
-      document.querySelectorAll("canvas").forEach(c=>c.style.filter=enabled?"brightness(1.35) contrast(1.04)":"");
+      document.documentElement.classList.toggle("nova-fullbright",enabled);
       localStorage.setItem("nova.fullbright",enabled?"on":"off");
       if(box){box.textContent="Nova Fullbright: "+(enabled?"ON":"OFF");
         box.style.display="block";clearTimeout(box._t);box._t=setTimeout(()=>box.style.display="none",900);}
