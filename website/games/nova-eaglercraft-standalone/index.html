@@ -19,8 +19,6 @@
 
   let game=new TextDecoder().decode(bytes);
 
-  // Native browser Fullbright fallback. It is deliberately tiny and does not
-  // add a second launcher, worker, service, or Java/Fabric runtime.
   const fallback=`<style id="nova-native-fullbright">
   html,body{background:#000!important}
   canvas{filter:brightness(1.35) contrast(1.04)}
@@ -43,7 +41,10 @@
   })();
   </scr`+`ipt>`;
 
-  const nativeMod="<script>\\n"+modText.replace(/<\\/script/gi,"<\\\\/script")+"\\n</scr"+"ipt>";
+  // Escape the closing script tag without using a regex, so the outer loader
+  // can never be terminated while building the game HTML.
+  const escapedMod=modText.split("</script").join("<\\/script");
+  const nativeMod="<script>\\n"+escapedMod+"\\n</scr"+"ipt>";
   if(game.includes("</head>")) game=game.replace("</head>",fallback+nativeMod+"</head>");
   else game=fallback+nativeMod+game;
 
