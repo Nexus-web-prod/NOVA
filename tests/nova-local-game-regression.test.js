@@ -27,6 +27,10 @@ test('Nova Eaglercraft is a pinned, self-contained local game', () => {
     assert.ok(fs.statSync(partPath).size < 25 * 1024 * 1024);
   }
   assert.match(read('website/games/nova-eaglercraft/index.html'), /<title>Nova Eaglercraft<\/title>/);
+  const launcher = read('website/games/nova-eaglercraft/index.html');
+  assert.match(launcher, /response\.blob\(\)/);
+  assert.match(launcher, /new Blob\(responses, \{ type: 'text\/html' \}\)/);
+  assert.doesNotMatch(launcher, /new Uint8Array\(size\)/);
 });
 
 test('Pixel Shooter uses the current external game host', () => {
