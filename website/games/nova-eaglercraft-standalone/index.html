@@ -41,9 +41,9 @@
     new MutationObserver(boot).observe(document.documentElement,{childList:true,subtree:true});
     setTimeout(boot,250);
   })();
-  <\\/script>`;
+  </scr`+`ipt>`;
 
-  const nativeMod="<script>\\n"+modText.replace(/<\\/script/gi,"<\\\\/script")+"\\n<\\/script>";
+  const nativeMod="<script>\\n"+modText.replace(/<\\/script/gi,"<\\\\/script")+"\\n</scr"+"ipt>";
   if(game.includes("</head>")) game=game.replace("</head>",fallback+nativeMod+"</head>");
   else game=fallback+nativeMod+game;
 
