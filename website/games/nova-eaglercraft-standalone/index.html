@@ -1,18 +1,27 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nova Eaglercraft</title></head><body style="margin:0;background:#000;overflow:hidden"><script>
 (async()=>{
   const parts=["game.part.00","game.part.01","game.part.02","game.part.03"];
-  const buffers=await Promise.all(parts.map(x=>fetch(x,{cache:"force-cache"}).then(r=>{
-    if(!r.ok) throw new Error("Failed to load "+x);
-    return r.arrayBuffer();
-  })));
+  const [buffers,modText]=await Promise.all([
+    Promise.all(parts.map(x=>fetch(x,{cache:"force-cache"}).then(r=>{
+      if(!r.ok) throw new Error("Failed to load "+x);
+      return r.arrayBuffer();
+    }))),
+    fetch("nova-eaglercraft-mods.js",{cache:"no-store"}).then(r=>{
+      if(!r.ok) throw new Error("Failed to load Nova mods");
+      return r.text();
+    })
+  ]);
+
   const total=buffers.reduce((a,x)=>a+x.byteLength,0);
   const bytes=new Uint8Array(total);
   let offset=0;
   for(const b of buffers){bytes.set(new Uint8Array(b),offset);offset+=b.byteLength;}
 
-  // Nova-native Fullbright: no Java/Fabric runtime required.
   let game=new TextDecoder().decode(bytes);
-  const mod=`<style id="nova-native-fullbright">
+
+  // Native browser Fullbright fallback. It is deliberately tiny and does not
+  // add a second launcher, worker, service, or Java/Fabric runtime.
+  const fallback=`<style id="nova-native-fullbright">
   html,body{background:#000!important}
   canvas{filter:brightness(1.35) contrast(1.04)}
   #nova-fullbright-status{position:fixed;right:12px;bottom:12px;z-index:2147483647;
@@ -22,25 +31,21 @@
   <script>
   (()=>{let enabled=localStorage.getItem("nova.fullbright")!=="off",box;
     const apply=()=>{
-      document.querySelectorAll("canvas").forEach(c=>{
-        c.style.filter=enabled?"brightness(1.35) contrast(1.04)":"";
-      });
+      document.querySelectorAll("canvas").forEach(c=>c.style.filter=enabled?"brightness(1.35) contrast(1.04)":"");
       localStorage.setItem("nova.fullbright",enabled?"on":"off");
       if(box){box.textContent="Nova Fullbright: "+(enabled?"ON":"OFF");
-        box.style.display="block";clearTimeout(box._t);
-        box._t=setTimeout(()=>box.style.display="none",900);}
+        box.style.display="block";clearTimeout(box._t);box._t=setTimeout(()=>box.style.display="none",900);}
     };
-    const boot=()=>{if(!box){box=document.createElement("div");box.id="nova-fullbright-status";
-      document.body.appendChild(box);}apply();};
-    addEventListener("keydown",e=>{
-      if(e.code==="F7"&&!e.repeat){enabled=!enabled;apply();}
-    });
+    const boot=()=>{if(!box){box=document.createElement("div");box.id="nova-fullbright-status";document.body.appendChild(box)}apply()};
+    addEventListener("keydown",e=>{if(e.code==="F7"&&!e.repeat){enabled=!enabled;apply()}});
     new MutationObserver(boot).observe(document.documentElement,{childList:true,subtree:true});
     setTimeout(boot,250);
   })();
   <\\/script>`;
-  if(game.includes("</head>")) game=game.replace("</head>",mod+"</head>");
-  else game=mod+game;
+
+  const nativeMod="<script>\\n"+modText.replace(/<\\/script/gi,"<\\\\/script")+"\\n<\\/script>";
+  if(game.includes("</head>")) game=game.replace("</head>",fallback+nativeMod+"</head>");
+  else game=fallback+nativeMod+game;
 
   const frame=document.createElement("iframe");
   frame.style.cssText="width:100vw;height:100vh;border:0";
