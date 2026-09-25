@@ -63,14 +63,12 @@
         var responses = await Promise.all(parts.map(function (part) {
           return fetch(part).then(function (response) {
             if (!response.ok) throw new Error('Missing game data');
-            return response.arrayBuffer();
+            return response.blob();
           });
         }));
-        var size = responses.reduce(function (total, part) { return total + part.byteLength; }, 0);
-        var bytes = new Uint8Array(size);
-        var offset = 0;
-        responses.forEach(function (part) { bytes.set(new Uint8Array(part), offset); offset += part.byteLength; });
-        var game = new Blob([bytes], { type: 'text/html' });
+        // Keep the four local parts as Blob segments instead of allocating one
+        // additional ~80 MB Uint8Array and copying every byte into it.
+        var game = new Blob(responses, { type: 'text/html' });
         var frame = document.createElement('iframe');
         frame.title = 'Nova Eaglercraft';
         frame.allow = 'autoplay; fullscreen; gamepad';
