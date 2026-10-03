@@ -20,8 +20,8 @@
   ];
 
   function escapeHtml(value) {
-    return String(value || '').replace(/[&<>"']/g, ch => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    return String(value || '').replace(/[&<>\"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;',
     }[ch]));
   }
 
@@ -115,7 +115,7 @@
       hero?.classList.remove('hero-refresh');
       requestAnimationFrame(() => hero?.classList.add('hero-refresh'));
     }
-    if (bg) bg.style.backgroundImage = `url("${artFor(movie)}")`;
+    if (bg) bg.style.backgroundImage = `url(\"${artFor(movie)}\")`;
     if (title) title.textContent = movie.title || 'Movie';
     if (meta) {
       meta.innerHTML = [movie.year, movie.genre, 'HD']
@@ -236,6 +236,64 @@
     if (loading) loading.classList.toggle('hidden', !visible);
   }
 
+  function clearMovieCaptions(video) {
+    if (!video) return;
+    video.querySelectorAll('track[data-nova-captions="1"]').forEach(track => track.remove());
+    Array.from(video.textTracks || []).forEach(track => {
+      if (track.kind === 'captions' || track.kind === 'subtitles') track.mode = 'disabled';
+    });
+  }
+
+  function applyMovieCaptions(video, movie) {
+    clearMovieCaptions(video);
+    const captionSrc = movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle;
+    if (!video || !captionSrc) return false;
+    const track = document.createElement('track');
+    track.kind = 'captions';
+    track.label = movie.captionLabel || 'English';
+    track.srclang = movie.captionLanguage || 'en';
+    track.src = captionSrc;
+    track.default = movie.captionsDefault !== false;
+    track.dataset.novaCaptions = '1';
+    video.appendChild(track);
+    if (track.default) {
+      // Safari requires the default attribute for custom caption controls.
+      setTimeout(() => { if (track.track) track.track.mode = 'showing'; }, 0);
+    }
+    return true;
+  }
+
+  function captionAvailable(movie) {
+    return Boolean(movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle);
+  }
+
+  function syncCaptionButton(video, movie) {
+    const button = document.getElementById('movies-player-cc');
+    if (!button) return;
+    const available = captionAvailable(movie);
+    button.disabled = !available;
+    button.setAttribute('aria-disabled', available ? 'false' : 'true');
+    button.classList.toggle('available', available);
+    button.textContent = available ? 'CC' : 'CC —';
+    if (!available) return;
+    const track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
+    const showing = track && track.mode === 'showing';
+    button.setAttribute('aria-pressed', showing ? 'true' : 'false');
+    button.classList.toggle('active', showing);
+  }
+
+  function toggleMovieCaptions(video, movie) {
+    if (!captionAvailable(movie)) return;
+    let track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
+    if (!track) {
+      applyMovieCaptions(video, movie);
+      track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
+    }
+    if (!track) return;
+    track.mode = track.mode === 'showing' ? 'hidden' : 'showing';
+    syncCaptionButton(video, movie);
+  }
+
   function ensureOverlay() {
     if (document.getElementById('movies-player-overlay')) return;
     const overlay = document.createElement('div');
@@ -251,7 +309,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
           </button>
           <div class="movies-player-brand"><span>✦</span>NOVA MOVIES</div>
-          <div id="movies-player-top-meta"></div>
+          <div class="movies-player-top-actions">
+            <button id="movies-player-cc" class="movies-player-cc" type="button" aria-label="Toggle closed captions" aria-pressed="false" disabled>CC —</button>
+            <div id="movies-player-top-meta"></div>
+          </div>
         </header>
         <div class="movies-player-frame-wrap">
           <div class="movies-watermark movies-watermark-player">NOVA</div>
@@ -273,6 +334,7 @@
 
     const video = document.getElementById('movies-player-video');
     document.getElementById('movies-player-close')?.addEventListener('click', closePlayer);
+    document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleMovieCaptions(video, activeMovie));
     video?.addEventListener('playing', () => setLoading('', false));
     video?.addEventListener('canplay', () => setLoading('', false));
     video?.addEventListener('waiting', () => setLoading('Buffering', true));
@@ -280,6 +342,7 @@
     video?.addEventListener('error', () => {
       if (activeMovie) setLoading('This movie could not be loaded', true);
     });
+    video?.addEventListener('loadedmetadata', () => syncCaptionButton(video, activeMovie));
   }
 
   function launchFromCard(movie, card) {
@@ -348,11 +411,12 @@
     if (desc) desc.textContent = movie.description || '';
     if (meta) meta.textContent = metaFor(movie);
     if (topMeta) topMeta.textContent = movie.year || '';
-    if (frame) frame.style.backgroundImage = `url("${artFor(movie)}")`;
+    if (frame) frame.style.backgroundImage = `url(\"${artFor(movie)}\")`;
     if (video) {
       video.pause();
       video.removeAttribute('src');
       video.poster = artFor(movie);
+      clearMovieCaptions(video);
       video.load();
     }
     setLoading('Preparing movie', true);
@@ -376,11 +440,14 @@
       if (request !== playerRequest || !activeMovie) return;
       if (ready) {
         if (!movie.src) urlCache[movie.id] = sources[index];
+        applyMovieCaptions(video, movie);
+        syncCaptionButton(video, movie);
         setLoading('', false);
         video.play().catch(() => {});
         return;
       }
     }
+    syncCaptionButton(video, movie);
     setLoading('This movie could not be loaded', true);
   }
 
@@ -390,6 +457,7 @@
     const video = document.getElementById('movies-player-video');
     if (video) {
       video.pause();
+      clearMovieCaptions(video);
       video.removeAttribute('src');
       video.removeAttribute('poster');
       video.load();
