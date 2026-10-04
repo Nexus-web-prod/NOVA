@@ -256,44 +256,45 @@
     track.default = movie.captionsDefault !== false;
     track.dataset.novaCaptions = '1';
     video.appendChild(track);
-    if (track.default) {
-      // Safari requires the default attribute for custom caption controls.
-      setTimeout(() => { if (track.track) track.track.mode = 'showing'; }, 0);
-    }
+    if (track.default) setTimeout(() => { if (track.track) track.track.mode = 'showing'; }, 0);
     return true;
   }
 
-  function captionAvailable(movie) {
-    return Boolean(movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle);
+  function captionTracks(video) {
+    return Array.from(video?.textTracks || []).filter(track =>
+      track.kind === 'captions' || track.kind === 'subtitles'
+    );
+  }
+
+  function captionAvailable(video, movie) {
+    return Boolean(movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle || captionTracks(video).length);
   }
 
   function syncCaptionButton(video, movie) {
     const button = document.getElementById('movies-player-cc');
     if (!button) return;
-    const available = captionAvailable(movie);
+    const tracks = captionTracks(video);
+    const available = captionAvailable(video, movie);
     button.disabled = !available;
     button.setAttribute('aria-disabled', available ? 'false' : 'true');
     button.classList.toggle('available', available);
-    button.textContent = available ? 'CC' : 'CC —';
-    if (!available) return;
-    const track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
-    const showing = track && track.mode === 'showing';
+    button.textContent = 'CC';
+    const showing = tracks.some(track => track.mode === 'showing');
     button.setAttribute('aria-pressed', showing ? 'true' : 'false');
     button.classList.toggle('active', showing);
   }
 
   function toggleMovieCaptions(video, movie) {
-    if (!captionAvailable(movie)) return;
-    let track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
-    if (!track) {
+    let tracks = captionTracks(video);
+    if (!tracks.length && (movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle)) {
       applyMovieCaptions(video, movie);
-      track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
+      tracks = captionTracks(video);
     }
-    if (!track) return;
-    track.mode = track.mode === 'showing' ? 'hidden' : 'showing';
+    if (!tracks.length) { syncCaptionButton(video, movie); return; }
+    const shouldShow = !tracks.some(track => track.mode === 'showing');
+    tracks.forEach(track => { track.mode = shouldShow ? 'showing' : 'hidden'; });
     syncCaptionButton(video, movie);
   }
-
   function ensureOverlay() {
     if (document.getElementById('movies-player-overlay')) return;
     const overlay = document.createElement('div');
@@ -332,6 +333,12 @@
       </div>`;
     document.body.appendChild(overlay);
 
+    if (!document.getElementById('nova-movies-cc-style')) {
+      const style = document.createElement('style');
+      style.id = 'nova-movies-cc-style';
+      style.textContent = '.movies-player-cc{width:34px;height:34px;min-width:34px;padding:0 .5rem;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--glass-b);border-radius:var(--r-sm);background:var(--glass-bg);color:var(--muted);font:700 .48rem "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}.movies-player-cc.available{color:var(--accent)}.movies-player-cc.active{color:var(--white);background:var(--glow-s);border-color:var(--accent);box-shadow:0 0 10px var(--glow)}.movies-player-cc:disabled{cursor:default;opacity:.42}';
+      document.head.appendChild(style);
+    }
     const video = document.getElementById('movies-player-video');
     document.getElementById('movies-player-close')?.addEventListener('click', closePlayer);
     document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleMovieCaptions(video, activeMovie));
