@@ -23,7 +23,11 @@
     "description": "Mario and Luigi tumble into the Mushroom Kingdom, where a rescue mission becomes a bright, chaotic adventure.",
     "thumb": "/website/assets/media/movies/mario.jpg",
     "backdrop": "/website/assets/media/movies/mario-bg.jpeg",
-    "tagline": "A warp pipe into pure color."
+    "tagline": "A warp pipe into pure color.",
+    "captions": "/website/assets/media/movies/mario-movie.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   },
   {
     "id": "godzilla-vs-kong",
@@ -34,7 +38,11 @@
     "description": "Two ancient titans collide while people race to uncover the force pulling them toward a world-shaking fight.",
     "thumb": "/website/assets/media/movies/godzilla.avif",
     "backdrop": "/website/assets/media/movies/kong-bg.jpg",
-    "tagline": "Titans do not share the throne."
+    "tagline": "Titans do not share the throne.",
+    "captions": "/website/assets/media/movies/godzilla-vs-kong.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   },
   {
     "id": "spiderman-across-spiderverse",
@@ -60,7 +68,11 @@
     "description": "A dream park built on prehistoric science turns dangerous when its attractions escape their fences.",
     "thumb": "/website/assets/media/movies/jurassic.avif",
     "backdrop": "/website/assets/media/movies/jurassic-bg.webp",
-    "tagline": "Welcome to the park."
+    "tagline": "Welcome to the park.",
+    "captions": "/website/assets/media/movies/jurassic-park.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   },
   {
     "id": "ice-age",
@@ -71,7 +83,11 @@
     "description": "A mismatched herd crosses a frozen world and finds family in the middle of a very weird migration.",
     "thumb": "/website/assets/media/movies/iceage.jpg",
     "backdrop": "/website/assets/media/movies/ice-age-bg.webp",
-    "tagline": "Cold world. Warm crew."
+    "tagline": "Cold world. Warm crew.",
+    "captions": "/website/assets/media/movies/ice-age.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   },
   {
     "id": "iron-lung",
