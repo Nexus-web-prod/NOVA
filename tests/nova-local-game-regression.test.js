@@ -29,6 +29,18 @@ test('Nova Eaglercraft is a pinned, self-contained local game', () => {
   assert.match(read('website/games/nova-eaglercraft/index.html'), /<title>Nova Eaglercraft<\/title>/);
 });
 
+test('Nova Eaglercraft is registered in the built-in Games Player and remains first in its results', () => {
+  const index = read('website/html/index.html');
+  const player = read('website/html/game.html');
+  const games = JSON.parse(read('website/data/games.json'));
+  const game = games.find(item => item.name === 'Nova Eaglercraft');
+  assert.match(index, /\/website\/games\/nova-eaglercraft\//);
+  assert.match(index, /name:'Nova Eaglercraft',slug:'nova-eaglercraft'/);
+  assert.match(player, /'nova-eaglercraft': \{ name: 'Nova Eaglercraft', src: '\/website\/games\/nova-eaglercraft\/' \}/);
+  assert.equal(game.alwaysTop, true);
+  assert.equal(games[0].name, 'Nova Eaglercraft');
+});
+
 test('Pixel Shooter uses the current external game host', () => {
   const games = JSON.parse(read('website/data/games.json'));
   const legacyGames = JSON.parse(read('website/assets/json/g.json'));
