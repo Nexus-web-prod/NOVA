@@ -3,7 +3,6 @@
   'use strict';
 
   let state = null;
-  let recognizerPromise = null;
 
   function ensureStyle() {
     if (document.getElementById('nova-live-cc-style')) return;
@@ -49,33 +48,50 @@
     status.classList.toggle('visible', Boolean(text));
   }
 
-  async function getRecognizer() {
-    if (!recognizerPromise) {
-      recognizerPromise = import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2')
-        .then(({ pipeline, env }) => {
-          env.allowLocalModels = false;
-          env.useBrowserCache = true;
-          return pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
-            dtype: 'q8',
-            device: 'wasm'
-          });
-        });
-    }
-    return recognizerPromise;
-  }
-
   function stop() {
     if (!state) return;
     const old = state;
     state = null;
-    try { old.processor?.disconnect(); } catch (_) {}
+
+    try { old.audioNode?.disconnect(); } catch (_) {}
     try { old.source?.disconnect(); } catch (_) {}
+    try { old.sink?.disconnect(); } catch (_) {}
+    try { old.worker?.terminate(); } catch (_) {}
     try { old.stream?.getTracks?.().forEach(track => track.stop()); } catch (_) {}
     try { old.context?.close(); } catch (_) {}
+
     if (old.video) {
       setOverlay(old.video, '');
       setStatus(old.video, '');
     }
+  }
+
+  function cleanText(raw) {
+    const text = String(raw || '').replace(/\s+/g, ' ').trim();
+    const normalized = text
+      .toLowerCase()
+      .replace(/[♪♫]+/g, '')
+      .replace(/[^a-z0-9'!?., -]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const hallucinations = new Set([
+      'music',
+      'music playing',
+      '♪',
+      '♫',
+      'applause',
+      'silence',
+      'thank you for watching',
+      'thanks for watching',
+      'subscribe',
+      'you',
+      'thank you',
+      '♪ music ♪'
+    ]);
+
+    if (hallucinations.has(normalized) || normalized.length < 2) return '';
+    return text;
   }
 
   async function start(video, onState) {
@@ -92,37 +108,67 @@
       video,
       running: true,
       source: null,
-      processor: null,
+      audioNode: null,
+      sink: null,
       context: null,
-      busy: false,
-      pcm: [],
-      pendingChunk: null,
+      worker: null,
+      workerBusy: false,
+      pendingBuffer: null,
+      nextId: 1,
       lastTranscript: '',
       hideTimer: null,
-      chunkStartTime: 0
+      chunkSeconds: 3,
+      pcm: [],
+      sampleRate: 0
     };
     state = local;
 
     try {
       onState?.('loading');
       setStatus(video, 'LIVE CC · loading speech model');
-      const recognizer = await getRecognizer();
-      if (!local.running || state !== local) return false;
+
+      const workerUrl = new URL('./nova-live-cc-worker.js', document.currentScript?.src || '/website/js/nova-live-cc.js');
+      local.worker = new Worker(workerUrl, { type: 'module' });
+
+      local.worker.onmessage = event => {
+        const message = event.data || {};
+        if (!local.running || state !== local) return;
+        if (message.type === 'error') {
+          local.workerBusy = false;
+          console.warn('[Nova Live CC] worker transcription failed', message.message);
+          onState?.('error', 'Live CC transcription failed');
+          processPending();
+          return;
+        }
+        if (message.type !== 'result') return;
+
+        local.workerBusy = false;
+        const text = cleanText(message.text);
+        if (text && text !== local.lastTranscript) {
+          local.lastTranscript = text;
+          setOverlay(video, text);
+          onState?.('live', text);
+          clearTimeout(local.hideTimer);
+          local.hideTimer = setTimeout(() => {
+            if (state === local) setOverlay(video, '');
+          }, 2400);
+        }
+        processPending();
+      };
+
+      local.worker.onerror = error => {
+        if (state !== local) return;
+        console.warn('[Nova Live CC] worker error', error);
+        onState?.('error', 'Live CC worker failed');
+      };
 
       const context = new AudioCtx();
       local.context = context;
       if (context.state === 'suspended') await context.resume();
 
-      // Direct media capture is the preferred path, but browsers refuse to
-      // expose cross-origin media that was not served with CORS headers.
-      // NOVA's movie files are hosted on a separate R2 origin, so fall back
-      // to user-approved current-tab audio capture when direct capture is
-      // blocked. This never requests microphone access.
       let source;
       try {
-        if (typeof video.captureStream !== 'function') {
-          throw new Error('captureStream is unavailable');
-        }
+        if (typeof video.captureStream !== 'function') throw new Error('captureStream is unavailable');
         const stream = video.captureStream();
         if (!stream || !stream.getAudioTracks().length) {
           throw new Error('Movie capture stream has no audio track');
@@ -130,9 +176,7 @@
         local.stream = stream;
         source = context.createMediaStreamSource(stream);
       } catch (captureError) {
-        if (!navigator.mediaDevices?.getDisplayMedia) {
-          throw captureError;
-        }
+        if (!navigator.mediaDevices?.getDisplayMedia) throw captureError;
 
         onState?.('permission');
         setStatus(video, 'LIVE CC · select This Tab + share audio');
@@ -144,13 +188,13 @@
           selfBrowserSurface: 'include',
           systemAudio: 'include'
         });
+
         if (!local.running || state !== local) {
           shared.getTracks().forEach(track => track.stop());
           return false;
         }
 
-        const audioTracks = shared.getAudioTracks();
-        if (!audioTracks.length) {
+        if (!shared.getAudioTracks().length) {
           shared.getTracks().forEach(track => track.stop());
           throw new Error('No tab audio was shared. Choose This Tab and enable audio.');
         }
@@ -159,8 +203,7 @@
         source = context.createMediaStreamSource(shared);
         setStatus(video, 'LIVE CC · tab audio connected');
 
-        const [videoTrack] = shared.getVideoTracks();
-        videoTrack?.addEventListener('ended', () => {
+        shared.getVideoTracks()[0]?.addEventListener('ended', () => {
           if (state === local) {
             stop();
             onState?.('unsupported', new Error('Tab audio sharing ended'));
@@ -168,39 +211,58 @@
         }, { once: true });
       }
 
-      const processor = context.createScriptProcessor(4096, 1, 1);
       local.source = source;
-      local.processor = processor;
 
-      source.connect(processor);
-      processor.connect(context.destination);
+      if (!context.audioWorklet) {
+        throw new Error('AudioWorklet is unavailable in this browser');
+      }
 
-      const sampleRate = context.sampleRate;
-      const chunkSeconds = 4;
-      const targetSamples = Math.floor(sampleRate * chunkSeconds);
-      processor.onaudioprocess = event => {
-        if (!local.running) return;
-        const input = event.inputBuffer.getChannelData(0);
-        for (let i = 0; i < input.length; i += 1) local.pcm.push(input[i]);
+      await context.audioWorklet.addModule(new URL('./nova-live-cc-worklet.js', document.baseURI));
+
+      const audioNode = new AudioWorkletNode(context, 'nova-live-cc-processor', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        channelCount: 1,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers'
+      });
+      local.audioNode = audioNode;
+
+      // Keep the worklet alive without feeding captured audio back to the
+      // speakers. This avoids the old ScriptProcessorNode and tab-audio echo.
+      const sink = context.createGain();
+      sink.gain.value = 0;
+      local.sink = sink;
+
+      source.connect(audioNode);
+      audioNode.connect(sink);
+      sink.connect(context.destination);
+
+      local.sampleRate = context.sampleRate;
+      audioNode.port.onmessage = event => {
+        if (!local.running || state !== local) return;
+        const buffer = event.data instanceof ArrayBuffer
+          ? new Float32Array(event.data)
+          : null;
+        if (!buffer) return;
+
+        for (let i = 0; i < buffer.length; i += 1) local.pcm.push(buffer[i]);
+
+        const targetSamples = Math.floor(local.sampleRate * local.chunkSeconds);
         if (local.pcm.length < targetSamples) return;
 
-        // Keep the newest window if Whisper is still processing. This prevents
-        // a slow browser inference from permanently falling behind the movie.
         const chunk = Float32Array.from(local.pcm.splice(0, targetSamples));
-        local.chunkStartTime = Math.max(0, (video.currentTime || 0) - chunkSeconds);
-        if (local.busy) {
-          local.pendingChunk = chunk;
+        if (local.workerBusy) {
+          // Never queue an old backlog. Only the newest audio window matters.
+          local.pendingBuffer = chunk;
           return;
         }
-
-        transcribeChunk(chunk);
+        sendChunk(chunk);
       };
 
-      async function transcribeChunk(chunk) {
-        if (!local.running || state !== local) return;
+      function sendChunk(chunk) {
+        if (!local.running || state !== local || local.workerBusy) return;
 
-        // Avoid sending silence/noise to Whisper. This also reduces the common
-        // Whisper hallucination where music-only audio becomes "music".
         let sum = 0;
         let peak = 0;
         for (let i = 0; i < chunk.length; i += 1) {
@@ -209,79 +271,36 @@
           const magnitude = Math.abs(value);
           if (magnitude > peak) peak = magnitude;
         }
+
         const rms = Math.sqrt(sum / chunk.length);
         if (rms < 0.008 || peak < 0.035) {
-          if (local.running && state === local && local.pendingChunk) {
-            const next = local.pendingChunk;
-            local.pendingChunk = null;
-            transcribeChunk(next);
-          }
+          processPending();
           return;
         }
 
-        local.busy = true;
-        try {
-          const result = await recognizer(chunk, {
-            sampling_rate: sampleRate,
-            return_timestamps: false,
-            chunk_length_s: chunkSeconds
-          });
-          if (!local.running || state !== local) return;
+        local.workerBusy = true;
+        const id = local.nextId++;
+        local.worker.postMessage({
+          type: 'transcribe',
+          id,
+          buffer: chunk.buffer,
+          sampleRate: local.sampleRate,
+          chunkSeconds: local.chunkSeconds
+        }, [chunk.buffer]);
+      }
 
-          let text = String(result?.text || '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          const normalized = text
-            .toLowerCase()
-            .replace(/[♪♫]+/g, '')
-            .replace(/[^a-z0-9'!?., -]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-          const hallucinations = new Set([
-            'music',
-            'music playing',
-            '♪',
-            '♫',
-            'applause',
-            'silence',
-            'thank you for watching',
-            'thanks for watching',
-            'subscribe',
-            'you',
-            'thank you'
-          ]);
-          if (hallucinations.has(normalized) || normalized.length < 2) text = '';
-
-          if (text && text !== local.lastTranscript) {
-            local.lastTranscript = text;
-            setOverlay(video, text);
-            onState?.('live', text);
-            clearTimeout(local.hideTimer);
-            local.hideTimer = setTimeout(() => {
-              if (state === local) setOverlay(video, '');
-            }, 2200);
-          }
-        } catch (error) {
-          if (state === local) {
-            console.warn('[Nova Live CC] transcription failed', error);
-            onState?.('error', 'Live CC transcription failed');
-          }
-        } finally {
-          local.busy = false;
-          if (local.running && state === local && local.pendingChunk) {
-            const next = local.pendingChunk;
-            local.pendingChunk = null;
-            transcribeChunk(next);
-          }
-        }
+      function processPending() {
+        if (!local.running || state !== local || local.workerBusy || !local.pendingBuffer) return;
+        const next = local.pendingBuffer;
+        local.pendingBuffer = null;
+        sendChunk(next);
       }
 
       onState?.('live');
       setStatus(video, 'LIVE CC');
       return true;
     } catch (error) {
-      console.warn('[Nova Live CC] audio capture unavailable', error);
+      console.warn('[Nova Live CC] startup failed', error);
       stop();
       onState?.('unsupported', error);
       return false;
