@@ -8,7 +8,11 @@
     "description": "Four unlikely visitors are pulled into a block-built world and have to learn its rules before they can make it home.",
     "thumb": "/website/assets/media/movies/minecraft.jpg",
     "backdrop": "/website/assets/media/movies/minecraft.jpg",
-    "tagline": "Build fast. Survive faster."
+    "tagline": "Build fast. Survive faster.",
+    "captions": "/website/assets/media/movies/minecraft-movie.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   },
   {
     "id": "mario-movie",
