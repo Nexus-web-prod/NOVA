@@ -332,7 +332,7 @@
     stats.classList.remove("home-stats--newyear-countdown");
     stats.setAttribute("aria-label", "Nova library information");
     stats.innerHTML =
-      '<div class="home-stat"><div class="home-stat-num home-stat-version">7.0</div><div class="home-stat-lbl">Version</div></div>' +
+      '<div class="home-stat"><div class="home-stat-num home-stat-version">7.1</div><div class="home-stat-lbl">Version</div></div>' +
       '<div class="home-stat-div" aria-hidden="true"></div>' +
       '<div class="home-stat"><div class="home-stat-num">89</div><div class="home-stat-lbl">Games</div></div>' +
       '<div class="home-stat-div" aria-hidden="true"></div>' +
