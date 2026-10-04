@@ -263,7 +263,7 @@
     if (!detail?.classList.contains('active')) return false;
     detail.classList.remove('active');
     activeGame = null;
-    document.title = 'Nova 7.0';
+    document.title = 'Nova 7.1';
     clearGameParam(true);
     return true;
   }
@@ -332,7 +332,7 @@
     var games = document.getElementById('page-games');
     detail?.classList.remove('active');
     activeGame = null;
-    document.title = 'Nova 7.0';
+    document.title = 'Nova 7.1';
     if (options.history !== false) clearGameParam(false);
     restorePage(destination);
     if (destination === 'games' && games) games.scrollTop = previousGameScroll;
