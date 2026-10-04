@@ -15,7 +15,7 @@ if [ ! -x "${DEPLOY_SCRIPT}" ]; then
   exit 1
 fi
 
-echo "Nova 7 deployment"
+echo "Nova 7.1 deployment"
 echo "================="
 echo
 default_comment="pushed by nova deploy cmd"
