@@ -41,6 +41,8 @@ jobs:
           grep -q "function toggleLiveMovieCaptions(video, movie)" website/js/nova-movies.js
           grep -q "NovaLiveCC" website/js/nova-movies.js
           test -f website/js/nova-live-cc.js
+          test -f website/js/nova-live-cc-worker.js
+          test -f website/js/nova-live-cc-worklet.js
           grep -q "window.NovaLiveCC" website/js/nova-live-cc.js
           grep -q "automatic-speech-recognition" website/js/nova-live-cc.js
           echo "Movie CC and Live CC implementation is present"
@@ -48,7 +50,7 @@ jobs:
       - name: Validate movie HTML asset version
         shell: bash
         run: |
-          grep -q 'nova-live-cc.js?v=20261003-live-cc-r6' website/html/index.html
+          grep -q 'nova-live-cc.js?v=20261003-live-cc-r7' website/html/index.html
           grep -q 'nova-movies.js?v=20261003-cc-r5' website/html/index.html
           echo "Movie JS and Live CC asset versions are current"
 
