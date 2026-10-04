@@ -2066,7 +2066,7 @@ html[data-blur-level="off"] .nova-site-banner {
   }
 }
 
-/* Nova 7 release moderation and Social safety controls */
+/* Nova 7.1 release moderation and Social safety controls */
 .social-chat-safety-btn{
   width:30px;height:30px;display:grid;place-items:center;flex:none;padding:0;border:1px solid transparent;border-radius:7px;
   background:transparent;color:var(--muted);cursor:pointer;transition:color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease;
@@ -2110,7 +2110,7 @@ html[data-blur-level="off"] .nova-site-banner {
 @media(max-width:600px){.social-safety-overlay{padding:10px}.social-blocked-list article{grid-template-columns:36px minmax(0,1fr)}.social-blocked-list article>button{grid-column:2;width:100%}}
 @media(prefers-reduced-motion:reduce){.social-safety-overlay,.social-safety-dialog,.social-send-btn.is-cooling svg{animation:none!important}.social-cooldown-status{transition:none!important}}
 
-/* Nova 7 locked wordmark */
+/* Nova 7.1 locked wordmark */
 .nova-hero-wordmark.nova7-wordmark{
   --logo-size:96px;
   display:inline-flex !important;
@@ -3196,7 +3196,7 @@ html[data-island-size="wide"] #nova-shell{
 }
 
 /* ================================================================
-   NOVA MOVIES 7.0 - final cinematic layout authority
+   NOVA MOVIES 7.1 - final cinematic layout authority
    ================================================================ */
 #page-movies{
   background:#030307;
