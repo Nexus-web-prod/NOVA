@@ -122,8 +122,8 @@ async function runPass(browser, transport, games) {
     const context = await browser.newContext({ viewport:{ width:1280, height:800 }, serviceWorkers:'allow' });
     await context.addInitScript(() => {
       localStorage.setItem('nova_consent', 'minimal');
-      localStorage.setItem('nova_setup_v7_complete', '7.0-launch');
-      localStorage.setItem('nova_seen_version', '7.0');
+      localStorage.setItem('nova_setup_v7_complete', '7.1-launch');
+      localStorage.setItem('nova_seen_version', '7.1');
     });
     const page = await context.newPage();
     page.setDefaultTimeout(12000);
