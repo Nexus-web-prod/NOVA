@@ -349,6 +349,10 @@
   function syncCaptionButton(video, movie) {
     const button = document.getElementById('movies-player-cc');
     if (!button) return;
+    if (!captionAvailable(video, movie)) {
+      syncLiveCaptionState(video, movie);
+      return;
+    }
     const tracks = captionTracks(video);
     const available = captionAvailable(video, movie);
     button.disabled = !available;
