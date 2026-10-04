@@ -1,4 +1,4 @@
-/* Nova 7 device-ban guard. The authenticated Nova API is the only source of truth. */
+/* Nova 7.1 device-ban guard. The authenticated Nova API is the only source of truth. */
 !function () {
   "use strict";
 
