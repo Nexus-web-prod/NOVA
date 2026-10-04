@@ -74,6 +74,10 @@
     "description": "After the Quiet Rapture erases every known star and habitable planet, a convict is sealed inside the Iron Lung, a small submarine sent to explore an ocean of blood on a desolate moon.",
     "thumb": "/website/assets/media/movies/iron-lung.png",
     "backdrop": "/website/assets/media/movies/iron-lung-bg.jpg",
-    "tagline": "No windows. No rescue. Keep moving."
+    "tagline": "No windows. No rescue. Keep moving.",
+    "captions": "/website/assets/media/movies/iron-lung.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   }
 ]
