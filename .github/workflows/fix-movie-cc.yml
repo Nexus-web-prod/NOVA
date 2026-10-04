@@ -1,4 +1,4 @@
-name: Fix Nova Movies CC
+name: Validate Nova Movies CC
 
 on:
   push:
@@ -10,180 +10,52 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Patch movie player
-        shell: python
-        run: |
-          from pathlib import Path
-          import re
-
-          path = Path('website/js/nova-movies.js')
-          js = path.read_text(encoding='utf-8')
-
-          old_clear = '''  function clearMovieCaptions(video) {
-    if (!video) return;
-    video.querySelectorAll('track[data-nova-captions="1"]').forEach(track => track.remove());
-    Array.from(video.textTracks || []).forEach(track => {
-      if (track.kind === 'captions' || track.kind === 'subtitles') track.mode = 'disabled';
-    });
-  }
-'''
-          new_clear = '''  function clearMovieCaptions(video) {
-    if (!video) return;
-    video.querySelectorAll('track[data-nova-captions="1"]').forEach(track => track.remove());
-  }
-'''
-          if old_clear in js:
-              js = js.replace(old_clear, new_clear, 1)
-
-          old_controls = '''  function captionAvailable(movie) {
-    return Boolean(movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle);
-  }
-
-  function syncCaptionButton(video, movie) {
-    const button = document.getElementById('movies-player-cc');
-    if (!button) return;
-    const available = captionAvailable(movie);
-    button.disabled = !available;
-    button.setAttribute('aria-disabled', available ? 'false' : 'true');
-    button.classList.toggle('available', available);
-    button.textContent = available ? 'CC' : 'CC —';
-    if (!available) return;
-    const track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
-    const showing = track && track.mode === 'showing';
-    button.setAttribute('aria-pressed', showing ? 'true' : 'false');
-    button.classList.toggle('active', showing);
-  }
-
-  function toggleMovieCaptions(video, movie) {
-    if (!captionAvailable(movie)) return;
-    let track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
-    if (!track) {
-      applyMovieCaptions(video, movie);
-      track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
-    }
-    if (!track) return;
-    track.mode = track.mode === 'showing' ? 'hidden' : 'showing';
-    syncCaptionButton(video, movie);
-  }
-'''
-          new_controls = '''  function captionTracks(video) {
-    return Array.from(video?.textTracks || []).filter(track =>
-      track.kind === 'captions' || track.kind === 'subtitles'
-    );
-  }
-
-  function captionAvailable(video, movie) {
-    return Boolean(
-      movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle ||
-      captionTracks(video).length
-    );
-  }
-
-  function syncCaptionButton(video, movie) {
-    const button = document.getElementById('movies-player-cc');
-    if (!button) return;
-    const tracks = captionTracks(video);
-    const available = captionAvailable(video, movie);
-    button.disabled = !available;
-    button.setAttribute('aria-disabled', available ? 'false' : 'true');
-    button.classList.toggle('available', available);
-    button.textContent = 'CC';
-    const showing = tracks.some(track => track.mode === 'showing');
-    button.setAttribute('aria-pressed', showing ? 'true' : 'false');
-    button.classList.toggle('active', showing);
-  }
-
-  function toggleMovieCaptions(video, movie) {
-    let tracks = captionTracks(video);
-    if (!tracks.length && (movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle)) {
-      applyMovieCaptions(video, movie);
-      tracks = captionTracks(video);
-    }
-    if (!tracks.length) {
-      syncCaptionButton(video, movie);
-      return;
-    }
-    const shouldShow = !tracks.some(track => track.mode === 'showing');
-    tracks.forEach(track => { track.mode = shouldShow ? 'showing' : 'hidden'; });
-    syncCaptionButton(video, movie);
-  }
-'''
-          if old_controls in js:
-              js = js.replace(old_controls, new_controls, 1)
-
-          marker = '    document.body.appendChild(overlay);\n\n    const video = document.getElementById(\'movies-player-video\');'
-          style_block = '''    document.body.appendChild(overlay);
-
-    if (!document.getElementById('nova-movies-cc-style')) {
-      const style = document.createElement('style');
-      style.id = 'nova-movies-cc-style';
-      style.textContent = `
-        .movies-player-cc {
-          width: 34px;
-          height: 34px;
-          min-width: 34px;
-          padding: 0 .5rem;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--glass-b);
-          border-radius: var(--r-sm);
-          background: var(--glass-bg);
-          color: var(--muted);
-          font: 700 .48rem "Space Mono",monospace;
-          letter-spacing: .08em;
-          cursor: pointer;
-          transition: color .18s, background .18s, border-color .18s, box-shadow .18s, opacity .18s;
-        }
-        .movies-player-cc:hover:not(:disabled) {
-          color: var(--white);
-          background: var(--glass-bg-h);
-          border-color: var(--glass-bh);
-        }
-        .movies-player-cc.available { color: var(--accent); }
-        .movies-player-cc.active {
-          color: var(--white);
-          background: var(--glow-s);
-          border-color: var(--accent);
-          box-shadow: 0 0 10px var(--glow);
-        }
-        .movies-player-cc:disabled { cursor: default; opacity: .42; }
-      `;
-      document.head.appendChild(style);
-    }
-
-    const video = document.getElementById('movies-player-video');'''
-          if marker in js and 'nova-movies-cc-style' not in js:
-              js = js.replace(marker, style_block, 1)
-
-          old_tag = '<script src="/website/js/nova-movies.js?v=20260825-stability-r1"></script>'
-          if old_tag in Path('website/html/index.html').read_text(encoding='utf-8'):
-              index_path = Path('website/html/index.html')
-              index = index_path.read_text(encoding='utf-8')
-              index = index.replace(old_tag, '<script src="/website/js/nova-movies.js?v=20261003-cc-r3"></script>', 1)
-              index_path.write_text(index, encoding='utf-8')
-
-          path.write_text(js, encoding='utf-8')
-
-          if 'function captionTracks(video)' not in js:
-              raise SystemExit('CC patch did not apply to nova-movies.js')
-          print('CC player patch applied successfully')
-
-      - name: Commit repaired movie files
+      - name: Validate movie catalog
         shell: bash
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add website/js/nova-movies.js website/html/index.html
-          git diff --cached --quiet && { echo 'No changes needed'; exit 0; }
-          git commit -m 'Fix movie closed captions and CC styling'
-          git push
+          python -m json.tool website/data/movies.json >/dev/null
+          echo "movies.json is valid"
+
+      - name: Validate movie CC implementation
+        shell: bash
+        run: |
+          test -f website/js/nova-movies.js
+          grep -q "function clearMovieCaptions(video)" website/js/nova-movies.js
+          grep -q "function applyMovieCaptions(video, movie)" website/js/nova-movies.js
+          grep -q "function captionTracks(video)" website/js/nova-movies.js
+          grep -q "function captionAvailable(video, movie)" website/js/nova-movies.js
+          grep -q "function syncCaptionButton(video, movie)" website/js/nova-movies.js
+          grep -q "function toggleMovieCaptions(video, movie)" website/js/nova-movies.js
+          grep -q "movies-player-cc" website/js/nova-movies.js
+          echo "Movie CC implementation is present"
+
+      - name: Validate movie HTML asset version
+        shell: bash
+        run: |
+          grep -q 'nova-movies.js?v=20261003-cc-r4' website/html/index.html
+          echo "Movie JS asset version is current"
+
+      - name: Validate Burrito Bison
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          with open("website/data/games.json", encoding="utf-8") as f:
+              games = json.load(f)
+          game = next((g for g in games if g.get("name") == "Burrito Bison"), None)
+          assert game, "Burrito Bison is missing from games.json"
+          assert game.get("url") == "https://burritobisononline.gitlab.io/file/", "Burrito Bison URL is incorrect"
+          print("Burrito Bison entry is valid")
+          PY
+
+      - name: Summary
+        run: echo "Nova Movies CC validation passed"
