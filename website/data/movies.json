@@ -120,7 +120,11 @@
     "genre": "Horror",
     "year": 2026,
     "description": "A survival-horror nightmare begins when an outbreak turns an ordinary mission into a fight to stay alive.",
-    "tagline": "The outbreak begins."
+    "tagline": "The outbreak begins.",
+    "captions": "/website/assets/media/movies/resident-evil.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   },
   {
     "id": "backrooms",
@@ -129,6 +133,10 @@
     "genre": "Horror",
     "year": 2026,
     "description": "A seemingly endless maze of liminal rooms hides something far more dangerous than getting lost.",
-    "tagline": "There is no way out."
+    "tagline": "There is no way out.",
+    "captions": "/website/assets/media/movies/backrooms.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": false
   }
 ]
