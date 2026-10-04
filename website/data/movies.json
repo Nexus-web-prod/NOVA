@@ -115,7 +115,9 @@
     "captions": "/website/assets/media/movies/spiderman-brand-new-day.vtt",
     "captionLabel": "English",
     "captionLanguage": "en",
-    "captionsDefault": true
+    "captionsDefault": true,
+    "thumb": "/website/assets/media/movies/spiderman.webp",
+    "backdrop": "/website/assets/media/movies/spiderman.webp"
   },
   {
     "id": "resident-evil",
@@ -128,7 +130,9 @@
     "captions": "/website/assets/media/movies/resident-evil.vtt",
     "captionLabel": "English",
     "captionLanguage": "en",
-    "captionsDefault": true
+    "captionsDefault": true,
+    "thumb": "/website/assets/media/movies/residentevil.avif",
+    "backdrop": "/website/assets/media/movies/residentevil.avif"
   },
   {
     "id": "backrooms",
@@ -141,6 +145,8 @@
     "captions": "/website/assets/media/movies/backrooms.vtt",
     "captionLabel": "English",
     "captionLanguage": "en",
-    "captionsDefault": true
+    "captionsDefault": true,
+    "thumb": "/website/assets/media/movies/backrooms.avif",
+    "backdrop": "/website/assets/media/movies/backrooms.avif"
   }
 ]
