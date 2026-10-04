@@ -55,7 +55,7 @@
         .then(({ pipeline, env }) => {
           env.allowLocalModels = false;
           env.useBrowserCache = true;
-          return pipeline('automatic-speech-recognition', 'onnx-community/whisper-base.en', {
+          return pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
             dtype: 'q8',
             device: 'wasm'
           });
@@ -223,40 +223,15 @@
         try {
           const result = await recognizer(chunk, {
             sampling_rate: sampleRate,
-            return_timestamps: true,
-            chunk_length_s: chunkSeconds,
-            stride_length_s: [1, 1]
+            return_timestamps: false,
+            chunk_length_s: chunkSeconds
           });
           if (!local.running || state !== local) return;
 
-          const segments = Array.isArray(result?.chunks) ? result.chunks : [];
-          const fallbackText = String(result?.text || '').replace(/\s+/g, ' ').trim();
-          const currentOffset = Math.max(0, (video.currentTime || 0) - local.chunkStartTime);
-
-          // Prefer the Whisper segment that corresponds to the movie's current
-          // playback position. This keeps captions tied to the audio instead of
-          // dumping the entire 4-second transcription at once.
-          let selected = null;
-          for (const segment of segments) {
-            const start = Array.isArray(segment?.timestamp) ? Number(segment.timestamp[0]) : NaN;
-            const end = Array.isArray(segment?.timestamp) ? Number(segment.timestamp[1]) : NaN;
-            if (Number.isFinite(start) && Number.isFinite(end) &&
-                currentOffset >= Math.max(0, start - 0.35) &&
-                currentOffset <= end + 0.75) {
-              selected = segment;
-              break;
-            }
-          }
-          if (!selected && segments.length) {
-            selected = segments[segments.length - 1];
-          }
-
-          let text = String(selected?.text || fallbackText)
+          let text = String(result?.text || '')
             .replace(/\s+/g, ' ')
             .trim();
 
-          // Whisper commonly hallucinates these labels over instrumental
-          // music, intros, silence, or other non-speech. Do not show them as CC.
           const normalized = text
             .toLowerCase()
             .replace(/[♪♫]+/g, '')
