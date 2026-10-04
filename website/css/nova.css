@@ -3834,6 +3834,17 @@ html[data-movie-size="cinema"] #page-movies #movies-grid{grid-template-columns:r
   letter-spacing:.17em;
 }
 #movies-player-overlay .movies-player-brand span{color:#ddd8ff;font-size:.85rem}
+#movies-player-overlay .movies-player-top-actions{
+  display:flex;
+  align-items:center;
+  gap:.55rem;
+  pointer-events:auto;
+  position:relative;
+  z-index:8;
+}
+#movies-player-overlay .movies-player-top-actions .movies-player-cc{
+  pointer-events:auto;
+}
 #movies-player-overlay #movies-player-top-meta{
   color:rgba(255,255,255,.54);
   font:700 .54rem "Space Mono",monospace;
