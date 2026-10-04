@@ -103,5 +103,32 @@
     "captionLabel": "English",
     "captionLanguage": "en",
     "captionsDefault": false
+  },
+  {
+    "id": "spiderman-brand-new-day",
+    "title": "Spider-Man: Brand New Day",
+    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/spiderman-brand-new-day.mkv",
+    "genre": "Action",
+    "year": 2026,
+    "description": "Peter Parker faces a new chapter as Spider-Man in a world that has changed around him.",
+    "tagline": "A new day. A new threat."
+  },
+  {
+    "id": "resident-evil",
+    "title": "Resident Evil",
+    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/resident-evil.mp4",
+    "genre": "Horror",
+    "year": 2026,
+    "description": "A survival-horror nightmare begins when an outbreak turns an ordinary mission into a fight to stay alive.",
+    "tagline": "The outbreak begins."
+  },
+  {
+    "id": "backrooms",
+    "title": "Backrooms",
+    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/backrooms.mkv",
+    "genre": "Horror",
+    "year": 2026,
+    "description": "A seemingly endless maze of liminal rooms hides something far more dangerous than getting lost.",
+    "tagline": "There is no way out."
   }
 ]
