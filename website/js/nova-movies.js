@@ -256,7 +256,15 @@
     track.default = movie.captionsDefault !== false;
     track.dataset.novaCaptions = '1';
     video.appendChild(track);
-    if (track.default) setTimeout(() => { if (track.track) track.track.mode = 'showing'; }, 0);
+
+    // Browser-native text tracks load asynchronously. Show the track when
+    // its VTT cues are actually available instead of relying on a timeout.
+    const showTrack = () => {
+      if (track.track && track.default) track.track.mode = 'showing';
+      syncCaptionButton(video, movie);
+    };
+    track.addEventListener('load', showTrack, { once: true });
+    if (track.track && track.default) track.track.mode = 'showing';
     return true;
   }
 
