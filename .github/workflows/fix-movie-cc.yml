@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/fix-movie-cc.yml'
       - 'website/js/nova-movies.js'
+      - 'website/js/nova-live-cc.js'
       - 'website/data/movies.json'
       - 'website/html/index.html'
   workflow_dispatch:
@@ -36,13 +37,20 @@ jobs:
           grep -q "function syncCaptionButton(video, movie)" website/js/nova-movies.js
           grep -q "function toggleMovieCaptions(video, movie)" website/js/nova-movies.js
           grep -q "movies-player-cc" website/js/nova-movies.js
-          echo "Movie CC implementation is present"
+          grep -q "function syncLiveCaptionState(video, movie)" website/js/nova-movies.js
+          grep -q "function toggleLiveMovieCaptions(video, movie)" website/js/nova-movies.js
+          grep -q "NovaLiveCC" website/js/nova-movies.js
+          test -f website/js/nova-live-cc.js
+          grep -q "window.NovaLiveCC" website/js/nova-live-cc.js
+          grep -q "automatic-speech-recognition" website/js/nova-live-cc.js
+          echo "Movie CC and Live CC implementation is present"
 
       - name: Validate movie HTML asset version
         shell: bash
         run: |
-          grep -q 'nova-movies.js?v=20261003-cc-r4' website/html/index.html
-          echo "Movie JS asset version is current"
+          grep -q 'nova-live-cc.js?v=20261003-live-cc-r1' website/html/index.html
+          grep -q 'nova-movies.js?v=20261003-cc-r5' website/html/index.html
+          echo "Movie JS and Live CC asset versions are current"
 
       - name: Validate Burrito Bison
         shell: bash
