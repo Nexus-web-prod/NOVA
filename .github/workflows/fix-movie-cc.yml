@@ -170,16 +170,6 @@ jobs:
               raise SystemExit('overlay insertion point not found')
           js = js.replace(old, new, 1)
 
-          old = '''    document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleMovieCaptions(video, activeMovie));
-    video?.addEventListener('playing', () => setLoading('', false));
-'''
-          new = '''    document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleMovieCaptions(video, activeMovie));
-    video?.addEventListener('playing', () => setLoading('', false));
-'''
-          if old not in js:
-              raise SystemExit('CC listener block not found')
-          js = js.replace(old, new, 1)
-
           old = '''    video?.addEventListener('loadedmetadata', () => syncCaptionButton(video, activeMovie));
 '''
           new = '''    video?.addEventListener('loadedmetadata', () => syncCaptionButton(video, activeMovie));
@@ -209,3 +199,4 @@ jobs:
           git rm .github/workflows/fix-movie-cc.yml
           git commit -m "Fix Nova Movies closed captions and CC styling"
           git push
+          # retry trigger
