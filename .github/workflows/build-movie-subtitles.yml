@@ -1,0 +1,55 @@
+name: Build Movie Subtitle Tracks
+
+on:
+  push:
+    paths:
+      - 'movies_metalicaircontainer.srt'
+      - 'movies_bugcrossesbugworld.srt'
+      - '.github/workflows/build-movie-subtitles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  subtitles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Convert SRT files to WebVTT
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          mappings = {
+              'movies_metalicaircontainer.srt': 'website/assets/media/movies/iron-lung.vtt',
+              'movies_bugcrossesbugworld.srt': 'website/assets/media/movies/spiderverse.vtt',
+          }
+
+          for source, target in mappings.items():
+              src = Path(source)
+              if not src.exists():
+                  raise SystemExit(f'Missing subtitle source: {source}')
+              text = src.read_text(encoding='utf-8-sig').replace('\r\n', '\n').replace('\r', '\n').strip()
+              text = re.sub(r'^\d+\s*\n(?=\d{2}:\d{2}:\d{2},\d{3})', '', text, flags=re.M)
+              text = re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', text)
+              out = Path(target)
+              out.parent.mkdir(parents=True, exist_ok=True)
+              out.write_text('WEBVTT\n\n' + text + '\n', encoding='utf-8')
+              print(f'Built {target}')
+
+      - name: Commit generated subtitle tracks
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/assets/media/movies/iron-lung.vtt website/assets/media/movies/spiderverse.vtt
+          if git diff --cached --quiet; then
+            echo "No subtitle changes to commit"
+            exit 0
+          fi
+          git commit -m "Build movie WebVTT subtitle tracks"
+          git push
