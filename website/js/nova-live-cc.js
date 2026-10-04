@@ -127,7 +127,7 @@
       onState?.('loading');
       setStatus(video, 'LIVE CC · loading speech model');
 
-      const workerUrl = new URL('./nova-live-cc-worker.js', document.currentScript?.src || '/website/js/nova-live-cc.js');
+      const workerUrl = new URL('/website/js/nova-live-cc-worker.js', window.location.href);
       local.worker = new Worker(workerUrl, { type: 'module' });
 
       local.worker.onmessage = event => {
