@@ -270,6 +270,82 @@
     return Boolean(movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle || captionTracks(video).length);
   }
 
+  function liveCaptionAvailable() {
+    return Boolean(window.NovaLiveCC && typeof window.NovaLiveCC.start === 'function');
+  }
+
+  function syncLiveCaptionState(video, movie) {
+    const button = document.getElementById('movies-player-cc');
+    if (!button) return;
+    const hasStatic = captionAvailable(video, movie);
+    if (hasStatic) return;
+    const available = liveCaptionAvailable();
+    button.disabled = !available;
+    button.setAttribute('aria-disabled', available ? 'false' : 'true');
+    button.setAttribute('aria-label', available ? 'Toggle live closed captions' : 'Live closed captions unavailable');
+    button.textContent = available ? 'LIVE' : 'CC —';
+    button.classList.toggle('available', available);
+    button.classList.toggle('active', Boolean(window.NovaLiveCC?.isActive?.()));
+    button.setAttribute('aria-pressed', window.NovaLiveCC?.isActive?.() ? 'true' : 'false');
+  }
+
+  function toggleLiveMovieCaptions(video, movie) {
+    if (captionAvailable(video, movie)) {
+      toggleMovieCaptions(video, movie);
+      return;
+    }
+    const button = document.getElementById('movies-player-cc');
+    if (!liveCaptionAvailable()) {
+      syncLiveCaptionState(video, movie);
+      return;
+    }
+    if (window.NovaLiveCC.isActive()) {
+      window.NovaLiveCC.stop();
+      if (button) {
+        button.textContent = 'LIVE';
+        button.classList.remove('active');
+        button.setAttribute('aria-pressed', 'false');
+        button.setAttribute('aria-label', 'Start live closed captions');
+      }
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = '…';
+      button.classList.remove('active');
+      button.setAttribute('aria-pressed', 'false');
+    }
+    window.NovaLiveCC.start(video, (status, text) => {
+      if (status === 'loading') {
+        setLoading('Loading Live CC speech model', true);
+      } else if (status === 'live') {
+        setLoading('', false);
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'LIVE';
+          button.classList.add('active', 'available');
+          button.setAttribute('aria-pressed', 'true');
+          button.setAttribute('aria-label', 'Stop live closed captions');
+        }
+      } else if (status === 'unsupported') {
+        setLoading('Live CC needs browser audio access for this movie', true);
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'LIVE';
+          button.classList.remove('active');
+        }
+      } else if (status === 'error') {
+        setLoading(text || 'Live CC transcription failed', true);
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'LIVE';
+          button.classList.remove('active');
+          button.setAttribute('aria-pressed', 'false');
+        }
+      }
+    });
+  }
+
   function syncCaptionButton(video, movie) {
     const button = document.getElementById('movies-player-cc');
     if (!button) return;
@@ -352,7 +428,7 @@
     }
     const video = document.getElementById('movies-player-video');
     document.getElementById('movies-player-close')?.addEventListener('click', closePlayer);
-    document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleMovieCaptions(video, activeMovie));
+    document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleLiveMovieCaptions(video, activeMovie));
     video?.addEventListener('playing', () => setLoading('', false));
     video?.addEventListener('canplay', () => setLoading('', false));
     video?.addEventListener('waiting', () => setLoading('Buffering', true));
@@ -433,6 +509,7 @@
     if (frame) frame.style.backgroundImage = `url(\"${artFor(movie)}\")`;
     if (video) {
       video.pause();
+      window.NovaLiveCC?.stop?.();
       video.removeAttribute('src');
       video.poster = artFor(movie);
       clearMovieCaptions(video);
@@ -461,12 +538,14 @@
         if (!movie.src) urlCache[movie.id] = sources[index];
         applyMovieCaptions(video, movie);
         syncCaptionButton(video, movie);
+        syncLiveCaptionState(video, movie);
         setLoading('', false);
         video.play().catch(() => {});
         return;
       }
     }
     syncCaptionButton(video, movie);
+    syncLiveCaptionState(video, movie);
     setLoading('This movie could not be loaded', true);
   }
 
@@ -476,6 +555,7 @@
     const video = document.getElementById('movies-player-video');
     if (video) {
       video.pause();
+      window.NovaLiveCC?.stop?.();
       clearMovieCaptions(video);
       video.removeAttribute('src');
       video.removeAttribute('poster');
