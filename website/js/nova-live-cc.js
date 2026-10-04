@@ -55,7 +55,7 @@
         .then(({ pipeline, env }) => {
           env.allowLocalModels = false;
           env.useBrowserCache = true;
-          return pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
+          return pipeline('automatic-speech-recognition', 'onnx-community/whisper-base.en', {
             dtype: 'q8',
             device: 'wasm'
           });
@@ -88,7 +88,18 @@
     }
 
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const local = { video, running: true, source: null, processor: null, context: null, busy: false, pcm: [] };
+    const local = {
+      video,
+      running: true,
+      source: null,
+      processor: null,
+      context: null,
+      busy: false,
+      pcm: [],
+      pendingChunk: null,
+      lastTranscript: '',
+      hideTimer: null
+    };
     state = local;
 
     try {
@@ -164,37 +175,106 @@
       processor.connect(context.destination);
 
       const sampleRate = context.sampleRate;
-      const targetSamples = Math.floor(sampleRate * 6);
+      const targetSamples = Math.floor(sampleRate * 8);
       processor.onaudioprocess = event => {
-        if (!local.running || local.busy) return;
+        if (!local.running) return;
         const input = event.inputBuffer.getChannelData(0);
         for (let i = 0; i < input.length; i += 1) local.pcm.push(input[i]);
         if (local.pcm.length < targetSamples) return;
 
+        // Keep the newest window if Whisper is still processing. This prevents
+        // a slow browser inference from permanently falling behind the movie.
         const chunk = Float32Array.from(local.pcm.splice(0, targetSamples));
+        if (local.busy) {
+          local.pendingChunk = chunk;
+          return;
+        }
+
+        transcribeChunk(chunk);
+      };
+
+      async function transcribeChunk(chunk) {
+        if (!local.running || state !== local) return;
+
+        // Avoid sending silence/noise to Whisper. This also reduces the common
+        // Whisper hallucination where music-only audio becomes "music".
+        let sum = 0;
+        let peak = 0;
+        for (let i = 0; i < chunk.length; i += 1) {
+          const value = chunk[i];
+          sum += value * value;
+          const magnitude = Math.abs(value);
+          if (magnitude > peak) peak = magnitude;
+        }
+        const rms = Math.sqrt(sum / chunk.length);
+        if (rms < 0.008 || peak < 0.035) {
+          if (local.running && state === local && local.pendingChunk) {
+            const next = local.pendingChunk;
+            local.pendingChunk = null;
+            transcribeChunk(next);
+          }
+          return;
+        }
+
         local.busy = true;
-        Promise.resolve(recognizer(chunk, { sampling_rate: sampleRate, return_timestamps: false }))
-          .then(result => {
-            if (!local.running || state !== local) return;
-            const text = String(result?.text || '').trim();
-            if (text) {
-              setOverlay(video, text);
-              onState?.('live', text);
-              clearTimeout(local.hideTimer);
-              local.hideTimer = setTimeout(() => {
-                if (state === local) setOverlay(video, '');
-              }, 5200);
-            }
-          })
-          .catch(error => {
-            if (state !== local) return;
+        try {
+          const result = await recognizer(chunk, {
+            sampling_rate: sampleRate,
+            return_timestamps: false,
+            chunk_length_s: 8
+          });
+          if (!local.running || state !== local) return;
+
+          let text = String(result?.text || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          // Whisper commonly hallucinates these labels over instrumental
+          // music, intros, silence, or other non-speech. Do not show them as CC.
+          const normalized = text
+            .toLowerCase()
+            .replace(/[♪♫]+/g, '')
+            .replace(/[^a-z0-9'!?., -]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const hallucinations = new Set([
+            'music',
+            'music playing',
+            '♪',
+            '♫',
+            'applause',
+            'silence',
+            'thank you for watching',
+            'thanks for watching',
+            'subscribe',
+            'you',
+            'thank you'
+          ]);
+          if (hallucinations.has(normalized) || normalized.length < 2) text = '';
+
+          if (text && text !== local.lastTranscript) {
+            local.lastTranscript = text;
+            setOverlay(video, text);
+            onState?.('live', text);
+            clearTimeout(local.hideTimer);
+            local.hideTimer = setTimeout(() => {
+              if (state === local) setOverlay(video, '');
+            }, 5200);
+          }
+        } catch (error) {
+          if (state === local) {
             console.warn('[Nova Live CC] transcription failed', error);
             onState?.('error', 'Live CC transcription failed');
-          })
-          .finally(() => {
-            local.busy = false;
-          });
-      };
+          }
+        } finally {
+          local.busy = false;
+          if (local.running && state === local && local.pendingChunk) {
+            const next = local.pendingChunk;
+            local.pendingChunk = null;
+            transcribeChunk(next);
+          }
+        }
+      }
 
       onState?.('live');
       setStatus(video, 'LIVE CC');
