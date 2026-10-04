@@ -48,7 +48,7 @@ jobs:
       - name: Validate movie HTML asset version
         shell: bash
         run: |
-          grep -q 'nova-live-cc.js?v=20261003-live-cc-r3' website/html/index.html
+          grep -q 'nova-live-cc.js?v=20261003-live-cc-r4' website/html/index.html
           grep -q 'nova-movies.js?v=20261003-cc-r5' website/html/index.html
           echo "Movie JS and Live CC asset versions are current"
 
