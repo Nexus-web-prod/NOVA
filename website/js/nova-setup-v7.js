@@ -2,7 +2,7 @@
   "use strict";
 
   var COMPLETE_KEY = "nova_setup_v7_complete";
-  var COMPLETE_VERSION = "7.0-launch";
+  var COMPLETE_VERSION = "7.1-launch";
   var MODE_KEY = "nova_setup_v7_mode";
   var GUEST_NAME_KEY = "nova_guest_display_name";
   var GUEST_AVATAR_KEY = "nova_guest_avatar";
@@ -149,7 +149,7 @@
         <main class="nova-setup-viewport">
           <section class="nova-setup-page nova-setup-page-start active" data-setup-page="1" aria-labelledby="nova-setup-start-title">
             <div class="nova-setup-content">
-              <div class="nova-setup-kicker">Nova 7</div>
+              <div class="nova-setup-kicker">Nova 7.1</div>
               <div class="nova-setup-wordmark" aria-label="Nova">
                 <span class="nova7-logo-part nova7-logo-n">N</span>
                 <svg class="nova7-logo-star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0 C55 29 71 45 100 50 C71 55 55 71 50 100 C45 71 29 55 0 50 C29 45 45 29 50 0 Z"></path></svg>
@@ -626,7 +626,7 @@
   function legalContent(type) {
     if (type === "terms") {
       return {
-        kicker: "Nova 7",
+        kicker: "Nova 7.1",
         title: "Terms of Service",
         sections: [
           ["Use Nova responsibly", "Do not use Nova to harm other people, disrupt the service, evade a lawful restriction, distribute malware, or access accounts and systems without permission."],
@@ -638,7 +638,7 @@
       };
     }
     return {
-      kicker: "Nova 7",
+      kicker: "Nova 7.1",
       title: "Privacy Policy",
       sections: [
         ["Data you provide", "Nova stores account details, profile fields, settings, friendships, groups, messages, reports, and other information you choose to submit."],
@@ -670,7 +670,7 @@
       var data = await response.json();
       if (data && data.version) localStorage.setItem("nova_seen_version", data.version);
     } catch (error) {
-      localStorage.setItem("nova_seen_version", document.querySelector('meta[name="nova-version"]')?.content || "7.0");
+      localStorage.setItem("nova_seen_version", document.querySelector('meta[name="nova-version"]')?.content || "7.1");
     }
     byId("whats-new-overlay")?.classList.add("hidden");
   }
