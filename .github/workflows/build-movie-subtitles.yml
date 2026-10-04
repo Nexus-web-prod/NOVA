@@ -5,6 +5,7 @@ on:
     paths:
       - 'movies_metalicaircontainer.srt'
       - 'movies_bugcrossesbugworld.srt'
+      - 'movies_movie.srt'
       - '.github/workflows/build-movie-subtitles.yml'
   workflow_dispatch:
 
@@ -27,6 +28,7 @@ jobs:
           mappings = {
               'movies_metalicaircontainer.srt': 'website/assets/media/movies/iron-lung.vtt',
               'movies_bugcrossesbugworld.srt': 'website/assets/media/movies/spiderverse.vtt',
+              'movies_movie.srt': 'website/assets/media/movies/minecraft-movie.vtt',
           }
 
           for source, target in mappings.items():
@@ -46,7 +48,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add website/assets/media/movies/iron-lung.vtt website/assets/media/movies/spiderverse.vtt
+          git add website/assets/media/movies/iron-lung.vtt website/assets/media/movies/spiderverse.vtt website/assets/media/movies/minecraft-movie.vtt
           if git diff --cached --quiet; then
             echo "No subtitle changes to commit"
             exit 0
