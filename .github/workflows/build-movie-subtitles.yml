@@ -6,6 +6,10 @@ on:
       - 'movies_metalicaircontainer.srt'
       - 'movies_bugcrossesbugworld.srt'
       - 'movies_movie.srt'
+      - 'movies_dinoland.srt'
+      - 'movies_forsentimes.srt'
+      - 'movies_jumpman.srt'
+      - 'movies_kingvslizzard.srt'
       - '.github/workflows/build-movie-subtitles.yml'
   workflow_dispatch:
 
@@ -29,6 +33,10 @@ jobs:
               'movies_metalicaircontainer.srt': 'website/assets/media/movies/iron-lung.vtt',
               'movies_bugcrossesbugworld.srt': 'website/assets/media/movies/spiderverse.vtt',
               'movies_movie.srt': 'website/assets/media/movies/minecraft-movie.vtt',
+              'movies_dinoland.srt': 'website/assets/media/movies/jurassic-park.vtt',
+              'movies_forsentimes.srt': 'website/assets/media/movies/ice-age.vtt',
+              'movies_jumpman.srt': 'website/assets/media/movies/mario-movie.vtt',
+              'movies_kingvslizzard.srt': 'website/assets/media/movies/godzilla-vs-kong.vtt',
           }
 
           for source, target in mappings.items():
@@ -48,7 +56,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add website/assets/media/movies/iron-lung.vtt website/assets/media/movies/spiderverse.vtt website/assets/media/movies/minecraft-movie.vtt
+          git add website/assets/media/movies/iron-lung.vtt website/assets/media/movies/spiderverse.vtt website/assets/media/movies/minecraft-movie.vtt website/assets/media/movies/jurassic-park.vtt website/assets/media/movies/ice-age.vtt website/assets/media/movies/mario-movie.vtt website/assets/media/movies/godzilla-vs-kong.vtt
           if git diff --cached --quiet; then
             echo "No subtitle changes to commit"
             exit 0
