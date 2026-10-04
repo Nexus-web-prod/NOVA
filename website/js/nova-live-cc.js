@@ -70,6 +70,7 @@
     state = null;
     try { old.processor?.disconnect(); } catch (_) {}
     try { old.source?.disconnect(); } catch (_) {}
+    try { old.stream?.getTracks?.().forEach(track => track.stop()); } catch (_) {}
     try { old.context?.close(); } catch (_) {}
     if (old.video) {
       setOverlay(old.video, '');
@@ -100,8 +101,21 @@
       local.context = context;
       if (context.state === 'suspended') await context.resume();
 
-      // This requires the movie response to permit Web Audio access (CORS).
-      const source = context.createMediaElementSource(video);
+      // Prefer the movie's captured playback stream. This does not request
+      // microphone permission and can work with playable cross-origin media
+      // where createMediaElementSource() would otherwise be blocked by CORS.
+      let source;
+      if (typeof video.captureStream === 'function') {
+        const stream = video.captureStream();
+        if (!stream || !stream.getAudioTracks().length) {
+          throw new Error('Movie capture stream has no audio track');
+        }
+        local.stream = stream;
+        source = context.createMediaStreamSource(stream);
+      } else {
+        source = context.createMediaElementSource(video);
+      }
+
       const processor = context.createScriptProcessor(4096, 1, 1);
       local.source = source;
       local.processor = processor;
