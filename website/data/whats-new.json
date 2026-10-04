@@ -1,10 +1,10 @@
 {
-  "version": "7.0",
-  "title": "NOVA 7.0",
+  "version": "7.1",
+  "title": "NOVA 7.1",
   "items": [
     {
       "icon": "🔐",
-      "text": "Nova 7 profiles — display names, bios, avatars, and presence now stay connected across Social."
+      "text": "Nova 7.1 profiles — display names, bios, avatars, and presence now stay connected across Social."
     },
     {
       "icon": "⭐",
