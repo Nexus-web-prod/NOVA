@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - '.github/workflows/fix-movie-cc.yml'
+      - 'website/js/nova-movies.js'
+      - 'website/data/movies.json'
+      - 'website/html/index.html'
   workflow_dispatch:
 
 permissions:
