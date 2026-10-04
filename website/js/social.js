@@ -1,5 +1,5 @@
 !function(){"use strict";
-// ── Nova Social — authenticated Nova 7 API ───────────────────────────────────
+// ── Nova Social — authenticated Nova 7.1 API ───────────────────────────────────
 
 // ── Stream ops (direct Supabase) ──────────────────────────────────────────────
 async function streamAdd(stream,fields,optimisticEl){
