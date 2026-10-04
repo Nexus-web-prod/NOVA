@@ -277,6 +277,7 @@
     const available = captionAvailable(video, movie);
     button.disabled = !available;
     button.setAttribute('aria-disabled', available ? 'false' : 'true');
+    button.setAttribute('aria-label', available ? 'Toggle closed captions' : 'Closed captions unavailable');
     button.classList.toggle('available', available);
     button.textContent = 'CC';
     const showing = tracks.some(track => track.mode === 'showing');
@@ -336,7 +337,17 @@
     if (!document.getElementById('nova-movies-cc-style')) {
       const style = document.createElement('style');
       style.id = 'nova-movies-cc-style';
-      style.textContent = '.movies-player-cc{width:34px;height:34px;min-width:34px;padding:0 .5rem;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--glass-b);border-radius:var(--r-sm);background:var(--glass-bg);color:var(--muted);font:700 .48rem "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}.movies-player-cc.available{color:var(--accent)}.movies-player-cc.active{color:var(--white);background:var(--glow-s);border-color:var(--accent);box-shadow:0 0 10px var(--glow)}.movies-player-cc:disabled{cursor:default;opacity:.42}';
+      style.textContent = [
+        '.movies-player-cc{appearance:none;width:38px;height:30px;min-width:38px;padding:0 .45rem;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(139,143,255,.12);border-radius:var(--r-sm);background:rgba(139,143,255,.04);color:var(--muted);font:700 .48rem/1 "Space Mono",monospace;letter-spacing:.08em;cursor:pointer;transition:color .16s,background .16s,border-color .16s,box-shadow .16s,opacity .16s}',
+        '.movies-player-cc:hover{color:var(--text);background:rgba(139,143,255,.09);border-color:rgba(139,143,255,.24)}',
+        '.movies-player-cc:focus-visible{outline:0;color:var(--white);border-color:rgba(139,143,255,.42);box-shadow:0 0 0 2px rgba(139,143,255,.10),0 0 14px rgba(139,143,255,.10)}',
+        '.movies-player-cc.available{color:var(--accent);background:rgba(139,143,255,.07);border-color:rgba(139,143,255,.22)}',
+        '.movies-player-cc.active{color:var(--white);background:rgba(139,143,255,.18);border-color:rgba(139,143,255,.42);box-shadow:0 0 12px rgba(139,143,255,.12),inset 0 1px 0 rgba(139,143,255,.16)}',
+        '.movies-player-cc:disabled{cursor:not-allowed;color:var(--muted);background:rgba(255,255,255,.02);border-color:var(--glass-b);opacity:.48}',
+        'html[data-theme="light"] .movies-player-cc{background:rgba(93,93,246,.04);border-color:rgba(93,93,246,.14)}',
+        'html[data-theme="light"] .movies-player-cc:hover{background:rgba(93,93,246,.09);border-color:rgba(93,93,246,.26)}',
+        'html[data-theme="light"] .movies-player-cc.active{background:rgba(93,93,246,.14);border-color:rgba(93,93,246,.32);box-shadow:0 0 12px rgba(93,93,246,.10)}'
+      ].join('');
       document.head.appendChild(style);
     }
     const video = document.getElementById('movies-player-video');
@@ -350,6 +361,7 @@
       if (activeMovie) setLoading('This movie could not be loaded', true);
     });
     video?.addEventListener('loadedmetadata', () => syncCaptionButton(video, activeMovie));
+    video?.addEventListener('cuechange', () => syncCaptionButton(video, activeMovie));
   }
 
   function launchFromCard(movie, card) {
