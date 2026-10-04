@@ -529,7 +529,7 @@
 
   // ── Stream ───────────────────────────────────────────────────────────────────
   async function streamAdd(stream, fields) {
-    // Legacy Supabase stream storage was removed in Nova 7. Persistent social
+    // Legacy Supabase stream storage was removed in Nova 7.1. Persistent social
     // messaging now goes through NovaAPI/Turso; never call the retired REST path.
     return null;
   }
