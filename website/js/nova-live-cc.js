@@ -217,7 +217,7 @@
         throw new Error('AudioWorklet is unavailable in this browser');
       }
 
-      await context.audioWorklet.addModule(new URL('./nova-live-cc-worklet.js', document.baseURI));
+      await context.audioWorklet.addModule(new URL('/website/js/nova-live-cc-worklet.js', window.location.href));
 
       const audioNode = new AudioWorkletNode(context, 'nova-live-cc-processor', {
         numberOfInputs: 1,
