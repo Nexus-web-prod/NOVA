@@ -97,7 +97,7 @@
     var state = window.NovaProxyManager?.getState?.() || {};
     var frame = frames().find(function (item) { return !item.hidden; });
     return {
-      generatedAt: new Date().toISOString(), novaVersion: document.querySelector('meta[name="nova-version"]')?.content || "7.0",
+      generatedAt: new Date().toISOString(), novaVersion: document.querySelector('meta[name="nova-version"]')?.content || "7.1",
       browser: navigator.userAgent, platform: navigator.platform, target: frame?.dataset?.url || frame?.src || "No active tab",
       engine: state.currentEngine || "Not initialized", transport: state.currentTransport || "Not initialized",
       wisp: state.wispStatus || "Unknown", serviceWorker: navigator.serviceWorker?.controller ? "Active" : "Inactive",
