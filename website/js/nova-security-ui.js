@@ -112,7 +112,7 @@
     if (key === "nova_theme") return text(raw, 32);
     if (key === "nova_quality") return text(raw, 16);
     if (key === "nova_search_engine") return text(raw, 20);
-    if (key === "nova_setup_v7_complete") return raw === "7.0-launch" ? raw : "0";
+    if (key === "nova_setup_v7_complete") return raw === "7.1-launch" || raw === "7.0-launch" ? raw : "0";
     if (["nova_adblock", "nova_setup_complete", "nova_sound_enabled"].includes(key)) {
       return ["1", "true"].includes(String(raw).toLowerCase()) ? "1" : "0";
     }
