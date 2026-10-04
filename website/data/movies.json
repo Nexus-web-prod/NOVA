@@ -124,7 +124,7 @@
     "captions": "/website/assets/media/movies/resident-evil.vtt",
     "captionLabel": "English",
     "captionLanguage": "en",
-    "captionsDefault": false
+    "captionsDefault": true
   },
   {
     "id": "backrooms",
@@ -137,6 +137,6 @@
     "captions": "/website/assets/media/movies/backrooms.vtt",
     "captionLabel": "English",
     "captionLanguage": "en",
-    "captionsDefault": false
+    "captionsDefault": true
   }
 ]
