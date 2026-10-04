@@ -1,5 +1,5 @@
 /**
- * Nova 7 Supernova Hub
+ * Nova 7.1 Supernova Hub
  * Cloud-synced personalization, labs and browser workspaces. Voice rooms live
  * in Nova Island Social and are intentionally not managed by this module.
  */
@@ -181,7 +181,7 @@
     var page = el("page-supernova");
     page.classList.add("sn-hub-v2");
     var head = page.querySelector(".sn-page-head");
-    if (head) head.innerHTML = '<div class="sn-brand-lockup"><div class="sn-brand-star">✦</div><div><span>SUPERNOVA</span><small>THE POWER LAYER OF NOVA 7</small></div></div>' +
+    if (head) head.innerHTML = '<div class="sn-brand-lockup"><div class="sn-brand-star">✦</div><div><span>SUPERNOVA</span><small>THE POWER LAYER OF NOVA 7.1</small></div></div>' +
       '<div class="sn-head-meta"><span id="sn-head-sync">PRIVATE CLOUD</span><div class="sn-pro-badge">✦ PRO</div></div>';
     var tabs = page.querySelector(".sn-section-tabs");
     if (tabs) {
