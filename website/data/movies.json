@@ -111,7 +111,11 @@
     "genre": "Action",
     "year": 2026,
     "description": "Peter Parker faces a new chapter as Spider-Man in a world that has changed around him.",
-    "tagline": "A new day. A new threat."
+    "tagline": "A new day. A new threat.",
+    "captions": "/website/assets/media/movies/spiderman-brand-new-day.vtt",
+    "captionLabel": "English",
+    "captionLanguage": "en",
+    "captionsDefault": true
   },
   {
     "id": "resident-evil",
@@ -129,7 +133,7 @@
   {
     "id": "backrooms",
     "title": "Backrooms",
-    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/backrooms.mkv",
+    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/backrooms-browser.mp4",
     "genre": "Horror",
     "year": 2026,
     "description": "A seemingly endless maze of liminal rooms hides something far more dangerous than getting lost.",
