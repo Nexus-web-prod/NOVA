@@ -101,19 +101,59 @@
       local.context = context;
       if (context.state === 'suspended') await context.resume();
 
-      // Prefer the movie's captured playback stream. This does not request
-      // microphone permission and can work with playable cross-origin media
-      // where createMediaElementSource() would otherwise be blocked by CORS.
+      // Direct media capture is the preferred path, but browsers refuse to
+      // expose cross-origin media that was not served with CORS headers.
+      // NOVA's movie files are hosted on a separate R2 origin, so fall back
+      // to user-approved current-tab audio capture when direct capture is
+      // blocked. This never requests microphone access.
       let source;
-      if (typeof video.captureStream === 'function') {
+      try {
+        if (typeof video.captureStream !== 'function') {
+          throw new Error('captureStream is unavailable');
+        }
         const stream = video.captureStream();
         if (!stream || !stream.getAudioTracks().length) {
           throw new Error('Movie capture stream has no audio track');
         }
         local.stream = stream;
         source = context.createMediaStreamSource(stream);
-      } else {
-        source = context.createMediaElementSource(video);
+      } catch (captureError) {
+        if (!navigator.mediaDevices?.getDisplayMedia) {
+          throw captureError;
+        }
+
+        onState?.('permission');
+        setStatus(video, 'LIVE CC · select This Tab + share audio');
+
+        const shared = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+          preferCurrentTab: true,
+          selfBrowserSurface: 'include',
+          systemAudio: 'include'
+        });
+        if (!local.running || state !== local) {
+          shared.getTracks().forEach(track => track.stop());
+          return false;
+        }
+
+        const audioTracks = shared.getAudioTracks();
+        if (!audioTracks.length) {
+          shared.getTracks().forEach(track => track.stop());
+          throw new Error('No tab audio was shared. Choose This Tab and enable audio.');
+        }
+
+        local.stream = shared;
+        source = context.createMediaStreamSource(shared);
+        setStatus(video, 'LIVE CC · tab audio connected');
+
+        const [videoTrack] = shared.getVideoTracks();
+        videoTrack?.addEventListener('ended', () => {
+          if (state === local) {
+            stop();
+            onState?.('unsupported', new Error('Tab audio sharing ended'));
+          }
+        }, { once: true });
       }
 
       const processor = context.createScriptProcessor(4096, 1, 1);
