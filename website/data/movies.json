@@ -116,8 +116,8 @@
     "captionLabel": "English",
     "captionLanguage": "en",
     "captionsDefault": true,
-    "thumb": "/website/assets/media/movies/spiderman.webp",
-    "backdrop": "/website/assets/media/movies/spiderman.webp"
+    "thumb": "/website/assets/media/movies/spidermanbnd.webp",
+    "backdrop": "/website/assets/media/movies/spidermanbnd.webp"
   },
   {
     "id": "resident-evil",
