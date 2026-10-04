@@ -1,5 +1,5 @@
 /* =====================================================================
-   NOVA 7 — MOTION SYSTEM V2
+   NOVA 7.1 — MOTION SYSTEM V2
    Cohesive motion pass: fast, soft, GPU-friendly, and consistent.
    Avoids large layout shifts, clip-path transitions, and heavy blur animation.
    ===================================================================== */
@@ -383,7 +383,7 @@ html[data-reduce-motion="on"] *::after{
 
 
 /* =====================================================================
-   NOVA 7 — MOTION SYSTEM V3 / ISLAND CURRENT PAGE
+   NOVA 7.1 — MOTION SYSTEM V3 / ISLAND CURRENT PAGE
    Stronger navigation feedback and richer micro-interactions.
    ===================================================================== */
 :root{
