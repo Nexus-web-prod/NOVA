@@ -1,0 +1,211 @@
+name: Fix Nova Movies CC
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-movie-cc.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch Nova Movies
+        shell: python
+        run: |
+          from pathlib import Path
+
+          js_path = Path('website/js/nova-movies.js')
+          js = js_path.read_text(encoding='utf-8')
+
+          old = '''  function clearMovieCaptions(video) {
+    if (!video) return;
+    video.querySelectorAll('track[data-nova-captions="1"]').forEach(track => track.remove());
+    Array.from(video.textTracks || []).forEach(track => {
+      if (track.kind === 'captions' || track.kind === 'subtitles') track.mode = 'disabled';
+    });
+  }
+'''
+          new = '''  function clearMovieCaptions(video) {
+    if (!video) return;
+    video.querySelectorAll('track[data-nova-captions="1"]').forEach(track => track.remove());
+  }
+'''
+          if old not in js:
+              raise SystemExit('clearMovieCaptions block not found')
+          js = js.replace(old, new, 1)
+
+          old = '''  function captionAvailable(movie) {
+    return Boolean(movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle);
+  }
+
+  function syncCaptionButton(video, movie) {
+    const button = document.getElementById('movies-player-cc');
+    if (!button) return;
+    const available = captionAvailable(movie);
+    button.disabled = !available;
+    button.setAttribute('aria-disabled', available ? 'false' : 'true');
+    button.classList.toggle('available', available);
+    button.textContent = available ? 'CC' : 'CC —';
+    if (!available) return;
+    const track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
+    const showing = track && track.mode === 'showing';
+    button.setAttribute('aria-pressed', showing ? 'true' : 'false');
+    button.classList.toggle('active', showing);
+  }
+
+  function toggleMovieCaptions(video, movie) {
+    if (!captionAvailable(movie)) return;
+    let track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
+    if (!track) {
+      applyMovieCaptions(video, movie);
+      track = Array.from(video.textTracks || []).find(item => item.kind === 'captions' || item.kind === 'subtitles');
+    }
+    if (!track) return;
+    track.mode = track.mode === 'showing' ? 'hidden' : 'showing';
+    syncCaptionButton(video, movie);
+  }
+'''
+          new = '''  function captionTracks(video) {
+    return Array.from(video?.textTracks || []).filter(track =>
+      track.kind === 'captions' || track.kind === 'subtitles'
+    );
+  }
+
+  function captionAvailable(video, movie) {
+    return Boolean(
+      movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle ||
+      captionTracks(video).length
+    );
+  }
+
+  function syncCaptionButton(video, movie) {
+    const button = document.getElementById('movies-player-cc');
+    if (!button) return;
+    const tracks = captionTracks(video);
+    const available = captionAvailable(video, movie);
+    button.disabled = !available;
+    button.setAttribute('aria-disabled', available ? 'false' : 'true');
+    button.classList.toggle('available', available);
+    button.textContent = 'CC';
+    const showing = tracks.some(track => track.mode === 'showing');
+    button.setAttribute('aria-pressed', showing ? 'true' : 'false');
+    button.classList.toggle('active', showing);
+  }
+
+  function toggleMovieCaptions(video, movie) {
+    let tracks = captionTracks(video);
+    if (!tracks.length && (movie?.captions || movie?.caption || movie?.subtitles || movie?.subtitle)) {
+      applyMovieCaptions(video, movie);
+      tracks = captionTracks(video);
+    }
+    if (!tracks.length) {
+      syncCaptionButton(video, movie);
+      return;
+    }
+    const shouldShow = !tracks.some(track => track.mode === 'showing');
+    tracks.forEach(track => { track.mode = shouldShow ? 'showing' : 'hidden'; });
+    syncCaptionButton(video, movie);
+  }
+'''
+          if old not in js:
+              raise SystemExit('caption control block not found')
+          js = js.replace(old, new, 1)
+
+          old = '''    document.body.appendChild(overlay);
+
+    const video = document.getElementById('movies-player-video');
+'''
+          new = '''    document.body.appendChild(overlay);
+
+    if (!document.getElementById('nova-movies-cc-style')) {
+      const style = document.createElement('style');
+      style.id = 'nova-movies-cc-style';
+      style.textContent = `
+        .movies-player-cc {
+          width: 34px;
+          height: 34px;
+          min-width: 34px;
+          padding: 0 .5rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--glass-b);
+          border-radius: var(--r-sm);
+          background: var(--glass-bg);
+          color: var(--muted);
+          font: 700 .48rem "Space Mono",monospace;
+          letter-spacing: .08em;
+          cursor: pointer;
+          transition: color .18s, background .18s, border-color .18s, box-shadow .18s, opacity .18s;
+        }
+        .movies-player-cc:hover:not(:disabled) {
+          color: var(--white);
+          background: var(--glass-bg-h);
+          border-color: var(--glass-bh);
+        }
+        .movies-player-cc.available { color: var(--accent); }
+        .movies-player-cc.active {
+          color: var(--white);
+          background: var(--glow-s);
+          border-color: var(--accent);
+          box-shadow: 0 0 10px var(--glow);
+        }
+        .movies-player-cc:disabled {
+          cursor: default;
+          opacity: .42;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const video = document.getElementById('movies-player-video');
+'''
+          if old not in js:
+              raise SystemExit('overlay insertion point not found')
+          js = js.replace(old, new, 1)
+
+          old = '''    document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleMovieCaptions(video, activeMovie));
+    video?.addEventListener('playing', () => setLoading('', false));
+'''
+          new = '''    document.getElementById('movies-player-cc')?.addEventListener('click', () => toggleMovieCaptions(video, activeMovie));
+    video?.addEventListener('playing', () => setLoading('', false));
+'''
+          if old not in js:
+              raise SystemExit('CC listener block not found')
+          js = js.replace(old, new, 1)
+
+          old = '''    video?.addEventListener('loadedmetadata', () => syncCaptionButton(video, activeMovie));
+'''
+          new = '''    video?.addEventListener('loadedmetadata', () => syncCaptionButton(video, activeMovie));
+    video?.textTracks?.addEventListener?.('change', () => syncCaptionButton(video, activeMovie));
+    video?.textTracks?.addEventListener?.('addtrack', () => syncCaptionButton(video, activeMovie));
+    video?.textTracks?.addEventListener?.('removetrack', () => syncCaptionButton(video, activeMovie));
+'''
+          if old not in js:
+              raise SystemExit('text track listener point not found')
+          js = js.replace(old, new, 1)
+
+          old = '<script src="/website/js/nova-movies.js?v=20260825-stability-r1"></script>'
+          index_path = Path('website/html/index.html')
+          index = index_path.read_text(encoding='utf-8')
+          if old not in index:
+              raise SystemExit('movie script tag not found')
+          index = index.replace(old, '<script src="/website/js/nova-movies.js?v=20261003-cc-r2"></script>', 1)
+
+          js_path.write_text(js, encoding='utf-8')
+          index_path.write_text(index, encoding='utf-8')
+
+      - name: Commit patched files and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/js/nova-movies.js website/html/index.html
+          git rm .github/workflows/fix-movie-cc.yml
+          git commit -m "Fix Nova Movies closed captions and CC styling"
+          git push
