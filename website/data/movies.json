@@ -107,7 +107,7 @@
   {
     "id": "spiderman-brand-new-day",
     "title": "Spider-Man: Brand New Day",
-    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/spiderman-brand-new-day.mkv",
+    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/spiderman-brand-new-day-browser.mp4",
     "genre": "Action",
     "year": 2026,
     "description": "Peter Parker faces a new chapter as Spider-Man in a world that has changed around him.",
@@ -137,7 +137,7 @@
   {
     "id": "backrooms",
     "title": "Backrooms",
-    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/backrooms-browser.mp4",
+    "src": "https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev/movies/backrooms-chrome.mp4",
     "genre": "Horror",
     "year": 2026,
     "description": "A seemingly endless maze of liminal rooms hides something far more dangerous than getting lost.",
