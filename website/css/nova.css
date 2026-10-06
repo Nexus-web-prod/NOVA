@@ -1666,13 +1666,17 @@ html[data-theme=light] .social-msg-actions,html[data-theme=light] .social-reacti
 }
 #movies-player-overlay #movies-player-video{
   display:block;
-  visibility:hidden;
-  pointer-events:none;
+  visibility:visible;
+  pointer-events:auto;
+  position:absolute;
+  inset:0;
+  z-index:2;
   object-fit:contain;
 }
 #movies-player-loading{
   position:absolute;
   inset:0;
+  z-index:3;
   display:flex;
   flex-direction:column;
   align-items:center;
