@@ -448,6 +448,9 @@ export default {
     const jetpackAsset = await serveJetpackAsset(request, env, url);
     if (jetpackAsset) return jetpackAsset;
 
+    const eaglercraftAsset = await serveEaglercraftAsset(request, env, url);
+    if (eaglercraftAsset) return eaglercraftAsset;
+
     const splitGameAsset = await serveSplitGameAsset(request, env, url);
     if (splitGameAsset) return splitGameAsset;
 
@@ -559,6 +562,55 @@ async function serveJetpackAsset(request, env, url) {
   assetUrl.pathname = url.pathname.slice(0, -1);
   const response = await env.ASSETS.fetch(new Request(assetUrl, request));
   return response.ok ? response : null;
+}
+
+async function serveEaglercraftAsset(request, env, url) {
+  const path = "/website/games/nova-eaglercraft/game.html";
+  if (url.pathname !== path || !["GET", "HEAD"].includes(request.method)) return null;
+
+  const parts = ["game.part.00", "game.part.01", "game.part.02", "game.part.03"];
+
+  if (request.method === "HEAD") {
+    return new Response(null, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=300, must-revalidate",
+        "X-Content-Type-Options": "nosniff"
+      }
+    });
+  }
+
+  const body = new ReadableStream({
+    async start(controller) {
+      try {
+        for (const part of parts) {
+          const partUrl = new URL(request.url);
+          partUrl.pathname = "/website/games/nova-eaglercraft/" + part;
+          const response = await env.ASSETS.fetch(new Request(partUrl, request));
+          if (!response.ok || !response.body) {
+            throw new Error("Missing Eaglercraft asset: " + part);
+          }
+          const reader = response.body.getReader();
+          while (true) {
+            const result = await reader.read();
+            if (result.done) break;
+            controller.enqueue(result.value);
+          }
+        }
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      }
+    }
+  });
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=300, must-revalidate",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
 }
 
 async function serveSplitGameAsset(request, env, url) {
