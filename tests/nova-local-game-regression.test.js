@@ -32,6 +32,9 @@ test('Nova Eaglercraft is a pinned, self-contained local game', () => {
   assert.doesNotMatch(eaglerIndex, /URL\.createObjectURL\(game\)/);
   assert.match(read('_worker.js'), /function serveEaglercraftAsset\(request, env, url\)/);
   assert.match(read('_worker.js'), /game\.part\.00/);
+  const proxyWorker = read('proxy/sw.js');
+  assert.match(proxyWorker, /website\/games\/nova-eaglercraft\//);
+  assert.match(proxyWorker, /Nova Eaglercraft is a self-contained local game/);
 });
 
 test('Nova Eaglercraft is registered in the built-in Games Player and remains first in its results', () => {
