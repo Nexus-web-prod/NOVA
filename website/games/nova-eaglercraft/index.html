@@ -60,22 +60,16 @@
       }
 
       try {
-        var responses = await Promise.all(parts.map(function (part) {
-          return fetch(part).then(function (response) {
-            if (!response.ok) throw new Error('Missing game data');
-            return response.arrayBuffer();
-          });
-        }));
-        var size = responses.reduce(function (total, part) { return total + part.byteLength; }, 0);
-        var bytes = new Uint8Array(size);
-        var offset = 0;
-        responses.forEach(function (part) { bytes.set(new Uint8Array(part), offset); offset += part.byteLength; });
-        var game = new Blob([bytes], { type: 'text/html' });
+        // The worker streams the split HTML directly. Do not rebuild the full
+        // game in ArrayBuffers/Blob memory: that can OOM lower-memory Chromebooks.
         var frame = document.createElement('iframe');
         frame.title = 'Nova Eaglercraft';
         frame.allow = 'autoplay; fullscreen; gamepad';
         installKeyboardFocusRecovery(frame);
-        frame.src = URL.createObjectURL(game);
+        frame.src = 'game.html?v=20261007-eagler-stream1';
+        frame.addEventListener('error', function () {
+          document.getElementById('loading').textContent = 'Nova Eaglercraft could not load. Refresh and try again.';
+        });
         document.getElementById('loading').replaceWith(frame);
       } catch (error) {
         document.getElementById('loading').textContent = 'Nova Eaglercraft could not load. Refresh and try again.';
