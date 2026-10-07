@@ -484,6 +484,10 @@ function isNovaInternalForProxiedRequest(request) {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return false;
     if (["/proxy/html/proxy-frame.html", "/proxy/html/proxy-frame.html", "/proxy/sw.js", "/proxy/config.js", "/proxy/store.js", "/website/html/verification-handoff.html", "/website/html/verification-handoff.html"].includes(url.pathname)) return true;
+    // Nova Eaglercraft is a self-contained local game. Even if a stale or
+    // ambiguous proxy client context is attached to its iframe, keep every
+    // Eaglercraft document/asset on Nova's native same-origin path.
+    if (url.pathname.startsWith("/website/games/nova-eaglercraft/")) return true;
     if (url.pathname.startsWith("/api/")) return true;
     if (["/proxy/scramjet/", "/proxy/controller/", "/proxy/scramjet-utils/", "/proxy/transports/", "/proxy/proxy-transports/", "/proxy/baremux/", "/proxy/epoxy/"].some(prefix => url.pathname.startsWith(prefix))) return true;
     if (["/proxy/vortex.all.js", "/proxy/vortex.bundle.js", "/proxy/vortex.sync.js", "/proxy/vortex.wasm.wasm", "/proxy/epoxy.mjs", "/proxy/baremux-worker.js"].includes(url.pathname)) return true;
@@ -493,7 +497,7 @@ function isNovaInternalForProxiedRequest(request) {
 }
 
 const NOVA_RUNTIME_PREFIXES = [
-  "/api/", "/website/assets/", "/website/css/", "/website/js/", "/proxy/baremux/", "/proxy/epoxy/",
+  "/api/", "/website/assets/", "/website/css/", "/website/js/", "/website/games/nova-eaglercraft/", "/proxy/baremux/", "/proxy/epoxy/",
   "/proxy/scramjet/", "/proxy/controller/", "/proxy/scramjet-utils/", "/proxy/transports/", "/proxy/proxy-transports/"
 ];
 const NOVA_RUNTIME_FILES = new Set([
