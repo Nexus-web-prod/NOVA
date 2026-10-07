@@ -17,60 +17,19 @@
     (async function () {
       var parts = ['game.part.00', 'game.part.01', 'game.part.02', 'game.part.03'];
 
-      function installKeyboardFocusRecovery(frame) {
-        function recoverFocus() {
-          try {
-            var win = frame.contentWindow;
-            var doc = frame.contentDocument;
-            if (!win || !doc || doc.hidden) return;
-
-            var active = doc.activeElement;
-            var tag = active && active.tagName ? active.tagName.toLowerCase() : '';
-            var editing = tag === 'input' || tag === 'textarea' || tag === 'select' ||
-              (active && active.isContentEditable);
-
-            // Never steal focus from chat, menus, or another text-editing control.
-            if (editing) return;
-
-            // Eaglercraft can occasionally lose keyboard focus while the server
-            // finishes joining. Restore the existing game's window/document focus.
-            if (!active || active === doc.body || active === doc.documentElement) {
-              win.focus();
-              if (doc.body && typeof doc.body.focus === 'function') doc.body.focus();
-            }
-          } catch (_) {}
-        }
-
-        frame.addEventListener('load', function () {
-          recoverFocus();
-          setTimeout(recoverFocus, 100);
-          setTimeout(recoverFocus, 500);
-          setTimeout(recoverFocus, 1500);
-          setTimeout(recoverFocus, 3000);
-        });
-
-        // Clicking the existing game always restores its normal keyboard focus.
-        frame.addEventListener('pointerdown', function () {
-          setTimeout(recoverFocus, 0);
-        });
-
-        // Recover from the intermittent server-join focus loss without replacing
-        // Eaglercraft's input handlers or touching its saved-server data.
-        setInterval(recoverFocus, 1000);
+      function installKeyboardFocusRecovery() {
+        // The Nova Games Player already provides the outer game iframe.
+        // Navigate that existing frame directly to the streamed game document;
+        // do not create a second nested iframe, which can be rejected by
+        // browser frame/security policies on some Chromebook builds.
       }
 
       try {
         // The worker streams the split HTML directly. Do not rebuild the full
         // game in ArrayBuffers/Blob memory: that can OOM lower-memory Chromebooks.
-        var frame = document.createElement('iframe');
-        frame.title = 'Nova Eaglercraft';
-        frame.allow = 'autoplay; fullscreen; gamepad';
-        installKeyboardFocusRecovery(frame);
-        frame.src = 'game.html?v=20261007-eagler-stream1';
-        frame.addEventListener('error', function () {
-          document.getElementById('loading').textContent = 'Nova Eaglercraft could not load. Refresh and try again.';
-        });
-        document.getElementById('loading').replaceWith(frame);
+        var loading = document.getElementById('loading');
+        loading.textContent = 'Loading Nova Eaglercraft…';
+        window.location.replace('game.html?v=20261007-eagler-stream2');
       } catch (error) {
         document.getElementById('loading').textContent = 'Nova Eaglercraft could not load. Refresh and try again.';
       }
