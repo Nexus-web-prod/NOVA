@@ -28,7 +28,7 @@ test('Nova Eaglercraft is a pinned, self-contained local game', () => {
   }
   const eaglerIndex = read('website/games/nova-eaglercraft/index.html');
   assert.match(eaglerIndex, /<title>Nova Eaglercraft<\/title>/);
-  assert.match(eaglerIndex, /frame\.src = 'game\.html\?v=20261007-eagler-stream1'/);
+  assert.match(eaglerIndex, /window\.location\.replace\('game\.html\?v=20261007-eagler-stream2'\)/);
   assert.doesNotMatch(eaglerIndex, /URL\.createObjectURL\(game\)/);
   assert.match(read('_worker.js'), /function serveEaglercraftAsset\(request, env, url\)/);
   assert.match(read('_worker.js'), /game\.part\.00/);
@@ -44,7 +44,7 @@ test('Nova Eaglercraft is registered in the built-in Games Player and remains fi
   const game = games.find(item => item.name === 'Nova Eaglercraft');
   assert.match(index, /\/website\/games\/nova-eaglercraft\//);
   assert.match(index, /name:'Nova Eaglercraft',slug:'nova-eaglercraft'/);
-  assert.match(player, /'nova-eaglercraft': \{ name: 'Nova Eaglercraft', src: '\/website\/games\/nova-eaglercraft\/' \}/);
+  assert.match(player, /'nova-eaglercraft': \{ name: 'Nova Eaglercraft', src: '\/website\/games\/nova-eaglercraft\/game\.html\?v=20261007-eagler-stream3' \}/);
   assert.equal(game.alwaysTop, true);
   assert.equal(games[0].name, 'Nova Eaglercraft');
 });
