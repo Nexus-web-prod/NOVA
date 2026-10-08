@@ -3590,8 +3590,19 @@ function showGamesPlayerPage(localGame){
     // generated game document directly so the wrapper's frame headers can
     // never cause a "refused to connect" error inside Games Player.
     if (localGame.slug === 'nova-eaglercraft') {
-      frame.removeAttribute('src');
-      frame.src = new URL('/website/games/nova-eaglercraft/game.html?v=20261007-eagler-player2&player=' + Date.now(), location.origin).href;
+      // Eaglercraft is a native local game. Fully replace the iframe browsing
+      // context before every launch instead of only changing src. This clears
+      // any stale refused-connect document/controller left by a previous game
+      // or proxy navigation while keeping the same Games Player iframe.
+      var freshFrame = frame.cloneNode(false);
+      freshFrame.removeAttribute('src');
+      freshFrame.hidden = false;
+      freshFrame.title = localGame.name;
+      freshFrame.setAttribute('allow', 'autoplay; fullscreen; gamepad');
+      freshFrame.setAttribute('referrerpolicy', 'no-referrer');
+      frame.replaceWith(freshFrame);
+      frame = freshFrame;
+      frame.src = new URL('/website/games/nova-eaglercraft/game.html?v=20261007-eagler-player3&player=' + Date.now(), location.origin).href;
     } else {
       frame.src = localGame.url;
     }
