@@ -565,17 +565,15 @@ async function serveJetpackAsset(request, env, url) {
 
 async function serveEaglercraftAsset(request, env, url) {
   const path = "/website/games/nova-eaglercraft/game.html";
-  if (url.pathname !== path || !["GET", "HEAD"].includes(request.method)) return null;
+  const playerPath = "/website/games/nova-eaglercraft/game-player.html";
+  if ((url.pathname !== path && url.pathname !== playerPath) || !["GET", "HEAD"].includes(request.method)) return null;
+  const isPlayer = url.pathname === playerPath;
 
   const parts = ["game.part.00", "game.part.01", "game.part.02", "game.part.03"];
 
   if (request.method === "HEAD") {
     return new Response(null, {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=300, must-revalidate",
-        "X-Content-Type-Options": "nosniff"
-      }
+      headers: isPlayer ? eaglercraftPlayerHeaders() : eaglercraftDocumentHeaders()
     });
   }
 
@@ -604,12 +602,29 @@ async function serveEaglercraftAsset(request, env, url) {
   });
 
   return new Response(body, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "public, max-age=300, must-revalidate",
-      "X-Content-Type-Options": "nosniff"
-    }
+    headers: isPlayer ? eaglercraftPlayerHeaders() : eaglercraftDocumentHeaders()
   });
+}
+
+function eaglercraftDocumentHeaders() {
+  return {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "public, max-age=300, must-revalidate",
+    "X-Content-Type-Options": "nosniff"
+  };
+}
+
+function eaglercraftPlayerHeaders() {
+  return {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: blob: https: wss:; worker-src 'self' blob:; child-src 'self' blob: data:; frame-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'",
+    "Cross-Origin-Opener-Policy": "unsafe-none",
+    "Cross-Origin-Embedder-Policy": "unsafe-none",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Referrer-Policy": "no-referrer"
+  };
 }
 
 async function serveSplitGameAsset(request, env, url) {
