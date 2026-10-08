@@ -97,7 +97,7 @@ gtag('config', 'G-MQJZKQNHQ9');
 })();</script>
 <script src="/website/js/vendor/dreamland-0.0.25.js"></script>
 <script src="/proxy/js/nova-proxy-manager.js?v=20261007-sj2067-r8.25"></script>
-<script src="/proxy/store.js?v=20260822-sj2067-r8.19"></script>
+<script src="/proxy/store.js?v=20261007-sj2067-r8.25"></script>
 <style>
 /* ── Spinner keyframe for loading tabs ── */
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -3590,7 +3590,8 @@ function showGamesPlayerPage(localGame){
     // generated game document directly so the wrapper's frame headers can
     // never cause a "refused to connect" error inside Games Player.
     if (localGame.slug === 'nova-eaglercraft') {
-      frame.src = new URL('/website/games/nova-eaglercraft/game.html?v=20261007-eagler-stream3', location.origin).href;
+      frame.removeAttribute('src');
+      frame.src = new URL('/website/games/nova-eaglercraft/game.html?v=20261007-eagler-player2&player=' + Date.now(), location.origin).href;
     } else {
       frame.src = localGame.url;
     }
