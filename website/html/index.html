@@ -2184,11 +2184,18 @@ body:has(#nova-shell[style*="display:none"])>#nova-static-fallback-home{
 #page-game-player{overflow:hidden;background:var(--bg)}
 .game-player-page{position:relative;width:100%;height:100%;background:var(--bg)}
 #local-game-player-frame{display:block;width:100%;height:100%;border:0;background:#000}
+#eaglercraft-player-loading{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:radial-gradient(circle at 50% 42%,rgba(139,143,255,.12),transparent 42%),#05050b;color:#eeeef6;font-family:Space Mono,monospace;pointer-events:none;transition:opacity .25s ease}
+#eaglercraft-player-loading.visible{display:flex}
+#eaglercraft-player-loading.fade{opacity:0}
+.eaglercraft-loading-mark{width:48px;height:48px;border:3px solid rgba(139,143,255,.18);border-top-color:var(--accent,#8b8fff);border-right-color:var(--accent2,#5d5df6);border-radius:50%;animation:eaglercraft-loading-spin .8s linear infinite;box-shadow:0 0 28px rgba(139,143,255,.16)}
+.eaglercraft-loading-title{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.eaglercraft-loading-sub{font-size:.4rem;letter-spacing:.08em;color:var(--muted,#88889a);text-transform:uppercase}
+@keyframes eaglercraft-loading-spin{to{transform:rotate(360deg)}}
 .game-player-library{height:100%;overflow:auto}
 .game-player-library[hidden],#local-game-player-frame[hidden]{display:none}
 .game-player-card{font:inherit;text-align:left}
 </style>
-<div class="game-player-page"><iframe id="local-game-player-frame" title="Local game" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer" hidden></iframe><section class="game-player-library" id="game-player-library"><div class="content-page"><div class="page-title">GAMES PLAYER</div><div class="page-subtitle" id="game-player-library-count">Your complete local games library</div><div class="games-controls-wrap"><div class="glass-pill games-search-pill"><input id="game-player-search" type="text" placeholder="Search local games..." autocomplete="off" spellcheck="false"></div><div class="game-sort-row"><button class="game-sort-btn active" data-player-sort="az">A–Z</button><button class="game-sort-btn" data-player-sort="rated">Top Rated</button><button class="game-sort-btn" data-player-sort="recent">Recently Added</button></div></div><div class="game-grid" id="game-player-grid"></div></div></section></div>
+<div class="game-player-page"><div id="eaglercraft-player-loading" aria-live="polite"><div class="eaglercraft-loading-mark" aria-hidden="true"></div><div class="eaglercraft-loading-title">Loading Nova Eaglercraft</div><div class="eaglercraft-loading-sub">Starting the game…</div></div><iframe id="local-game-player-frame" title="Local game" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer" hidden></iframe><section class="game-player-library" id="game-player-library"><div class="content-page"><div class="page-title">GAMES PLAYER</div><div class="page-subtitle" id="game-player-library-count">Your complete local games library</div><div class="games-controls-wrap"><div class="glass-pill games-search-pill"><input id="game-player-search" type="text" placeholder="Search local games..." autocomplete="off" spellcheck="false"></div><div class="game-sort-row"><button class="game-sort-btn active" data-player-sort="az">A–Z</button><button class="game-sort-btn" data-player-sort="rated">Top Rated</button><button class="game-sort-btn" data-player-sort="recent">Recently Added</button></div></div><div class="game-grid" id="game-player-grid"></div></div></section></div>
 </div>
 <div class="page" id="page-game-detail">
 <div class="content-page game-detail-shell">
@@ -3593,6 +3600,12 @@ function showGamesPlayerPage(localGame){
       // Rebuild the Games Player iframe from scratch for Nova Eaglercraft.
       // Keep the generated game document and all game assets untouched.
       var player = frame.parentNode;
+      var loading = document.getElementById('eaglercraft-player-loading');
+      if (loading) {
+        loading.classList.add('visible');
+        loading.classList.remove('fade');
+        loading.querySelector('.eaglercraft-loading-sub').textContent = 'Starting the game…';
+      }
       frame.remove();
       frame = document.createElement('iframe');
       frame.id = 'local-game-player-frame';
@@ -3602,12 +3615,29 @@ function showGamesPlayerPage(localGame){
       frame.hidden = false;
       frame.style.cssText = 'display:block;width:100%;height:100%;border:0;background:#000';
       player.insertBefore(frame, player.firstChild);
+      frame.addEventListener('load', function() {
+        var loading = document.getElementById('eaglercraft-player-loading');
+        if (!loading) return;
+        loading.querySelector('.eaglercraft-loading-sub').textContent = 'Almost ready…';
+        setTimeout(function() {
+          loading.classList.add('fade');
+          setTimeout(function() {
+            loading.classList.remove('visible');
+            loading.classList.remove('fade');
+          }, 260);
+        }, 450);
+      }, {once:true});
       frame.src = new URL('/website/games/nova-eaglercraft/game-player.html?v=20261007-eagler-player1&player=' + Date.now(), location.origin).href;
     } else {
       frame.src = localGame.url;
     }
     document.getElementById('nova-shell').classList.add('game-player-has-game');
   }else{
+    var loading = document.getElementById('eaglercraft-player-loading');
+    if (loading) {
+      loading.classList.remove('visible');
+      loading.classList.remove('fade');
+    }
     if(window._novaSwitchPage)window._novaSwitchPage('game-player');
     else document.querySelector('.nav-tab[data-page="game-player"]')?.click();
     frame.hidden=true;
