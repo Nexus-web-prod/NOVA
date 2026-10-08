@@ -621,7 +621,7 @@ function eaglercraftPlayerHeaders() {
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: blob: https: wss:; worker-src 'self' blob:; child-src 'self' blob: data:; frame-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'",
     "Cross-Origin-Opener-Policy": "unsafe-none",
-    "Cross-Origin-Embedder-Policy": "unsafe-none",
+    "Cross-Origin-Embedder-Policy": "credentialless",
     "Cross-Origin-Resource-Policy": "same-origin",
     "Referrer-Policy": "no-referrer"
   };
