@@ -509,8 +509,7 @@ export default {
     if (
       (request.method === "GET" || request.method === "HEAD") &&
       (url.pathname === "/website/html" ||
-        url.pathname === "/website/html/" ||
-        url.pathname === "/website/html/index.html")
+        url.pathname === "/website/html/")
     ) {
       const canonicalUrl = new URL(url);
       canonicalUrl.pathname = "/";
