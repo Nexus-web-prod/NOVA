@@ -2184,18 +2184,31 @@ body:has(#nova-shell[style*="display:none"])>#nova-static-fallback-home{
 #page-game-player{overflow:hidden;background:var(--bg)}
 .game-player-page{position:relative;width:100%;height:100%;background:var(--bg)}
 #local-game-player-frame{display:block;width:100%;height:100%;border:0;background:#000}
-#eaglercraft-player-loading{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:radial-gradient(circle at 50% 42%,rgba(139,143,255,.12),transparent 42%),#05050b;color:#eeeef6;font-family:Space Mono,monospace;pointer-events:none;transition:opacity .25s ease}
+#eaglercraft-player-loading{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;overflow:hidden;background:#050505;color:#fff;font-family:Space Mono,monospace;pointer-events:none;transition:opacity .3s ease}
 #eaglercraft-player-loading.visible{display:flex}
 #eaglercraft-player-loading.fade{opacity:0}
-.eaglercraft-loading-mark{width:48px;height:48px;border:3px solid rgba(139,143,255,.18);border-top-color:var(--accent,#8b8fff);border-right-color:var(--accent2,#5d5df6);border-radius:50%;animation:eaglercraft-loading-spin .8s linear infinite;box-shadow:0 0 28px rgba(139,143,255,.16)}
-.eaglercraft-loading-title{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
-.eaglercraft-loading-sub{font-size:.4rem;letter-spacing:.08em;color:var(--muted,#88889a);text-transform:uppercase}
+.eaglercraft-loading-slides{position:absolute;inset:0;overflow:hidden;background:#050505}
+.eaglercraft-loading-slide{position:absolute;inset:0;opacity:0;transform:scale(1.035);background-size:cover;background-position:center;animation:eaglercraft-loading-slide 16s infinite}
+.eaglercraft-loading-slide:nth-child(1){animation-delay:0s}
+.eaglercraft-loading-slide:nth-child(2){animation-delay:4s}
+.eaglercraft-loading-slide:nth-child(3){animation-delay:8s}
+.eaglercraft-loading-slide:nth-child(4){animation-delay:12s}
+.eaglercraft-loading-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.22),rgba(0,0,0,.48) 58%,rgba(0,0,0,.82))}
+.eaglercraft-loading-content{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.8)}
+.eaglercraft-loading-mark{width:44px;height:44px;border:3px solid rgba(255,255,255,.32);border-top-color:#fff;border-radius:50%;animation:eaglercraft-loading-spin .8s linear infinite}
+.eaglercraft-loading-title{font-size:.78rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+.eaglercraft-loading-sub{font-size:.43rem;letter-spacing:.1em;color:rgba(255,255,255,.78);text-transform:uppercase}
+.eaglercraft-loading-dots{display:flex;gap:5px;margin-top:2px}
+.eaglercraft-loading-dots span{width:5px;height:5px;border-radius:50%;background:#fff;opacity:.35;animation:eaglercraft-loading-dot 1s infinite}
+.eaglercraft-loading-dots span:nth-child(2){animation-delay:.15s}.eaglercraft-loading-dots span:nth-child(3){animation-delay:.3s}
 @keyframes eaglercraft-loading-spin{to{transform:rotate(360deg)}}
+@keyframes eaglercraft-loading-slide{0%,20%{opacity:1;transform:scale(1)}25%,100%{opacity:0;transform:scale(1.035)}}
+@keyframes eaglercraft-loading-dot{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
 .game-player-library{height:100%;overflow:auto}
 .game-player-library[hidden],#local-game-player-frame[hidden]{display:none}
 .game-player-card{font:inherit;text-align:left}
 </style>
-<div class="game-player-page"><div id="eaglercraft-player-loading" aria-live="polite"><div class="eaglercraft-loading-mark" aria-hidden="true"></div><div class="eaglercraft-loading-title">Loading Nova Eaglercraft</div><div class="eaglercraft-loading-sub">Starting the game…</div></div><iframe id="local-game-player-frame" title="Local game" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer" hidden></iframe><section class="game-player-library" id="game-player-library"><div class="content-page"><div class="page-title">GAMES PLAYER</div><div class="page-subtitle" id="game-player-library-count">Your complete local games library</div><div class="games-controls-wrap"><div class="glass-pill games-search-pill"><input id="game-player-search" type="text" placeholder="Search local games..." autocomplete="off" spellcheck="false"></div><div class="game-sort-row"><button class="game-sort-btn active" data-player-sort="az">A–Z</button><button class="game-sort-btn" data-player-sort="rated">Top Rated</button><button class="game-sort-btn" data-player-sort="recent">Recently Added</button></div></div><div class="game-grid" id="game-player-grid"></div></div></section></div>
+<div class="game-player-page"><div id="eaglercraft-player-loading" aria-live="polite"><div class="eaglercraft-loading-slides" aria-hidden="true"><div class="eaglercraft-loading-slide" style="background-image:url('/5.17-mincraft-900x506.jpg')"></div><div class="eaglercraft-loading-slide" style="background-image:url('/1200px-Survival.webp')"></div><div class="eaglercraft-loading-slide" style="background-image:url('/Minecraft-Battle-Temple.webp')"></div><div class="eaglercraft-loading-slide" style="background-image:url('/minecraft-live-chiselled-bookshelves.jpg')"></div><div class="eaglercraft-loading-shade"></div></div><div class="eaglercraft-loading-content"><div class="eaglercraft-loading-mark" aria-hidden="true"></div><div class="eaglercraft-loading-title">Loading Nova Eaglercraft</div><div class="eaglercraft-loading-sub">Starting the game…</div><div class="eaglercraft-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div></div></div><iframe id="local-game-player-frame" title="Local game" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer" hidden></iframe><section class="game-player-library" id="game-player-library"><div class="content-page"><div class="page-title">GAMES PLAYER</div><div class="page-subtitle" id="game-player-library-count">Your complete local games library</div><div class="games-controls-wrap"><div class="glass-pill games-search-pill"><input id="game-player-search" type="text" placeholder="Search local games..." autocomplete="off" spellcheck="false"></div><div class="game-sort-row"><button class="game-sort-btn active" data-player-sort="az">A–Z</button><button class="game-sort-btn" data-player-sort="rated">Top Rated</button><button class="game-sort-btn" data-player-sort="recent">Recently Added</button></div></div><div class="game-grid" id="game-player-grid"></div></div></section></div>
 </div>
 <div class="page" id="page-game-detail">
 <div class="content-page game-detail-shell">
