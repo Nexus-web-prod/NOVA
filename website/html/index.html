@@ -3586,7 +3586,14 @@ function showGamesPlayerPage(localGame){
     library.hidden=true;
     frame.hidden=false;
     frame.title=localGame.name;
-    frame.src=localGame.url;
+    // Nova Eaglercraft is a native streamed local game. Always target the
+    // generated game document directly so the wrapper's frame headers can
+    // never cause a "refused to connect" error inside Games Player.
+    if (localGame.slug === 'nova-eaglercraft') {
+      frame.src = new URL('/website/games/nova-eaglercraft/game.html?v=20261007-eagler-stream3', location.origin).href;
+    } else {
+      frame.src = localGame.url;
+    }
     document.getElementById('nova-shell').classList.add('game-player-has-game');
   }else{
     if(window._novaSwitchPage)window._novaSwitchPage('game-player');
