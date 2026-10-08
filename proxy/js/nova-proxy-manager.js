@@ -1116,16 +1116,46 @@
   }
 
   async function enableLegacyWorkerRuntime() {
-    const target = navigator.serviceWorker.controller || serviceWorker;
+    // The proxy worker can be in the middle of an activation/controller swap.
+    // Do not turn that transient state into a permanent "proxy unavailable"
+    // error. In particular, r8.24 can log the controller.sw.js activation
+    // message before navigator.serviceWorker.controller is populated.
+    let target = navigator.serviceWorker.controller || serviceWorker;
+    if (!target && "serviceWorker" in navigator) {
+      target = await withTimeout(new Promise((resolve, reject) => {
+        const accept = worker => {
+          if (!worker) return;
+          navigator.serviceWorker.removeEventListener("controllerchange", onChange);
+          resolve(worker);
+        };
+        const onChange = () => accept(navigator.serviceWorker.controller);
+        navigator.serviceWorker.addEventListener("controllerchange", onChange);
+        accept(navigator.serviceWorker.controller);
+      }), 12000, "Proxy service worker did not take control during legacy fallback");
+    }
     if (!target) throw new Error("Proxy service worker is unavailable for legacy fallback");
+    serviceWorker = target;
     await withTimeout(new Promise((resolve, reject) => {
       const channel = new MessageChannel();
+      let settled = false;
+      const finish = (fn, value) => {
+        if (settled) return;
+        settled = true;
+        fn(value);
+      };
       channel.port1.onmessage = event => {
         const data = event.data || {};
-        if (data.ready && data.legacyRuntimeLoaded && data.legacyVortexLoaded && data.legacyServiceWorkerReady) resolve(true);
-        else reject(new Error(data.error || data.legacyRuntimeImportError || "Legacy Vortex worker runtime did not fully load"));
+        if (data.ready && data.legacyRuntimeLoaded && data.legacyVortexLoaded && data.legacyServiceWorkerReady) {
+          finish(resolve, true);
+        } else {
+          finish(reject, new Error(data.error || data.legacyRuntimeImportError || "Legacy Vortex worker runtime did not fully load"));
+        }
       };
-      target.postMessage({ type: "nova_enable_legacy" }, [channel.port2]);
+      try {
+        target.postMessage({ type: "nova_enable_legacy" }, [channel.port2]);
+      } catch (error) {
+        finish(reject, error);
+      }
     }), 5000, "Legacy Vortex worker activation timed out");
   }
 
