@@ -3556,12 +3556,12 @@ function localGameFor(url){
       ,'/website/games/space-waves/': {name:'Space Waves',slug:'space-waves'}
       ,'/website/games/monkey-mart/': {name:'Monkey Mart',slug:'monkey-mart'}
       ,'/website/games/geo-dash/': {name:'Geo Dash',slug:'geo-dash'}
-      ,'/website/games/nova-eaglercraft/': {name:'Nova Eaglercraft',slug:'nova-eaglercraft'}
+      ,'/website/games/nova-eaglercraft/': {name:'Nova Eaglercraft',slug:'nova-eaglercraft',directUrl:'/website/games/nova-eaglercraft/game.html?v=20261007-eagler-stream2'}
     };
     var normalizedPath=parsed.pathname.replace(/index\.html$/,'');
     var uploadedGame=uploadedGames[normalizedPath];
     if(uploadedGame){
-      return {name:uploadedGame.name,slug:uploadedGame.slug,url:new URL(normalizedPath,location.origin).href};
+      return {name:uploadedGame.name,slug:uploadedGame.slug,url:new URL(uploadedGame.directUrl || normalizedPath,location.origin).href};
     }
   } catch(e){}
   return null;
