@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20261011-sj2067-r8.27-tiktok-vortex2";
+  const VERSION = "20261011-sj2067-r8.28-tiktok-vortex-preload";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
@@ -1093,6 +1093,26 @@
     return controller;
   }
 
+  // Warm Vortex's versioned assets alongside the modern transports without
+  // enabling its service-worker runtime. Enabling the legacy runtime at startup
+  // would interfere with unrelated Scramjet tabs; actual Vortex activation stays
+  // scoped to a tab that requests a forced legacy route.
+  function preloadLegacyAssets() {
+    return Promise.all(Object.entries(PATHS)
+      .filter(([name]) => name.startsWith("legacy"))
+      .map(async ([name, path]) => {
+        try {
+          const response = await fetch(path, { cache: "force-cache", credentials: "same-origin" });
+          if (!response.ok) throw new Error(`Vortex preload failed for ${name}: HTTP ${response.status}`);
+          return true;
+        } catch (_) {
+          // Preloading is opportunistic; initializeLegacy() performs the
+          // authoritative asset checks and reports any actual startup failure.
+          return false;
+        }
+      }));
+  }
+
   async function initializeModern() {
     await prepareServiceWorker();
     await loadScramjetRuntime();
@@ -1124,6 +1144,10 @@
     if (state.currentTransport === "libcurl") {
       ensureEpoxyReady().catch(() => {});
     }
+    // Like the warm Epoxy fallback, cache Vortex's runtime assets before a user
+    // needs the legacy compatibility route. This does not switch the active
+    // engine or enable the Vortex worker.
+    preloadLegacyAssets().catch(() => {});
   }
 
   async function enableLegacyWorkerRuntime() {
@@ -1721,8 +1745,22 @@
         this._requestedURL = nextURL;
         this._compatHost = hostFor(nextURL);
         this._forcedLegacyPolicy = "tiktok-vortex";
-        if (this._usesLegacy() && this.legacyFrame) {
-          this.legacyFrame.go(nextURL);
+        if (this._usesLegacy()) {
+          if (this.legacyFrame) {
+            this.legacyFrame.go(nextURL);
+          } else {
+            // A frame created while Vortex is already active starts its legacy
+            // setup asynchronously. Queue TikTok navigation after that setup;
+            // _activateLegacy() may return the in-flight constructor setup
+            // without consuming this route's requested URL.
+            this._activateLegacy(false).then(() => {
+              if (routeGeneration !== this._routeGeneration || !isTikTokURL(nextURL)) return;
+              if (this.legacyFrame) this.legacyFrame.go(nextURL);
+              else throw new Error("Vortex frame was not created for TikTok navigation");
+            }).catch(error =>
+              reportFailure("legacy-initialization", error, this, { url: nextURL })
+            );
+          }
         } else if (state.currentEngine === "scramjet") {
           state.fallbackHistory.push({
             timestamp: new Date().toISOString(),
