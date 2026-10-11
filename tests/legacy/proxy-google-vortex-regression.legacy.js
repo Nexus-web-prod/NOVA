@@ -14,7 +14,7 @@ assert(manager.includes('this._forcedLegacyPolicy === "google-vortex" && !isGoog
 assert(manager.includes('this._forcedLegacyPolicy === "google-vortex" ? isGoogleURL(currentLegacyURL) : isTikTokURL(currentLegacyURL)'), 'forced-domain load exit detection missing');
 assert(!manager.includes('function isGoogleSearchURL(value)'), 'old search-only detector must be removed');
 assert(!manager.includes('googleTarget'), 'post-load Google activation path must be removed to avoid races');
-assert(index.includes('/proxy/js/nova-proxy-manager.js?v=20261011-sj2067-r8.30-tiktok-vortex-always-ready'), 'manager cache bust missing');
+assert(index.includes('/proxy/js/nova-proxy-manager.js?v=20261011-sj2067-r8.31-tiktok-vortex-guard'), 'manager cache bust missing');
 assert(!manager.includes('state.currentEngine = "vortex";\n        this._compatHost = hostFor(nextURL)'), 'Google route must not globally switch engine');
 
 assert(manager.includes('this.legacyFrame.addEventListener("urlchange"'), 'Vortex urlchange exit hook missing');
