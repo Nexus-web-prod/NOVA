@@ -1716,12 +1716,14 @@
       // domains. Apply the policy even if another tab has already switched the
       // shared engine to Vortex; in that case navigate the existing legacy
       // frame instead of trying to bootstrap a second transition.
-      if (!auditTransport() && this._engineOverride !== "legacy" && isTikTokURL(nextURL)) {
+      if (!auditTransport() && isTikTokURL(nextURL)) {
         this.lastURL = nextURL;
         this._requestedURL = nextURL;
         this._compatHost = hostFor(nextURL);
         this._forcedLegacyPolicy = "tiktok-vortex";
-        if (state.currentEngine === "scramjet") {
+        if (this._usesLegacy() && this.legacyFrame) {
+          this.legacyFrame.go(nextURL);
+        } else if (state.currentEngine === "scramjet") {
           state.fallbackHistory.push({
             timestamp: new Date().toISOString(),
             from: state.currentTransport,
@@ -1736,8 +1738,6 @@
           this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
             reportFailure("legacy-initialization", error, this, { url: nextURL })
           );
-        } else if (this._usesLegacy() && this.legacyFrame) {
-          this.legacyFrame.go(nextURL);
         } else {
           this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
             reportFailure("legacy-initialization", error, this, { url: nextURL })
