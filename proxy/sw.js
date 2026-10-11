@@ -1,6 +1,6 @@
 "use strict";
 
-const NOVA_PROXY_RUNTIME_VERSION = "20260829-sj2067-r8.24";
+const NOVA_PROXY_RUNTIME_VERSION = "20261011-sj2067-r8.30-tiktok-vortex-always-ready";
 
 if (navigator.userAgent.includes("Firefox")) {
   try {
@@ -12,11 +12,11 @@ if (navigator.userAgent.includes("Firefox")) {
 // handler; it exposes shouldRoute()/route() for this worker to call.
 importScripts(`/proxy/controller/controller.sw.js?v=${NOVA_PROXY_RUNTIME_VERSION}`);
 
-// Legacy Vortex is still inactive until NovaProxyManager explicitly selects
-// the third fallback. Its worker script is imported during service-worker
-// evaluation because service workers cannot reliably add new importScripts()
-// dependencies after installation. Importing the runtime does not create a
-// Vortex worker, claim /vortex/, or mix BareMux into proxy-transports.
+// Vortex's worker runtime is loaded during service-worker evaluation because
+// service workers cannot reliably add new importScripts() dependencies later.
+// NovaProxyManager enables it during startup so BareMux/Vortex are ready before
+// TikTok is opened. Only /vortex/ requests are handled by this route; unrelated
+// sites remain on Scramjet and its selected transport.
 importScripts(`/proxy/js/nova-proxy-compatibility.js?v=${NOVA_PROXY_RUNTIME_VERSION}`);
 
 let legacyVortex = null;
