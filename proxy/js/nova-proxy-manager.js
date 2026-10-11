@@ -1287,6 +1287,7 @@
       state.legacyReady = true;
       state.legacyInitError = null;
       setHealth("legacy", "healthy");
+      console.info("[Nova] BareMux/Vortex legacy route ready");
       return legacyVortex;
     } catch (error) {
       state.legacyReady = false;
