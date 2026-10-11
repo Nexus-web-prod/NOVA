@@ -14,6 +14,8 @@ assert(manager.includes('"byteoversea.com"'), 'TikTok media hosts must stay on V
 assert(manager.includes('return domains.some(domain => host === domain || host.endsWith("." + domain));'), 'TikTok apex, subdomain, and CDN matching missing');
 assert(manager.includes('if (isTikTokURL(nextURL)) {'), 'TikTok routing must not be bypassed by transport audit overrides');
 assert(worker.includes('function isTikTokLogicalURL(value)'), 'service-worker TikTok/CDN guard missing');
+assert(worker.includes('"tiktokcdn-us.com"'), 'service worker must recognize TikTok CDN image hosts');
+assert(worker.includes('"byteoversea.com"'), 'service worker must recognize TikTok media hosts');
 assert(worker.includes('TikTok Scramjet route intercepted before upstream processing; Vortex only'), 'TikTok requests must be intercepted before Scramjet handles them');
 assert(worker.includes('return Response.redirect(target.href, 302);'), 'TikTok rewritten requests must be redirected into the Vortex route');
 assert(worker.indexOf('if (logical && isTikTokLogicalURL(logical))') < worker.indexOf('if ($scramjetController.shouldRoute(routedEvent))'), 'TikTok guard must run before Scramjet routing');
