@@ -1,6 +1,7 @@
 const fs = require('fs');
 const assert = require('assert');
 const manager = fs.readFileSync('proxy/js/nova-proxy-manager.js', 'utf8');
+const worker = fs.readFileSync('proxy/sw.js', 'utf8');
 
 assert(manager.includes('function isTikTokURL(value)'), 'TikTok URL detector missing');
 assert(manager.indexOf('// TikTok is Vortex-first: decide the route before any site transport') < manager.indexOf('const preferredTransport ='), 'TikTok must be routed before transport preference selection');
@@ -12,12 +13,16 @@ assert(manager.includes('"tiktokcdn-us.com"'), 'TikTok CDN hosts must stay on Vo
 assert(manager.includes('"byteoversea.com"'), 'TikTok media hosts must stay on Vortex');
 assert(manager.includes('return domains.some(domain => host === domain || host.endsWith("." + domain));'), 'TikTok apex, subdomain, and CDN matching missing');
 assert(manager.includes('if (isTikTokURL(nextURL)) {'), 'TikTok routing must not be bypassed by transport audit overrides');
+assert(worker.includes('function isTikTokLogicalURL(value)'), 'service-worker TikTok/CDN guard missing');
+assert(worker.includes('TikTok Scramjet route intercepted before upstream processing; Vortex only'), 'TikTok requests must be intercepted before Scramjet handles them');
+assert(worker.includes('return Response.redirect(target.href, 302);'), 'TikTok rewritten requests must be redirected into the Vortex route');
+assert(worker.indexOf('if (logical && isTikTokLogicalURL(logical))') < worker.indexOf('if ($scramjetController.shouldRoute(routedEvent))'), 'TikTok guard must run before Scramjet routing');
 assert(manager.includes('this._forcedLegacyPolicy = "tiktok-vortex"'), 'TikTok Vortex policy marker missing');
 assert(manager.includes('this._activateLegacy(false).then(() => {\n              if (routeGeneration !== this._routeGeneration || !isTikTokURL(nextURL)) return;\n              if (this.legacyFrame) this.legacyFrame.go(nextURL);'), 'TikTok navigation must wait for an in-flight Vortex frame initialization');
 assert(manager.includes('reason: "forced TikTok compatibility route"'), 'forced TikTok compatibility reason missing');
 assert(manager.includes('this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration)'), 'TikTok must activate Vortex before Scramjet navigation');
 assert(manager.includes('if (this._usesLegacy()) {\n          if (this.legacyFrame) {\n            this.legacyFrame.go(nextURL);'), 'TikTok must reuse the existing Vortex frame when the shared engine is already legacy');
-assert(manager.includes('20261011-sj2067-r8.30-tiktok-vortex-always-ready'), 'TikTok routing fix version missing');
+assert(manager.includes('20261011-sj2067-r8.31-tiktok-vortex-guard'), 'TikTok routing fix version missing');
 assert(manager.includes('this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL)'), 'leaving TikTok must cancel pending policy');
 assert(manager.includes('this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL)'), 'leaving TikTok must exit forced legacy routing');
 assert(manager.includes('this._forcedLegacyPolicy === "google-vortex" ? isGoogleURL(changedURL) : isTikTokURL(changedURL)'), 'Vortex URL changes must keep TikTok subdomains on legacy');
