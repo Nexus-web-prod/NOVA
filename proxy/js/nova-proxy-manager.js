@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20261011-sj2067-r8.28-tiktok-vortex-preload";
+  const VERSION = "20261011-sj2067-r8.29-tiktok-vortex-first";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
@@ -1672,6 +1672,59 @@
       const nextURL = String(url || "");
       if (!nextURL) return;
       const routeGeneration = ++this._routeGeneration;
+
+      // TikTok is Vortex-first: decide the route before any site transport
+      // preference or modern-proxy navigation can be considered. Vortex is the
+      // only transport used for TikTok; a Vortex failure is reported rather
+      // than silently retrying TikTok through libcurl or Scramjet.
+      // TikTok always selects the same legacy Vortex route as other forced
+      // domains. Apply the policy even if another tab has already switched the
+      // shared engine to Vortex; in that case navigate the existing legacy
+      // frame instead of trying to bootstrap a second transition.
+      if (!auditTransport() && isTikTokURL(nextURL)) {
+        this.lastURL = nextURL;
+        this._requestedURL = nextURL;
+        this._compatHost = hostFor(nextURL);
+        this._forcedLegacyPolicy = "tiktok-vortex";
+        if (this._usesLegacy()) {
+          if (this.legacyFrame) {
+            this.legacyFrame.go(nextURL);
+          } else {
+            // A frame created while Vortex is already active starts its legacy
+            // setup asynchronously. Queue TikTok navigation after that setup;
+            // _activateLegacy() may return the in-flight constructor setup
+            // without consuming this route's requested URL.
+            this._activateLegacy(false).then(() => {
+              if (routeGeneration !== this._routeGeneration || !isTikTokURL(nextURL)) return;
+              if (this.legacyFrame) this.legacyFrame.go(nextURL);
+              else throw new Error("Vortex frame was not created for TikTok navigation");
+            }).catch(error =>
+              reportFailure("legacy-initialization", error, this, { url: nextURL })
+            );
+          }
+        } else if (state.currentEngine === "scramjet") {
+          state.fallbackHistory.push({
+            timestamp: new Date().toISOString(),
+            from: state.currentTransport,
+            to: "baremux-legacy-tab",
+            reason: "forced TikTok compatibility route",
+            scope: "tab",
+            target: nextURL
+          });
+          if (state.fallbackHistory.length > 50) state.fallbackHistory.splice(0, state.fallbackHistory.length - 50);
+          state.lastFallbackReason = "tab routing: TikTok uses Vortex";
+          publish();
+          this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
+            reportFailure("legacy-initialization", error, this, { url: nextURL })
+          );
+        } else {
+          this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
+            reportFailure("legacy-initialization", error, this, { url: nextURL })
+          );
+        }
+        return;
+      }
+
       const preferredTransport = auditTransport() ? "" : (isLegacyGameURL(nextURL) ? "legacy" : gameTransportDefaults.get(normalizedGameURL(nextURL)) || "");
 
       if (preferredTransport === "legacy" && !this._usesLegacy()) {
@@ -1736,53 +1789,6 @@
         return;
       }
 
-      // TikTok always selects the same legacy Vortex route as other forced
-      // domains. Apply the policy even if another tab has already switched the
-      // shared engine to Vortex; in that case navigate the existing legacy
-      // frame instead of trying to bootstrap a second transition.
-      if (!auditTransport() && isTikTokURL(nextURL)) {
-        this.lastURL = nextURL;
-        this._requestedURL = nextURL;
-        this._compatHost = hostFor(nextURL);
-        this._forcedLegacyPolicy = "tiktok-vortex";
-        if (this._usesLegacy()) {
-          if (this.legacyFrame) {
-            this.legacyFrame.go(nextURL);
-          } else {
-            // A frame created while Vortex is already active starts its legacy
-            // setup asynchronously. Queue TikTok navigation after that setup;
-            // _activateLegacy() may return the in-flight constructor setup
-            // without consuming this route's requested URL.
-            this._activateLegacy(false).then(() => {
-              if (routeGeneration !== this._routeGeneration || !isTikTokURL(nextURL)) return;
-              if (this.legacyFrame) this.legacyFrame.go(nextURL);
-              else throw new Error("Vortex frame was not created for TikTok navigation");
-            }).catch(error =>
-              reportFailure("legacy-initialization", error, this, { url: nextURL })
-            );
-          }
-        } else if (state.currentEngine === "scramjet") {
-          state.fallbackHistory.push({
-            timestamp: new Date().toISOString(),
-            from: state.currentTransport,
-            to: "baremux-legacy-tab",
-            reason: "forced TikTok compatibility route",
-            scope: "tab",
-            target: nextURL
-          });
-          if (state.fallbackHistory.length > 50) state.fallbackHistory.splice(0, state.fallbackHistory.length - 50);
-          state.lastFallbackReason = "tab routing: TikTok uses Vortex";
-          publish();
-          this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
-            reportFailure("legacy-initialization", error, this, { url: nextURL })
-          );
-        } else {
-          this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
-            reportFailure("legacy-initialization", error, this, { url: nextURL })
-          );
-        }
-        return;
-      }
 
       // Route the complete google.* document family into Vortex before any
       // Scramjet navigation begins. This covers Google searches submitted via
