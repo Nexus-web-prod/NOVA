@@ -9,7 +9,7 @@ assert(manager.includes('reason: "forced TikTok compatibility route"'), 'forced 
 assert(manager.includes('this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration)'), 'TikTok must activate Vortex before Scramjet navigation');
 assert(manager.includes('this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL)'), 'leaving TikTok must cancel pending policy');
 assert(manager.includes('this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL)'), 'leaving TikTok must exit forced legacy routing');
-assert(manager.includes('this._forcedLegacyPolicy === "tiktok-vortex" ? isTikTokURL(changedURL) : isGoogleURL(changedURL)'), 'Vortex URL changes must keep TikTok subdomains on legacy');
+assert(manager.includes('this._forcedLegacyPolicy === "google-vortex" ? isGoogleURL(changedURL) : isTikTokURL(changedURL)'), 'Vortex URL changes must keep TikTok subdomains on legacy');
 assert(manager.includes('reason === "forced TikTok compatibility route" && !isTikTokURL(fallbackTarget)'), 'stale TikTok activation must be cancelled');
 
 console.log('proxy-tiktok-vortex-regression: PASS');
