@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20261011-sj2067-r8.30-tiktok-vortex-always-ready";
+  const VERSION = "20261011-sj2067-r8.31-tiktok-vortex-guard";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
