@@ -11,7 +11,7 @@ assert(manager.includes('this._forcedLegacyPolicy = "tiktok-vortex"'), 'TikTok V
 assert(manager.includes('this._activateLegacy(false).then(() => {\n              if (routeGeneration !== this._routeGeneration || !isTikTokURL(nextURL)) return;\n              if (this.legacyFrame) this.legacyFrame.go(nextURL);'), 'TikTok navigation must wait for an in-flight Vortex frame initialization');
 assert(manager.includes('reason: "forced TikTok compatibility route"'), 'forced TikTok compatibility reason missing');
 assert(manager.includes('this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration)'), 'TikTok must activate Vortex before Scramjet navigation');
-assert(manager.includes('if (this._usesLegacy() && this.legacyFrame) {\n          this.legacyFrame.go(nextURL);'), 'TikTok must use the existing Vortex frame when the shared engine is already legacy');
+assert(manager.includes('if (this._usesLegacy()) {\n          if (this.legacyFrame) {\n            this.legacyFrame.go(nextURL);'), 'TikTok must reuse the existing Vortex frame when the shared engine is already legacy');
 assert(manager.includes('20261011-sj2067-r8.29-tiktok-vortex-first'), 'TikTok routing fix version missing');
 assert(manager.includes('this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL)'), 'leaving TikTok must cancel pending policy');
 assert(manager.includes('this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL)'), 'leaving TikTok must exit forced legacy routing');
