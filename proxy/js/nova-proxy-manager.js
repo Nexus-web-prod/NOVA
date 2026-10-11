@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20261007-sj2067-r8.25";
+  const VERSION = "20261010-sj2067-r8.26-tiktok-vortex1";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
@@ -181,6 +181,17 @@
       const url = new URL(String(value || ""));
       const host = url.hostname.toLowerCase().replace(/^www\./, "");
       return /^google\.[a-z.]{2,}$/i.test(host);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // TikTok and every subdomain/path stay on the existing legacy Vortex route.
+  // Keep this scoped to TikTok tabs; unrelated sites remain on Scramjet.
+  function isTikTokURL(value) {
+    try {
+      const host = new URL(String(value || "")).hostname.toLowerCase().replace(/^www\./, "");
+      return host === "tiktok.com" || host.endsWith(".tiktok.com");
     } catch (_) {
       return false;
     }
@@ -1456,10 +1467,11 @@
 
       // Google is Vortex-only while the document remains on google.*. If a
       // link/navigation leaves Google, hand the tab back to Scramjet.
-      if (this._usesLegacy() && this._forcedLegacyPolicy === "google-vortex") {
+      if (this._usesLegacy() && ["google-vortex", "tiktok-vortex"].includes(this._forcedLegacyPolicy)) {
         let currentLegacyURL = "";
         try { currentLegacyURL = String(this.url || this.lastURL || ""); } catch (_) {}
-        if (currentLegacyURL && !isGoogleURL(currentLegacyURL)) {
+        const staysOnForcedDomain = this._forcedLegacyPolicy === "google-vortex" ? isGoogleURL(currentLegacyURL) : isTikTokURL(currentLegacyURL);
+        if (currentLegacyURL && !staysOnForcedDomain) {
           this.lastURL = currentLegacyURL;
           this._requestedURL = currentLegacyURL;
           this._routeGeneration += 1; // cancel any stale pending Google activation
@@ -1544,6 +1556,7 @@
         if (expectedGeneration !== null && expectedGeneration !== this._routeGeneration) return;
         if (isBraveSearchURL(fallbackTarget)) return;
         if (reason === "forced Google compatibility route" && !isGoogleURL(fallbackTarget)) return;
+        if (reason === "forced TikTok compatibility route" && !isTikTokURL(fallbackTarget)) return;
         this._engineOverride = "legacy";
         this._clearTimers();
         const retiringModernFrame = this.modernFrame;
@@ -1572,9 +1585,10 @@
         // immediately instead of allowing Brave/other sites to inherit Vortex.
         if (this.legacyFrame && typeof this.legacyFrame.addEventListener === "function") {
           this.legacyFrame.addEventListener("urlchange", event => {
-            if (this._forcedLegacyPolicy !== "google-vortex") return;
+            if (!["google-vortex", "tiktok-vortex"].includes(this._forcedLegacyPolicy)) return;
             const changedURL = String(event?.url || "");
-            if (!changedURL || isGoogleURL(changedURL)) return;
+            const staysOnForcedDomain = this._forcedLegacyPolicy === "google-vortex" ? isGoogleURL(changedURL) : isTikTokURL(changedURL);
+            if (!changedURL || staysOnForcedDomain) return;
             const exitGeneration = ++this._routeGeneration;
             this.lastURL = changedURL;
             this._requestedURL = changedURL;
@@ -1698,6 +1712,31 @@
         return;
       }
 
+      // TikTok uses the legacy Vortex route for every path and subdomain.
+      // Keep this per-tab, and let the Vortex urlchange hook return to Scramjet
+      // only when navigation leaves the TikTok domain family.
+      if (!auditTransport() && state.currentEngine === "scramjet" && this._engineOverride !== "legacy" && isTikTokURL(nextURL)) {
+        this.lastURL = nextURL;
+        this._requestedURL = nextURL;
+        this._compatHost = hostFor(nextURL);
+        this._forcedLegacyPolicy = "tiktok-vortex";
+        state.fallbackHistory.push({
+          timestamp: new Date().toISOString(),
+          from: state.currentTransport,
+          to: "baremux-legacy-tab",
+          reason: "forced TikTok compatibility route",
+          scope: "tab",
+          target: nextURL
+        });
+        if (state.fallbackHistory.length > 50) state.fallbackHistory.splice(0, state.fallbackHistory.length - 50);
+        state.lastFallbackReason = "tab routing: TikTok uses Vortex";
+        publish();
+        this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
+          reportFailure("legacy-initialization", error, this, { url: nextURL })
+        );
+        return;
+      }
+
       // Route the complete google.* document family into Vortex before any
       // Scramjet navigation begins. This covers Google searches submitted via
       // SPA/history navigation because the Google document itself is already
@@ -1727,7 +1766,8 @@
       // If the user leaves Google while its async Vortex bootstrap is still in
       // flight, clear the policy immediately. routeGeneration makes the stale
       // activation self-cancel when initializeLegacy() resolves.
-      if (this._forcedLegacyPolicy === "google-vortex" && !isGoogleURL(nextURL) && this._engineOverride !== "legacy") {
+      if (((this._forcedLegacyPolicy === "google-vortex" && !isGoogleURL(nextURL)) ||
+           (this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL))) && this._engineOverride !== "legacy") {
         this._forcedLegacyPolicy = "";
         this._compatHost = "";
       }
@@ -1738,8 +1778,10 @@
 
       if (this._engineOverride === "legacy" && state.currentEngine === "scramjet" && this._compatHost) {
         const nextHost = hostFor(nextURL);
-        const leavesGooglePolicy = this._forcedLegacyPolicy === "google-vortex" && !isGoogleURL(nextURL);
-        if (leavesGooglePolicy || (this._forcedLegacyPolicy !== "google-vortex" && nextHost && nextHost !== this._compatHost)) {
+        const leavesForcedDomain = (this._forcedLegacyPolicy === "google-vortex" && !isGoogleURL(nextURL)) ||
+          (this._forcedLegacyPolicy === "tiktok-vortex" && !isTikTokURL(nextURL));
+        const isForcedDomainPolicy = ["google-vortex", "tiktok-vortex"].includes(this._forcedLegacyPolicy);
+        if (leavesForcedDomain || (!isForcedDomainPolicy && nextHost && nextHost !== this._compatHost)) {
           this._returnToModern(nextURL).catch(error => reportFailure("modern-reactivation", error, this, { url: nextURL }));
           return;
         }
