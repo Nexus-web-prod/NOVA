@@ -1,6 +1,6 @@
 "use strict";
 
-const NOVA_PROXY_RUNTIME_VERSION = "20261011-sj2067-r8.30-tiktok-vortex-always-ready";
+const NOVA_PROXY_RUNTIME_VERSION = "20261011-sj2067-r8.31-tiktok-vortex-guard";
 
 if (navigator.userAgent.includes("Firefox")) {
   try {
@@ -209,6 +209,24 @@ function isAbsoluteLogicalUrl(value) {
 function logicalUrlFromPhysical(input, prefix) {
   const decoded = decodeScramjetPhysicalUrl(input, prefix);
   return isAbsoluteLogicalUrl(decoded) ? decoded : "";
+}
+
+// Never let TikTok-owned documents or assets be processed by Scramjet, even
+// when a click/redirect inside another proxied page already produced a /~/sj/
+// URL. Redirect the physical request to the existing Vortex route instead.
+function isTikTokLogicalURL(value) {
+  try {
+    const host = new URL(String(value || "")).hostname.toLowerCase().replace(/^www\\./, "");
+    const domains = [
+      "tiktok.com", "tiktokcdn-us.com", "tiktokcdn.com", "tiktokcdn-eu.com",
+      "tiktokcdn-in.com", "tiktokv.com", "tiktokv.us", "byteoversea.com",
+      "bytefcdn-oversea.com", "ibytedtos.com", "ibyteimg.com", "muscdn.com",
+      "ttwstatic.com"
+    ];
+    return domains.some(domain => host === domain || host.endsWith("." + domain));
+  } catch (_) {
+    return false;
+  }
 }
 
 async function upstreamBaseForEvent(event, context) {
@@ -927,6 +945,27 @@ self.addEventListener("fetch", event => {
   if (url.origin === self.location.origin && url.pathname.startsWith("/~/sj/")) {
     const prefix = extractScramjetPrefix(url.href);
     const logical = logicalUrlFromPhysical(url.href, prefix);
+
+    // This guard runs before handleScramjet()/shouldRoute(). It covers both
+    // top-level TikTok navigations that originate inside a modern proxied page
+    // and CDN/media requests that were already rewritten to /~/sj/.
+    if (logical && isTikTokLogicalURL(logical)) {
+      const entry = recordRouting(event, "legacy", "TikTok Scramjet route intercepted before upstream processing; Vortex only", {
+        context: { prefix, source: "tiktok-vortex-guard" }
+      });
+      event.respondWith(withRoutingResult(entry, (async () => {
+        if (!legacyEnabled || !legacyVortex) {
+          return new Response("TikTok requires the Vortex/BareMux proxy, which is not ready.", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+          });
+        }
+        const target = new URL("/vortex/" + encodeURIComponent(logical), self.location.origin);
+        return Response.redirect(target.href, 302);
+      })()));
+      return;
+    }
+
     rememberScramjetClient(event, prefix, isNavigationRequest(event.request) ? logical : logicalUrlFromPhysical(event.request.referrer, prefix));
     const entry = recordRouting(event, "scramjet", logical ? "same-origin Scramjet proxy path" : "Scramjet relative path recovery", { context: { prefix, source: "request" } });
     event.respondWith(withRoutingResult(entry, (async () => {
