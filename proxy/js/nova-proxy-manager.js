@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20261011-sj2067-r8.29-tiktok-vortex-first";
+  const VERSION = "20261011-sj2067-r8.30-tiktok-vortex-always-ready";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
@@ -186,12 +186,29 @@
     }
   }
 
-  // TikTok and every subdomain/path stay on the existing legacy Vortex route.
-  // Keep this scoped to TikTok tabs; unrelated sites remain on Scramjet.
+  // TikTok documents and its first-party CDN/media hosts must stay in the
+  // Vortex tab. A CDN URL can be observed during redirects and SPA navigation;
+  // treating it as TikTok prevents the legacy urlchange hook from handing it
+  // back to Scramjet and generating /~/sj/ resource URLs.
   function isTikTokURL(value) {
     try {
       const host = new URL(String(value || "")).hostname.toLowerCase().replace(/^www\./, "");
-      return host === "tiktok.com" || host.endsWith(".tiktok.com");
+      const domains = [
+        "tiktok.com",
+        "tiktokcdn-us.com",
+        "tiktokcdn.com",
+        "tiktokcdn-eu.com",
+        "tiktokcdn-in.com",
+        "tiktokv.com",
+        "tiktokv.us",
+        "byteoversea.com",
+        "bytefcdn-oversea.com",
+        "ibytedtos.com",
+        "ibyteimg.com",
+        "muscdn.com",
+        "ttwstatic.com"
+      ];
+      return domains.some(domain => host === domain || host.endsWith("." + domain));
     } catch (_) {
       return false;
     }
@@ -1681,7 +1698,7 @@
       // domains. Apply the policy even if another tab has already switched the
       // shared engine to Vortex; in that case navigate the existing legacy
       // frame instead of trying to bootstrap a second transition.
-      if (!auditTransport() && isTikTokURL(nextURL)) {
+      if (isTikTokURL(nextURL)) {
         this.lastURL = nextURL;
         this._requestedURL = nextURL;
         this._compatHost = hostFor(nextURL);
@@ -2004,6 +2021,22 @@
           throw legacyError;
         }
       }
+
+      // Keep the complete legacy path ready in the background, just like the
+      // warmed modern transports. This initializes BareMux's SharedWorker,
+      // selects its vendored Epoxy transport, and initializes Vortex's controller
+      // before a TikTok navigation needs it. The selected engine remains
+      // Scramjet for ordinary sites; only /vortex/ requests use the legacy route.
+      try {
+        await initializeLegacy();
+      } catch (legacyError) {
+        // Do not take the entire browser down if a legacy asset is temporarily
+        // unavailable. initializeLegacy records the failure; TikTok will retry
+        // initialization rather than ever navigating through Scramjet.
+        state.legacyInitError = normalizeError(legacyError);
+        publish();
+      }
+
       publish();
       if (isDebugEnabled()) startRoutingDiagnostics();
       return true;
