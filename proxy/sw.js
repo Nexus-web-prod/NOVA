@@ -216,7 +216,7 @@ function logicalUrlFromPhysical(input, prefix) {
 // URL. Redirect the physical request to the existing Vortex route instead.
 function isTikTokLogicalURL(value) {
   try {
-    const host = new URL(String(value || "")).hostname.toLowerCase().replace(/^www\\./, "");
+    const host = new URL(String(value || "")).hostname.toLowerCase();
     const domains = [
       "tiktok.com", "tiktokcdn-us.com", "tiktokcdn.com", "tiktokcdn-eu.com",
       "tiktokcdn-in.com", "tiktokv.com", "tiktokv.us", "byteoversea.com",
