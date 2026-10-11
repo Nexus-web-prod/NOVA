@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20261010-sj2067-r8.26-tiktok-vortex1";
+  const VERSION = "20261011-sj2067-r8.27-tiktok-vortex2";
   const WISP_URL = "wss://unified-wisp-epoxy.fly.dev/wisp/";
   const SW_URL = `/proxy/sw.js?novaProxy=${VERSION}`;
   const PATHS = Object.freeze({
@@ -1712,28 +1712,37 @@
         return;
       }
 
-      // TikTok uses the legacy Vortex route for every path and subdomain.
-      // Keep this per-tab, and let the Vortex urlchange hook return to Scramjet
-      // only when navigation leaves the TikTok domain family.
-      if (!auditTransport() && state.currentEngine === "scramjet" && this._engineOverride !== "legacy" && isTikTokURL(nextURL)) {
+      // TikTok always selects the same legacy Vortex route as other forced
+      // domains. Apply the policy even if another tab has already switched the
+      // shared engine to Vortex; in that case navigate the existing legacy
+      // frame instead of trying to bootstrap a second transition.
+      if (!auditTransport() && this._engineOverride !== "legacy" && isTikTokURL(nextURL)) {
         this.lastURL = nextURL;
         this._requestedURL = nextURL;
         this._compatHost = hostFor(nextURL);
         this._forcedLegacyPolicy = "tiktok-vortex";
-        state.fallbackHistory.push({
-          timestamp: new Date().toISOString(),
-          from: state.currentTransport,
-          to: "baremux-legacy-tab",
-          reason: "forced TikTok compatibility route",
-          scope: "tab",
-          target: nextURL
-        });
-        if (state.fallbackHistory.length > 50) state.fallbackHistory.splice(0, state.fallbackHistory.length - 50);
-        state.lastFallbackReason = "tab routing: TikTok uses Vortex";
-        publish();
-        this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
-          reportFailure("legacy-initialization", error, this, { url: nextURL })
-        );
+        if (state.currentEngine === "scramjet") {
+          state.fallbackHistory.push({
+            timestamp: new Date().toISOString(),
+            from: state.currentTransport,
+            to: "baremux-legacy-tab",
+            reason: "forced TikTok compatibility route",
+            scope: "tab",
+            target: nextURL
+          });
+          if (state.fallbackHistory.length > 50) state.fallbackHistory.splice(0, state.fallbackHistory.length - 50);
+          state.lastFallbackReason = "tab routing: TikTok uses Vortex";
+          publish();
+          this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
+            reportFailure("legacy-initialization", error, this, { url: nextURL })
+          );
+        } else if (this._usesLegacy() && this.legacyFrame) {
+          this.legacyFrame.go(nextURL);
+        } else {
+          this._activateLegacy(true, "forced TikTok compatibility route", nextURL, routeGeneration).catch(error =>
+            reportFailure("legacy-initialization", error, this, { url: nextURL })
+          );
+        }
         return;
       }
 
