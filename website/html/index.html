@@ -3601,9 +3601,35 @@ function replaceTabIframe(tab){
   tab.iframe=iframe;
   return iframe;
 }
+// Clicking inside Minecraft happens in the game's iframe, so the parent
+// document cannot rely on its own click handler seeing that event. Listen in
+// the same-origin game document and dismiss only Nova Island; never cancel the
+// pointer event, so Minecraft movement, block breaking, and inventory controls
+// continue to receive the original input.
+function bindGameFrameIslandDismiss(frame){
+  if(!frame) return;
+  frame.addEventListener('load', function(){
+    try{
+      var childDocument=frame.contentDocument;
+      if(!childDocument) return;
+      childDocument.addEventListener('pointerdown', function(){
+        var activePage=((document.querySelector('.page.active')||{}).id||'').replace(/^page-/,'');
+        var shell=document.getElementById('nova-shell');
+        var island=document.getElementById('nova-island');
+        if(activePage==='game-player' && shell && shell.classList.contains('game-player-has-game') && island && island.classList.contains('open')){
+          if(window._novaCloseIsland) window._novaCloseIsland();
+        }
+      }, true);
+    }catch(error){
+      // Cross-origin games cannot expose their document; the existing parent
+      // window-blur handler remains the fallback for those games.
+    }
+  });
+}
 function showGamesPlayerPage(localGame){
   var frame=document.getElementById('local-game-player-frame');
   var library=document.getElementById('game-player-library');
+  bindGameFrameIslandDismiss(frame);
   if(localGame){
     if(window._novaSwitchPage)window._novaSwitchPage('game-player');
     else document.querySelector('.nav-tab[data-page="game-player"]')?.click();
@@ -3633,6 +3659,7 @@ function showGamesPlayerPage(localGame){
       frame.hidden = false;
       frame.style.cssText = 'display:block;width:100%;height:100%;border:0;background:#000';
       player.insertBefore(frame, player.firstChild);
+      bindGameFrameIslandDismiss(frame);
       frame.addEventListener('load', function() {
         var loading = document.getElementById('eaglercraft-player-loading');
         if (!loading) return;
