@@ -37,6 +37,15 @@ test('Nova Eaglercraft is a pinned, self-contained local game', () => {
   assert.match(proxyWorker, /Nova Eaglercraft is a self-contained local game/);
 });
 
+test('clicking inside the Minecraft game iframe closes Nova Island without cancelling gameplay input', () => {
+  const index = read('website/html/index.html');
+  assert.match(index, /function bindGameFrameIslandDismiss\(frame\)/);
+  assert.match(index, /childDocument\.addEventListener\('pointerdown', function\(\)\{[\s\S]*?activePage==='game-player'[\s\S]*?shell\.classList\.contains\('game-player-has-game'\)[\s\S]*?window\._novaCloseIsland\(\);[\s\S]*?\}, true\)/);
+  assert.match(index, /bindGameFrameIslandDismiss\(frame\);/);
+  assert.match(index, /frame\.remove\(\);[\s\S]*?frame = document\.createElement\('iframe'\);[\s\S]*?bindGameFrameIslandDismiss\(frame\);/);
+  assert.doesNotMatch(index.slice(index.indexOf('function bindGameFrameIslandDismiss(frame)'), index.indexOf('function showGamesPlayerPage(localGame)')), /preventDefault|stopPropagation/);
+});
+
 test('Nova Eaglercraft is registered in the built-in Games Player and remains first in its results', () => {
   const index = read('website/html/index.html');
   const player = read('website/html/game.html');
