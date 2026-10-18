@@ -20,11 +20,12 @@
 <script>
 (function(){
  "use strict";
- var mode="login",form=document.getElementById("account-form"),message=document.getElementById("message"),submit=form.querySelector('button[type="submit"]');
+ var mode=(new URLSearchParams(location.search).get("mode")==="signup"?"signup":"login"),form=document.getElementById("account-form"),message=document.getElementById("message"),submit=form.querySelector('button[type="submit"]');
  var allowedOrigins=new Set(["https://nova-7.pages.dev","https://dev.nova-7.pages.dev","https://nova.nexuswebprod.com"]);
  function say(text,bad){message.textContent=text||"";message.classList.toggle("error",!!bad)}
  function switchMode(next){mode=next;document.querySelectorAll("[data-mode]").forEach(function(b){b.classList.toggle("active",b.dataset.mode===mode)});submit.textContent=mode==="signup"?"Create NOVA account":"Sign in to NOVA";form.elements.password.autocomplete=mode==="signup"?"new-password":"current-password";say("")}
  document.querySelectorAll("[data-mode]").forEach(function(b){b.addEventListener("click",function(){switchMode(b.dataset.mode)})});
+ switchMode(mode);
  function deliver(user){
    var safe={username:user.username,displayName:user.displayName||user.username,avatarUrl:user.avatarUrl||"",role:user.role||"user",roles:Array.isArray(user.roles)?user.roles:[],plan:user.plan||user.tier||"free",tier:user.tier||user.plan||"free",supernova:!!user.supernova,adsDisabled:!!user.adsDisabled};
    if(window.opener&&!window.opener.closed){window.opener.postMessage({type:"WARP_NOVA_AUTH_SUCCESS",user:safe}, "*");say("Connected. Returning to WARP…");setTimeout(function(){window.close()},650)}
