@@ -28,8 +28,11 @@
  switchMode(mode);
  function deliver(user){
    var safe={username:user.username,displayName:user.displayName||user.username,avatarUrl:user.avatarUrl||"",role:user.role||"user",roles:Array.isArray(user.roles)?user.roles:[],plan:user.plan||user.tier||"free",tier:user.tier||user.plan||"free",supernova:!!user.supernova,adsDisabled:!!user.adsDisabled};
-   if(window.opener&&!window.opener.closed){window.opener.postMessage({type:"WARP_NOVA_AUTH_SUCCESS",user:safe}, "*");say("Connected. Returning to WARP…");setTimeout(function(){window.close()},650)}
-   else{say("You are signed in to NOVA. Return to WARP and choose “Sign in with NOVA”.")}
+   var returnOrigin=new URLSearchParams(location.search).get("return_origin");
+   var allowedReturnOrigins=new Set(["https://nexuswebprod.github.io","https://warp.nexuswebprod.com","https://warp-os.pages.dev","http://localhost:8080","http://127.0.0.1:8080"]);
+   if(returnOrigin&&(/^(http:\/\/(localhost|127\.0\.0\.1):\d+)$/.test(returnOrigin)||allowedReturnOrigins.has(returnOrigin))&&window.parent&&window.parent!==window){window.parent.postMessage({type:"WARP_NOVA_AUTH_SUCCESS",user:safe},returnOrigin);say("Connected. Returning to WARP…")}
+   else if(window.opener&&!window.opener.closed){window.opener.postMessage({type:"WARP_NOVA_AUTH_SUCCESS",user:safe}, "*");say("Connected. Returning to WARP…");setTimeout(function(){window.close()},650)}
+   else{say("You are signed in to NOVA. Return to WARP.")}
  }
  form.addEventListener("submit",async function(event){event.preventDefault();submit.disabled=true;say(mode==="signup"?"Creating your NOVA account…":"Checking your NOVA account…");try{var values=Object.fromEntries(new FormData(form));var result=mode==="signup"?await NovaAPI.register(values):await NovaAPI.login(values);if(!result||!result.user)throw new Error("NOVA did not return an account profile.");deliver(result.user)}catch(error){say(error&&error.message?error.message:"NOVA could not complete sign in.",true)}finally{submit.disabled=false}});
  NovaAPI.me().then(function(result){if(result&&result.user&&window.opener&&!window.opener.closed)deliver(result.user)}).catch(function(){});
