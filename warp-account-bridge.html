@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Connect WARP to NOVA</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#02121e;color:#fff}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:radial-gradient(ellipse at 20% 0%,rgba(45,148,205,.15),transparent 55%),#02121e}.panel{width:min(420px,100%);padding:30px;border:1px solid #434343;border-radius:16px;background:#242424}h1{margin:22px 0 8px;font-size:25px;letter-spacing:-.04em;font-weight:620}.sub{color:#d6d6d6;font-size:13px;line-height:1.6;margin:0 0 24px}.eyebrow{color:#bdddfc;font-size:10px;font-weight:700;letter-spacing:.15em}.form{display:grid;gap:14px}.form label{display:grid;gap:7px;font-size:12px;color:#d6d6d6}.form input{height:43px;border:1px solid #656565;border-radius:8px;background:#02121e;color:white;padding:0 12px;font:inherit;outline:none}.form input:focus{border-color:#5cbaf9}.primary,.secondary{height:42px;border-radius:8px;border:1px solid #656565;background:transparent;color:white;font:inherit;font-size:12px;cursor:pointer}.primary{background:#bdddfc;color:#02121e;border-color:#bdddfc;font-weight:650}.segments{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}.segments button.active{border-color:#5cbaf9;background:#124a69}.message{min-height:20px;margin-top:13px;font-size:12px;color:#d6d6d6;line-height:1.5}.message.error{color:#ff9d96}.note{font-size:10px;line-height:1.6;color:#afafaf;margin:18px 0 0}.brand{font-weight:700;letter-spacing:.03em}.brand span{color:#5cbaf9}.hidden{display:none!important}
+</style>
+</head>
+<body><main class="panel">
+<div class="brand">NOVA <span>×</span> WARP</div><p class="eyebrow" style="margin:25px 0 0">SECURE ACCOUNT CONNECTION</p>
+<h1 id="title">Connect your NOVA account.</h1><p class="sub" id="subtitle">Sign in or create an account. Credentials are sent only to NOVA's own account API and are never sent to WARP.</p>
+<div id="form-area"><div class="segments"><button class="secondary active" data-mode="login" type="button">Sign in</button><button class="secondary" data-mode="signup" type="button">Create account</button></div>
+<form class="form" id="account-form"><label>Username<input name="username" autocomplete="username" minlength="3" maxlength="20" required></label><label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><button class="primary" type="submit">Sign in to NOVA</button></form></div>
+<div class="message" id="message" role="status" aria-live="polite"></div><p class="note">This page authenticates directly against NOVA's existing account database. It sends only the account's public profile to the WARP window. Your password and NOVA session cookie are not shared with WARP.</p>
+</main>
+<script src="/website/js/nova-v7-api.js"></script>
+<script>
+(function(){
+ "use strict";
+ var mode="login",form=document.getElementById("account-form"),message=document.getElementById("message"),submit=form.querySelector('button[type="submit"]');
+ var allowedOrigins=new Set(["https://nova-7.pages.dev","https://dev.nova-7.pages.dev","https://nova.nexuswebprod.com"]);
+ function say(text,bad){message.textContent=text||"";message.classList.toggle("error",!!bad)}
+ function switchMode(next){mode=next;document.querySelectorAll("[data-mode]").forEach(function(b){b.classList.toggle("active",b.dataset.mode===mode)});submit.textContent=mode==="signup"?"Create NOVA account":"Sign in to NOVA";form.elements.password.autocomplete=mode==="signup"?"new-password":"current-password";say("")}
+ document.querySelectorAll("[data-mode]").forEach(function(b){b.addEventListener("click",function(){switchMode(b.dataset.mode)})});
+ function deliver(user){
+   var safe={username:user.username,displayName:user.displayName||user.username,avatarUrl:user.avatarUrl||"",role:user.role||"user",roles:Array.isArray(user.roles)?user.roles:[],plan:user.plan||user.tier||"free",tier:user.tier||user.plan||"free",supernova:!!user.supernova,adsDisabled:!!user.adsDisabled};
+   if(window.opener&&!window.opener.closed){window.opener.postMessage({type:"WARP_NOVA_AUTH_SUCCESS",user:safe}, "*");say("Connected. Returning to WARP…");setTimeout(function(){window.close()},650)}
+   else{say("You are signed in to NOVA. Return to WARP and choose “Sign in with NOVA”.")}
+ }
+ form.addEventListener("submit",async function(event){event.preventDefault();submit.disabled=true;say(mode==="signup"?"Creating your NOVA account…":"Checking your NOVA account…");try{var values=Object.fromEntries(new FormData(form));var result=mode==="signup"?await NovaAPI.register(values):await NovaAPI.login(values);if(!result||!result.user)throw new Error("NOVA did not return an account profile.");deliver(result.user)}catch(error){say(error&&error.message?error.message:"NOVA could not complete sign in.",true)}finally{submit.disabled=false}});
+ NovaAPI.me().then(function(result){if(result&&result.user&&window.opener&&!window.opener.closed)deliver(result.user)}).catch(function(){});
+ window.addEventListener("message",function(event){if(!allowedOrigins.has(event.origin))return});
+})();
+</script></body></html>
