@@ -178,6 +178,59 @@
     document.dispatchEvent(new CustomEvent("nova:account-changed", { detail: { user: user || null } }));
   }
 
+  // Public game-stat reads go straight to Turso when the browser token is configured.
+  // The authenticated /api/me request still establishes the current NOVA identity;
+  // only this high-frequency stats read bypasses the Pages Worker.
+  async function directGameStats(slugs) {
+    var unique = Array.from(new Set((slugs || []).map(function (slug) {
+      return String(slug || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 100);
+    }).filter(Boolean))).slice(0, 50);
+    if (!unique.length) return { stats: {} };
+    var marks = unique.map(function () { return "?"; }).join(",");
+    var baseRows = await window.NovaTursoDirect.query(
+      "SELECT slug, views, rating_sum, rating_count FROM game_stats WHERE slug IN (" + marks + ")",
+      unique
+    );
+    var rows = new Map((baseRows.rows || []).map(function (row) { return [row.slug, row]; }));
+    var ratingRows = [];
+    var user = window.__novaV7User;
+    if (user && user.id) {
+      var args = [user.id].concat(unique);
+      ratingRows = (await window.NovaTursoDirect.query(
+        "SELECT slug, rating FROM game_ratings WHERE user_id = ? AND slug IN (" + marks + ")",
+        args
+      )).rows || [];
+    } else {
+      var deviceId = "";
+      try { deviceId = localStorage.getItem("nova_device_id") || ""; } catch (error) {}
+      if (deviceId && global.crypto && crypto.subtle) {
+        var bytes = new TextEncoder().encode(deviceId);
+        var digest = await crypto.subtle.digest("SHA-256", bytes);
+        var hash = Array.from(new Uint8Array(digest)).map(function (b) {
+          return b.toString(16).padStart(2, "0");
+        }).join("");
+        ratingRows = (await window.NovaTursoDirect.query(
+          "SELECT slug, rating FROM game_guest_ratings WHERE device_id_hash = ? AND slug IN (" + marks + ")",
+          [hash].concat(unique)
+        )).rows || [];
+      }
+    }
+    var myRatings = new Map(ratingRows.map(function (row) { return [row.slug, Number(row.rating || 0)]; }));
+    var stats = {};
+    unique.forEach(function (slug) {
+      var row = rows.get(slug) || {};
+      var count = Math.max(0, Number(row.rating_count || 0));
+      var sum = Math.max(0, Number(row.rating_sum || 0));
+      stats[slug] = {
+        views: Math.max(0, Number(row.views || 0)),
+        avg: count ? Math.round((sum / count) * 100) / 100 : 0,
+        count: count,
+        myRating: Math.max(0, Math.min(5, myRatings.get(slug) || 0))
+      };
+    });
+    return { stats: stats };
+  }
+
   var api = {
     deviceId: deviceId,
     request: request,
@@ -195,7 +248,7 @@
     saveProfile: function (body) { return request("/api/profile", { method: "PATCH", body: body }); },
     getSettings: function () { return request("/api/settings"); },
     saveSettings: function (settings) { return request("/api/settings", { method: "PATCH", body: { settings: settings } }); },
-    gameStats: function (slugs) { return request("/api/games/stats?slugs=" + encodeURIComponent((slugs || []).join(","))); },
+    gameStats: function (slugs) { if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directGameStats(slugs); return request("/api/games/stats?slugs=" + encodeURIComponent((slugs || []).join(","))); },
     rateGame: function (slug, rating) { return request("/api/games/rating", { method: "POST", body: { slug: slug, rating: rating } }); },
     recordGameView: function (slug) { return request("/api/games/view", { method: "POST", body: { slug: slug } }); },
     publicProfile: function (username) { return request("/api/profiles/" + encodeURIComponent(username)); },
