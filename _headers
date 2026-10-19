@@ -3,7 +3,7 @@
 # ── Global security headers ────────────────────────────────────────────────────
 /*
   ! Access-Control-Allow-Origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://www.googletagmanager.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://abinbins.github.io; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: blob: https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://www.google.com https://fonts.googleapis.com https://fonts.gstatic.com https://abinbins.github.io https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev https://*.r2.dev https://*.r2.cloudflarestorage.com wss://unified-wisp-epoxy.fly.dev https://unified-wisp-epoxy.fly.dev https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: data: https://www.google.com; manifest-src 'self'; object-src 'none'; base-uri 'self' https://abinbins.github.io; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://www.googletagmanager.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://abinbins.github.io; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: blob: https://main.nova-7.pages.dev https://burritobisononline.gitlab.io https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://www.google.com https://fonts.googleapis.com https://fonts.gstatic.com https://abinbins.github.io https://pub-3e1e8c105d3843dda7206f2b3d9801da.r2.dev https://*.r2.dev https://*.r2.cloudflarestorage.com wss://unified-wisp-epoxy.fly.dev https://unified-wisp-epoxy.fly.dev https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: data: https://www.google.com; manifest-src 'self'; object-src 'none'; base-uri 'self' https://abinbins.github.io; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN
   X-Permitted-Cross-Domain-Policies: none
@@ -147,6 +147,14 @@
   Cache-Control: no-cache, must-revalidate
 
 # ── Static assets ──────────────────────────────────────────────────────────────
+# These static assets are intentionally embedded by WARP OS and other clients.
+# Override the global same-origin CORP policy for images and game payloads.
+/website/assets/*
+  Cross-Origin-Resource-Policy: cross-origin
+
+/website/games/*
+  Cross-Origin-Resource-Policy: cross-origin
+
 /website/assets/media/icons/rs5.webp
   Content-Type: image/avif
   Cache-Control: public, max-age=86400
