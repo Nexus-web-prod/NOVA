@@ -4,7 +4,7 @@ pages_build_output_dir = "."
 
 [vars]
 PUBLIC_ORIGIN = "https://dev.nova-7.pages.dev"
-TURSO_DATABASE_URL = "libsql://nova-db-nexuswebprod.aws-us-east-2.turso.io"
+TURSO_DATABASE_URL = "libsql://public-nova-db-nexuswebprod.aws-us-east-2.turso.io"
 
 [ai]
 binding = "AI"
