@@ -13,7 +13,7 @@
   Permissions-Policy: accelerometer=(), autoplay=(self), camera=(self), display-capture=(self), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), payment=(), publickey-credentials-create=(), publickey-credentials-get=(), usb=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: credentialless
-  Cross-Origin-Resource-Policy: same-origin
+  Cross-Origin-Resource-Policy: cross-origin
 
 # ── WASM ───────────────────────────────────────────────────────────────────────
 /proxy/vortex.wasm.wasm
