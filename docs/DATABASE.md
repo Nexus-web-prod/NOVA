@@ -13,11 +13,12 @@ public browser configuration and must be populated with the `public-nova-db`
 token before direct queries activate. This architecture intentionally makes
 that token visible to visitors.
 
-The first migrated operation is `NovaAPI.gameStats()`: once the direct client
-is configured, it reads `game_stats` and the caller's rating directly from
-Turso instead of calling `/api/games/stats` on the Pages Worker. If the direct
-client is not configured, it keeps using the existing API as a migration
-fallback.
+The first migrated feature group is game metrics. Once the direct client is
+configured, `NovaAPI.gameStats()`, `NovaAPI.rateGame()`, and
+`NovaAPI.recordGameView()` query or update `game_stats`, `game_ratings`, and
+`game_guest_ratings` directly instead of calling their `/api/games/*` Pages
+Worker routes. If the direct client is not configured, these methods keep using
+the existing API as a migration fallback.
 
 **This is a staged migration, not a complete Worker removal yet.** Most account,
 profile, social, moderation, voice, and game-write operations still use
