@@ -155,6 +155,11 @@
 /website/games/*
   Cross-Origin-Resource-Policy: cross-origin
 
+# Explicit Eaglercraft overrides: its streamed HTML and split payloads are embedded by WARP OS.
+/website/games/nova-eaglercraft/*
+  Cross-Origin-Resource-Policy: cross-origin
+  Cache-Control: no-cache, must-revalidate
+
 /website/assets/media/icons/rs5.webp
   Content-Type: image/avif
   Cache-Control: public, max-age=86400
