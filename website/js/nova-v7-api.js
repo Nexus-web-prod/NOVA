@@ -203,7 +203,7 @@
     } else {
       var deviceId = "";
       try { deviceId = localStorage.getItem("nova_device_id") || ""; } catch (error) {}
-      if (deviceId && global.crypto && crypto.subtle) {
+      if (deviceId && window.crypto && crypto.subtle) {
         var bytes = new TextEncoder().encode(deviceId);
         var digest = await crypto.subtle.digest("SHA-256", bytes);
         var hash = Array.from(new Uint8Array(digest)).map(function (b) {
