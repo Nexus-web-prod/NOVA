@@ -1,35 +1,36 @@
 # Database
 
-NOVA's database is Turso/libSQL. The active database URL is
-`libsql://public-nova-db-nexuswebprod.aws-us-east-2.turso.io`. The old
-`nova-db` database is retained as a backup and must not be changed during this
-migration.
+NOVA currently uses Turso/libSQL. The legacy `nova-db` database is retained
+separately from `public-nova-db`.
 
-## Browser-direct access
+## Browser-direct access and Worker removal
 
-The `website/js/nova-turso-direct.js` module implements the browser-side
-libSQL HTTP pipeline transport. `website/js/nova-turso-config.js` contains the
-public browser configuration and must be populated with the `public-nova-db`
-token before direct queries activate. This architecture intentionally makes
-that token visible to visitors.
+A browser-direct Turso HTTP client exists in
+`website/js/nova-turso-direct.js`, but the browser-visible configuration must
+not contain a live Turso auth token. A Turso `rw` token is a database-level
+credential: anyone who can load the website can extract it and issue arbitrary
+SQL against that database. Unlike a database with row-level security, raw
+Turso SQL does not enforce per-user table/row policies automatically.
 
-The first migrated feature group is game metrics. Once the direct client is
-configured, `NovaAPI.gameStats()`, `NovaAPI.rateGame()`, and
-`NovaAPI.recordGameView()` query or update `game_stats`, `game_ratings`, and
-`game_guest_ratings` directly instead of calling their `/api/games/*` Pages
-Worker routes. If the direct client is not configured, these methods keep using
-the existing API as a migration fallback.
+The direct-client config therefore remains disabled until the public database
+access model is safe for anonymous clients. Do not put `TURSO_AUTH_TOKEN`,
+a service token, or any privileged credential in HTML, JavaScript, or source
+control. The previous token committed to this branch must be revoked/rotated in
+the Turso dashboard immediately; deleting it from a later commit does not make
+the old value secret again.
 
-**This is a staged migration, not a complete Worker removal yet.** Most account,
-profile, social, moderation, voice, and game-write operations still use
-`/api/*` routes implemented in `_worker.js`. Those route contracts must be
-migrated individually before removing the Pages Worker; simply changing the
-database URL cannot do that.
+## What remains to be migrated
 
-The current expected imported schema version is 717. `migrations/TURSO_SCHEMA.sql`
-and `migrations/UNO_SCHEMA.sql` are retained schema sources. Do not delete
-migration history just because production has already applied it.
+This branch is **not** a completed Worker removal. Most account, authentication,
+profile, social, moderation, presence, voice, and game operations still use
+`/api/*` routes implemented in `_worker.js`. Merely changing the database URL
+does not replace the authorization and business logic in those routes.
 
-For the existing server-side path, the Pages Worker reads `TURSO_DATABASE_URL`
-and the Pages secret `TURSO_AUTH_TOKEN`. The direct browser path does not use
-that Pages secret; it uses the public token in `nova-turso-config.js`.
+Cloudflare Pages can remain the static host while the Worker dependency is
+removed, but each endpoint must be replaced with a safe direct-client design
+or a non-Worker backend. With Turso, exposing a database-wide writable token
+to the browser is not a safe way to do this. Do not remove the Worker until the
+replacement routes are implemented and regression-tested.
+
+The existing server-side path uses `TURSO_DATABASE_URL` and the encrypted
+`TURSO_AUTH_TOKEN` Pages secret. Keep privileged credentials server-side.
