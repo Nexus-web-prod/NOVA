@@ -1,36 +1,45 @@
 # Database
 
-NOVA currently uses Turso/libSQL. The legacy `nova-db` database is retained
-separately from `public-nova-db`.
+NOVA uses Turso/libSQL. The legacy `nova-db` database is separate from
+`public-nova-db`.
 
-## Browser-direct access and Worker removal
+## Browser-direct Turso
 
-A browser-direct Turso HTTP client exists in
-`website/js/nova-turso-direct.js`, but the browser-visible configuration must
-not contain a live Turso auth token. A Turso `rw` token is a database-level
-credential: anyone who can load the website can extract it and issue arbitrary
-SQL against that database. Unlike a database with row-level security, raw
-Turso SQL does not enforce per-user table/row policies automatically.
+`website/js/nova-turso-direct.js` is the browser-side libSQL HTTP client.
+`website/js/nova-turso-config.js` points it at `public-nova-db` and now
+restores the existing public database token so the direct game-statistics
+paths in `website/js/nova-v7-api.js` can be used.
 
-The direct-client config therefore remains disabled until the public database
-access model is safe for anonymous clients. Do not put `TURSO_AUTH_TOKEN`,
-a service token, or any privileged credential in HTML, JavaScript, or source
-control. The previous token committed to this branch must be revoked/rotated in
-the Turso dashboard immediately; deleting it from a later commit does not make
-the old value secret again.
+**The browser token is public.** It is sent in every direct database request
+and can be read from the site's JavaScript or network panel. Anyone with it
+can send SQL requests with the token's database permissions. This setup is
+only acceptable if `public-nova-db` is intended to be publicly accessible and
+contains no private account data or secrets. Do not reuse the private
+`nova-db` token here. The token being visible does not make it safe to grant
+access to private tables.
 
-## What remains to be migrated
+The direct client currently covers game-stat reads, ratings, and view writes
+when the client is ready. Other API calls continue to use same-origin
+`/api/*` endpoints as a compatibility fallback.
 
-This branch is **not** a completed Worker removal. Most account, authentication,
-profile, social, moderation, presence, voice, and game operations still use
-`/api/*` routes implemented in `_worker.js`. Merely changing the database URL
-does not replace the authorization and business logic in those routes.
+## Cloudflare Workers status
 
-Cloudflare Pages can remain the static host while the Worker dependency is
-removed, but each endpoint must be replaced with a safe direct-client design
-or a non-Worker backend. With Turso, exposing a database-wide writable token
-to the browser is not a safe way to do this. Do not remove the Worker until the
-replacement routes are implemented and regression-tested.
+**Worker removal is not complete. Do not delete `_worker.js` yet.** NOVA's
+account/authentication, profile, social/chat, moderation, presence, voice,
+admin, and several game operations still rely on the Worker. Removing the
+Worker before replacing those endpoints will break those features.
 
-The existing server-side path uses `TURSO_DATABASE_URL` and the encrypted
-`TURSO_AUTH_TOKEN` Pages secret. Keep privileged credentials server-side.
+The direct game-stat routes reduce calls for those operations only; they do
+not eliminate Worker usage across NOVA. A full static-Pages-only migration
+requires replacing every remaining `/api/*` consumer, checking each direct
+query against the actual public database schema, regression-testing the
+application, and then removing the Worker routing entrypoint. Browser-side
+SQL is not a substitute for server-enforced authorization.
+
+## Database separation
+
+- `nova-db` remains the private server-side database. Its token belongs only
+  in the encrypted Cloudflare secret `TURSO_AUTH_TOKEN`.
+- `public-nova-db` is the browser-facing database used by the direct client.
+  Treat all data and write operations reachable with its token as public.
+- Never place the private database token in HTML, JavaScript, or source control.
