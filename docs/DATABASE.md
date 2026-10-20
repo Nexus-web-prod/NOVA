@@ -29,11 +29,17 @@ client. `website/js/nova-turso-config.js` points it at `public-nova-db` and
 contains the existing public database token intentionally visible to clients.
 
 The current direct-Turso integration in `website/js/nova-v7-api.js` covers
-game-stat reads, ratings, and game-view writes when configured. Other paths
-still use same-origin `/api/*` calls and must be reviewed individually:
-move public, non-sensitive operations to direct Turso; retain Worker routes
-for private/privileged operations. Do not blindly rewrite every API call or
-remove the Worker while private routes still depend on it.
+public aggregate game-stat reads, game-view counts, and anonymous per-browser
+game ratings when configured. The public database never receives a signed-in
+NOVA user ID for rating rows; the browser creates a random local rating key and
+stores only its SHA-256 hash in the guest-rating table. This means the rating
+selection is browser-scoped rather than synchronized to a signed-in account.
+
+Other paths still use same-origin `/api/*` calls and must be reviewed
+individually. Private profile data, authenticated rating writes when direct
+Turso is unavailable, social features, admin tools, and privileged operations
+remain on the Worker. Do not blindly rewrite every API call or remove the
+Worker while private routes still depend on it.
 
 ## Cloudflare Workers reduction
 
