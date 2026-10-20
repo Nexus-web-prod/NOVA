@@ -323,7 +323,7 @@
     saveProfile: function (body) { return request("/api/profile", { method: "PATCH", body: body }); },
     getSettings: function () { return request("/api/settings"); },
     saveSettings: function (settings) { return request("/api/settings", { method: "PATCH", body: { settings: settings } }); },
-    gameStats: function (slugs) { if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directGameStats(slugs); return request("/api/games/stats?slugs=" + encodeURIComponent((slugs || []).join(","))); },
+    gameStats: function (slugs) { var fallback = function () { return request("/api/games/stats?slugs=" + encodeURIComponent((slugs || []).join(","))); }; if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directGameStats(slugs).catch(function () { return fallback(); }); return fallback(); },
     rateGame: function (slug, rating) { if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directRateGame(slug, rating); return request("/api/games/rating", { method: "POST", body: { slug: slug, rating: rating } }); },
     recordGameView: function (slug) { if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directRecordGameView(slug); return request("/api/games/view", { method: "POST", body: { slug: slug } }); },
     publicProfile: function (username) { return request("/api/profiles/" + encodeURIComponent(username)); },
