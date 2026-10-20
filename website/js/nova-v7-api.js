@@ -178,49 +178,44 @@
     document.dispatchEvent(new CustomEvent("nova:account-changed", { detail: { user: user || null } }));
   }
 
-  // Public aggregate game stats are safe to read from the public Turso database.
-  // Per-user ratings are private account data, so they are never read from or
-  // written to the browser-visible database. Keep the selected rating locally
-  // for UI convenience; the Worker remains authoritative for rating writes.
-  function readLocalGameRatings(slugs) {
-    var cache = {};
+  // Public aggregate game stats and anonymous per-browser ratings use the
+  // public database. Never put a signed-in account ID in the public database:
+  // the rating identity is a random local browser key, not the NOVA user ID.
+  async function directDeviceHash() {
+    var anonymousKey = "";
     try {
-      cache = JSON.parse(localStorage.getItem("nova_game_rating_cache_v1") || "{}") || {};
-    } catch (error) { cache = {}; }
-    var user = window.__novaV7User;
-    var owner = user && user.id ? String(user.id) : "guest";
-    var ratings = new Map();
-    slugs.forEach(function (slug) {
-      var value = Number(cache[owner + ":" + slug] || 0);
-      if (Number.isInteger(value) && value >= 1 && value <= 5) ratings.set(slug, value);
-    });
-    return ratings;
+      anonymousKey = localStorage.getItem("nova_public_rating_key") || "";
+      if (!anonymousKey) {
+        anonymousKey = window.crypto && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now()) + "-" + Math.random().toString(36).slice(2) + "-" + Math.random().toString(36).slice(2);
+        localStorage.setItem("nova_public_rating_key", anonymousKey);
+      }
+    } catch (error) {}
+    if (!anonymousKey || !window.crypto || !crypto.subtle) return "";
+    var digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(anonymousKey));
+    return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
   }
 
-  function cacheLocalGameRating(slug, rating) {
-    try {
-      var cache = JSON.parse(localStorage.getItem("nova_game_rating_cache_v1") || "{}") || {};
-      var user = window.__novaV7User;
-      var owner = user && user.id ? String(user.id) : "guest";
-      cache[owner + ":" + slug] = rating;
-      var keys = Object.keys(cache);
-      if (keys.length > 300) keys.slice(0, keys.length - 300).forEach(function (key) { delete cache[key]; });
-      localStorage.setItem("nova_game_rating_cache_v1", JSON.stringify(cache));
-    } catch (error) {}
+  function directNormalizeGameSlug(value) {
+    return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 100);
   }
 
   async function directGameStats(slugs) {
-    var unique = Array.from(new Set((slugs || []).map(function (slug) {
-      return String(slug || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 100);
-    }).filter(Boolean))).slice(0, 50);
+    var unique = Array.from(new Set((slugs || []).map(directNormalizeGameSlug).filter(Boolean))).slice(0, 50);
     if (!unique.length) return { stats: {} };
     var marks = unique.map(function () { return "?"; }).join(",");
     var baseRows = await window.NovaTursoDirect.query(
       "SELECT slug, views, rating_sum, rating_count FROM game_stats WHERE slug IN (" + marks + ")",
       unique
     );
+    var hash = await directDeviceHash();
+    var ratingRows = hash ? (await window.NovaTursoDirect.query(
+      "SELECT slug, rating FROM game_guest_ratings WHERE device_id_hash = ? AND slug IN (" + marks + ")",
+      [hash].concat(unique)
+    )).rows || [] : [];
     var rows = new Map((baseRows.rows || []).map(function (row) { return [row.slug, row]; }));
-    var myRatings = readLocalGameRatings(unique);
+    var myRatings = new Map(ratingRows.map(function (row) { return [row.slug, Number(row.rating || 0)]; }));
     var stats = {};
     unique.forEach(function (slug) {
       var row = rows.get(slug) || {};
@@ -234,6 +229,64 @@
       };
     });
     return { stats: stats };
+  }
+
+  async function directReadGameStats(slug, myRating) {
+    var result = await window.NovaTursoDirect.query(
+      "SELECT views, rating_sum, rating_count FROM game_stats WHERE slug = ? LIMIT 1",
+      [slug]
+    );
+    var row = result.rows[0] || {};
+    var count = Math.max(0, Number(row.rating_count || 0));
+    var sum = Math.max(0, Number(row.rating_sum || 0));
+    return {
+      views: Math.max(0, Number(row.views || 0)),
+      avg: count ? Math.round((sum / count) * 100) / 100 : 0,
+      count: count,
+      myRating: Math.max(0, Math.min(5, Number(myRating || 0)))
+    };
+  }
+
+  async function directRateGame(slugValue, ratingValue) {
+    var slug = directNormalizeGameSlug(slugValue);
+    var rating = Number(ratingValue);
+    if (!slug || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      var invalid = new Error("Choose a rating from 1 to 5");
+      invalid.code = "INVALID_RATING";
+      invalid.status = 400;
+      throw invalid;
+    }
+    var owner = await directDeviceHash();
+    if (!owner) throw new Error("Nova could not create an anonymous rating key");
+    var existing = await window.NovaTursoDirect.query(
+      "SELECT rating FROM game_guest_ratings WHERE device_id_hash = ? AND slug = ? LIMIT 1",
+      [owner, slug]
+    );
+    var oldRating = existing.rows.length ? Number(existing.rows[0].rating || 0) : 0;
+    var now = Date.now();
+    if (existing.rows.length) {
+      await window.NovaTursoDirect.execute(
+        "UPDATE game_guest_ratings SET rating = ?, updated_at = ? WHERE device_id_hash = ? AND slug = ?",
+        [rating, now, owner, slug]
+      );
+      await window.NovaTursoDirect.execute(
+        "INSERT INTO game_stats(slug, rating_sum, rating_count, updated_at) VALUES(?,?,0,?) " +
+        "ON CONFLICT(slug) DO UPDATE SET rating_sum = MAX(0, game_stats.rating_sum + ?), updated_at = excluded.updated_at",
+        [slug, rating, now, rating - oldRating]
+      );
+    } else {
+      await window.NovaTursoDirect.execute(
+        "INSERT INTO game_guest_ratings(device_id_hash, slug, rating, updated_at) VALUES(?,?,?,?)",
+        [owner, slug, rating, now]
+      );
+      await window.NovaTursoDirect.execute(
+        "INSERT INTO game_stats(slug, rating_sum, rating_count, updated_at) VALUES(?,?,1,?) " +
+        "ON CONFLICT(slug) DO UPDATE SET rating_sum = game_stats.rating_sum + excluded.rating_sum, " +
+        "rating_count = game_stats.rating_count + 1, updated_at = excluded.updated_at",
+        [slug, rating, now]
+      );
+    }
+    return { slug: slug, stats: await directReadGameStats(slug, rating) };
   }
 
   async function directRecordGameView(slugValue) {
@@ -271,7 +324,7 @@
     getSettings: function () { return request("/api/settings"); },
     saveSettings: function (settings) { return request("/api/settings", { method: "PATCH", body: { settings: settings } }); },
     gameStats: function (slugs) { if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directGameStats(slugs); return request("/api/games/stats?slugs=" + encodeURIComponent((slugs || []).join(","))); },
-    rateGame: function (slug, rating) { var normalized = directNormalizeGameSlug(slug); return request("/api/games/rating", { method: "POST", body: { slug: slug, rating: rating } }).then(function (result) { if (normalized && Number.isInteger(Number(rating)) && Number(rating) >= 1 && Number(rating) <= 5) cacheLocalGameRating(normalized, Number(rating)); return result; }); },
+    rateGame: function (slug, rating) { if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directRateGame(slug, rating); return request("/api/games/rating", { method: "POST", body: { slug: slug, rating: rating } }); },
     recordGameView: function (slug) { if (window.NovaTursoDirect && window.NovaTursoDirect.ready()) return directRecordGameView(slug); return request("/api/games/view", { method: "POST", body: { slug: slug } }); },
     publicProfile: function (username) { return request("/api/profiles/" + encodeURIComponent(username)); },
     publicProfiles: function (usernames) { return request("/api/profiles?usernames=" + encodeURIComponent(usernames.join(","))); },
