@@ -16,4 +16,6 @@ assert.match(api, /nova_public_rating_key/, 'Public ratings must use an anonymou
 assert.doesNotMatch(api, /SELECT slug, rating FROM game_ratings WHERE user_id/, 'Public database reads must not expose account-linked ratings');
 assert.match(api, /rateGame: function \(slug, rating\).*directRateGame/, 'Public rating writes must use the anonymous direct path when configured');
 
+assert.match(api, /directGameStats\(slugs\)\.catch\(function \(\) \{ return fallback\(\); \}\)/, 'Public stats reads must fall back to the Worker if direct Turso fails');
+
 console.log('Nova game rating regression checks passed.');
