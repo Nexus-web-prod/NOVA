@@ -5,6 +5,8 @@
   var DEVICE_KEY = "nova_device_id";
   var checkTimer = 0;
   var blocked = false;
+  var lastCheckAt = 0;
+  var MIN_CHECK_GAP = 15000;
 
   function deviceId() {
     try {
@@ -40,6 +42,10 @@
 
   async function checkDevice() {
     if (blocked || document.hidden) return;
+    var now = Date.now();
+    // Tab focus/visibility events can fire repeatedly; avoid duplicate checks.
+    if (now - lastCheckAt < MIN_CHECK_GAP) return;
+    lastCheckAt = now;
     try {
       var response = await fetch("/api/device-status", {
         credentials: "same-origin",
@@ -56,6 +62,7 @@
 
   deviceId();
   checkDevice();
-  checkTimer = setInterval(checkDevice, 45000);
+  // Lower background polling volume: ban checks continue while visible, every 2 minutes.
+  checkTimer = setInterval(checkDevice, 120000);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) checkDevice(); });
 }();
