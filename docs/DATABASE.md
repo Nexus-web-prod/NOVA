@@ -24,7 +24,9 @@ The preview Worker must also use the private NOVA database, not `public-nova-db`
 
 The current direct-Turso integration in `website/js/nova-v7-api.js` covers public aggregate game-stat reads, game-view counts, and anonymous per-browser game ratings when configured. The public database never receives a signed-in NOVA user ID for rating rows; the browser creates a random local rating key and stores only its SHA-256 hash in the guest-rating table. Ratings are therefore browser-scoped rather than synchronized to a signed-in account.
 
-Other paths still use same-origin `/api/*` calls and must be reviewed individually. Private profile data, authenticated or account-linked operations, social features, moderation, admin tools, and privileged operations remain on the Worker. Do not blindly rewrite every API call or remove the Worker while private routes still depend on it.
+The intended cost-reduction target is to move social data operations—including friend lists/requests, presence, channels, and DMs—to browser-direct `public-nova-db` where the schema supports it. Do not treat the existing public token as user authentication: it is visible to every visitor and cannot, by itself, enforce per-user row access. The current public token is broad database access, so a direct-social design must isolate social tables in the public database and use client-side encryption for DM bodies before direct writes; otherwise anyone who obtains the token could read or alter those rows. Do not put password hashes, session records, role grants, or private account fields in that database.
+
+The current `website/js/social.js` still calls `NovaAPI` methods backed by same-origin `/api/social/*`, so social is not yet fully migrated. Migrate in a separate, tested change after confirming the public database schema and deploying the required social tables. Until that is done, keep existing Worker routes working rather than silently breaking login or message delivery. Moderation, admin tools, and privileged operations remain server-side.
 
 ## Cloudflare Workers reduction
 
