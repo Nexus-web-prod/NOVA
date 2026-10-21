@@ -18,7 +18,7 @@ test('Turso auth token is never stored in source configuration', () => {
 
 test('health check explicitly identifies and validates the private Worker database', () => {
   const worker = fs.readFileSync(path.join(root, '_worker.js'), 'utf8');
-  assert.match(worker, /const expectedHost = "nova-db-nexuswebprod\\.aws-us-east-2\\.turso\\.io"/);
+  assert.match(worker, /const expectedHost = "nova-db-nexuswebprod\.aws-us-east-2\.turso\.io"/);
   assert.match(worker, /DATABASE_CONFIG_MISSING/);
   assert.match(worker, /DATABASE_CONFIG_MISMATCH/);
   assert.match(worker, /DATABASE_CONNECTION_FAILED/);
