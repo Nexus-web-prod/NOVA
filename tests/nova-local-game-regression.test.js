@@ -39,11 +39,11 @@ test('Nova Eaglercraft is a pinned, self-contained local game', () => {
 
 test('Eaglercraft loading image URL matches a bundled compatibility asset', () => {
   const index = read('website/html/index.html');
-  const asset = path.join(root, 'website/games/nova-eaglercraft/loading/05BNkdUVjRmoGbHlOwzj9Ch-1.v1569469924.webp');
-  assert.match(index, /05BNkdUVjRmoGbHlOwzj9Ch-1\.v1569469924\.webp/);
-  assert.ok(fs.existsSync(asset), 'loading image URL must resolve to a bundled asset');
+  const match = index.match(/src="\\/website\\/games\\/nova-eaglercraft\\/loading\\/([^"]+)"/);
+  assert.ok(match, 'loading slideshow must reference a local image');
+  const asset = path.join(root, 'website/games/nova-eaglercraft/loading', match[1]);
+  assert.ok(fs.existsSync(asset), `loading image URL must resolve to a bundled asset: ${match[1]}`);
 });
-
 test('clicking inside the Minecraft game iframe closes Nova Island without cancelling gameplay input', () => {
   const index = read('website/html/index.html');
   assert.match(index, /function bindGameFrameIslandDismiss\(frame\)/);
