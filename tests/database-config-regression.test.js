@@ -5,6 +5,8 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const config = fs.readFileSync(path.join(root, 'wrangler.toml'), 'utf8');
+const publicConfig = fs.readFileSync(path.join(root, 'website/js/nova-turso-config.js'), 'utf8');
+const directClient = fs.readFileSync(path.join(root, 'website/js/nova-turso-direct.js'), 'utf8');
 
 test('server-side NOVA config uses the private nova-db database', () => {
   assert.match(config, /^TURSO_DATABASE_URL\s*=\s*"libsql:\/\/nova-db-nexuswebprod\.aws-us-east-2\.turso\.io"\s*$/m);
@@ -35,4 +37,12 @@ test('health endpoint bypasses schema initialization so it can diagnose startup 
   assert.ok(apiStart >= 0 && healthBypass > apiStart, 'API dispatcher should include a dedicated health route');
   assert.ok(configGate > healthBypass, 'health diagnostics must run before the generic configuration gate');
   assert.ok(schemaInit > healthBypass, 'health diagnostics must run before schema initialization');
+});
+
+test('browser-direct Turso config uses the new public2 database', () => {
+  const expectedHost = 'public2-nova-db-nexuswebprod.aws-us-east-2.turso.io';
+  assert.ok(publicConfig.includes(expectedHost), 'browser config must point at public2-nova-db');
+  assert.ok(publicConfig.includes('authToken:'), 'browser config must include the public database token');
+  assert.doesNotMatch(publicConfig, /public-nova-db-nexuswebprod\.aws-us-east-2\.turso\.io/i, 'old public database must not remain configured');
+  assert.ok(directClient.includes('https://' + expectedHost), 'direct client example must match public2 database');
 });
