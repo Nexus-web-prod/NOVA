@@ -24,10 +24,11 @@ test('social reads stay on the Worker while social writes still use the Worker',
   );
 });
 
-test('public social reactions also respect the shared migration guard', () => {
-  assert.match(
-    api,
-    /directSocialReadsAvailable !== false && directPublicChannel\(channel\)/g,
-    'both message and reaction reads must be guarded until the public social migration is complete'
+test('public social messages and reactions both respect the shared migration guard', () => {
+  const guard = /directSocialReadsAvailable !== false && directPublicChannel\(channel\)/g;
+  assert.equal(
+    [...api.matchAll(guard)].length,
+    2,
+    'both messages and reactions must remain guarded until the public social migration is complete'
   );
 });
