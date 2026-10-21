@@ -15,7 +15,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${PROJECT_ROOT}"
 
 RUNTIME_FILES=(
-  _headers _redirects _worker.js ads.txt warp-account-bridge.html
+  _headers _redirects _routes.json _worker.js ads.txt warp-account-bridge.html
 )
 RUNTIME_DIRS=(website proxy)
 
