@@ -306,6 +306,110 @@
     return { slug: slug, stats: await directReadGameStats(slug, 0) };
   }
 
+  // Public social channels can be read from browser-side public Turso.
+  // DMs and private groups always remain behind the authenticated Worker API.
+  var directSocialReadsAvailable = null;
+  function directPublicChannel(channel) { return channel === "everyone" || channel === "announcements"; }
+  function directSocialUserId() {
+    var user = window.__novaV7User || null;
+    return user && user.id ? String(user.id) : "";
+  }
+  function directExposeMessage(row) {
+    return { id:Number(row.id), channel:row.channel_id, from:row.username,
+      displayName:row.display_name || row.username, avatarUrl:row.avatar_url || "",
+      body:row.body, type:row.message_type || "text",
+      replyToId:row.reply_to_id ? Number(row.reply_to_id) : null,
+      replyFrom:row.reply_username || "", replyBody:row.reply_body || "",
+      replyType:row.reply_type || "", createdAt:Number(row.created_at || 0), ts:Number(row.created_at || 0) };
+  }
+  function directBuildReactions(rows) {
+    var out = {};
+    (rows || []).forEach(function (row) {
+      var id = String(row.message_id);
+      if (!out[id]) out[id] = [];
+      out[id].push({ emoji:row.emoji, count:Number(row.reaction_count || 0), mine:!!Number(row.mine || 0) });
+    });
+    return out;
+  }
+  function directBuildPolls(rows) {
+    var out = {};
+    (rows || []).forEach(function (row) {
+      var id = String(row.message_id);
+      if (!out[id]) out[id] = { messageId:Number(row.message_id), question:row.question, closed:!!row.closed_at, options:[], totalVotes:0 };
+      var option = { index:Number(row.option_index), label:row.label, votes:Number(row.vote_count || 0), mine:!!Number(row.mine || 0) };
+      out[id].options.push(option); out[id].totalVotes += option.votes;
+    });
+    return out;
+  }
+  function directSocialStatements(channel, after, userId) {
+    var order = after > 0 ? "ASC" : "DESC";
+    var messagesSql = "SELECT m.id,m.channel_id,m.body,m.message_type,m.reply_to_id,m.created_at," +
+      "u.username,COALESCE(p.display_name,u.username) AS display_name,COALESCE(p.avatar_url,'') AS avatar_url," +
+      "ru.username AS reply_username,rm.body AS reply_body,rm.message_type AS reply_type " +
+      "FROM social_messages m JOIN users u ON u.id=m.sender_id LEFT JOIN user_profiles p ON p.user_id=u.id " +
+      "LEFT JOIN social_messages rm ON rm.id=m.reply_to_id AND rm.deleted_at IS NULL LEFT JOIN users ru ON ru.id=rm.sender_id " +
+      "WHERE m.channel_id=? AND m.id>? AND m.deleted_at IS NULL " +
+      "AND NOT EXISTS (SELECT 1 FROM social_blocks b WHERE (b.blocker_id=? AND b.blocked_id=m.sender_id) OR (b.blocker_id=m.sender_id AND b.blocked_id=?)) " +
+      "ORDER BY m.id " + order + " LIMIT 200";
+    var reactionSql = "SELECT r.message_id,r.emoji,COUNT(*) AS reaction_count,MAX(CASE WHEN r.user_id=? THEN 1 ELSE 0 END) AS mine " +
+      "FROM social_message_reactions r WHERE r.message_id IN (SELECT id FROM social_messages WHERE channel_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 200) " +
+      "AND NOT EXISTS (SELECT 1 FROM social_blocks b WHERE (b.blocker_id=? AND b.blocked_id=r.user_id) OR (b.blocker_id=r.user_id AND b.blocked_id=?)) " +
+      "GROUP BY r.message_id,r.emoji ORDER BY MIN(r.created_at) ASC";
+    var statements = [
+      { sql:messagesSql, args:[channel,after,userId,userId] },
+      { sql:reactionSql, args:[userId,channel,userId,userId] }
+    ];
+    if (channel === "everyone") {
+      statements.push({ sql:"SELECT p.message_id,p.question,p.closed_at,o.option_index,o.label,COUNT(v.user_id) AS vote_count," +
+        "MAX(CASE WHEN v.user_id=? THEN 1 ELSE 0 END) AS mine FROM social_polls p " +
+        "JOIN social_messages m ON m.id=p.message_id AND m.channel_id='everyone' AND m.deleted_at IS NULL " +
+        "JOIN social_poll_options o ON o.poll_message_id=p.message_id " +
+        "LEFT JOIN social_poll_votes v ON v.poll_message_id=p.message_id AND v.option_index=o.option_index " +
+        "WHERE p.message_id IN (SELECT id FROM social_messages WHERE channel_id='everyone' AND deleted_at IS NULL ORDER BY id DESC LIMIT 200) " +
+        "GROUP BY p.message_id,p.question,p.closed_at,o.option_index,o.label ORDER BY p.message_id,o.option_index", args:[userId] });
+      statements.push({ sql:"SELECT m.id,m.channel_id,m.body,m.message_type,m.reply_to_id,m.created_at,u.username," +
+        "COALESCE(p.display_name,u.username) AS display_name,COALESCE(p.avatar_url,'') AS avatar_url," +
+        "ru.username AS reply_username,rm.body AS reply_body,rm.message_type AS reply_type " +
+        "FROM social_channel_pins cp JOIN social_messages m ON m.id=cp.message_id AND m.channel_id=cp.channel_id AND m.deleted_at IS NULL " +
+        "JOIN users u ON u.id=m.sender_id LEFT JOIN user_profiles p ON p.user_id=u.id " +
+        "LEFT JOIN social_messages rm ON rm.id=m.reply_to_id AND rm.deleted_at IS NULL LEFT JOIN users ru ON ru.id=rm.sender_id " +
+        "WHERE cp.channel_id='everyone' LIMIT 1", args:[] });
+    }
+    return statements;
+  }
+  async function directPublicMessages(channelValue, afterValue) {
+    var channel=String(channelValue || "everyone");
+    if (!directPublicChannel(channel) || !window.NovaTursoDirect || !window.NovaTursoDirect.ready()) throw new Error("Direct public social reads unavailable");
+    var userId=directSocialUserId();
+    if (!userId) throw new Error("Signed-in user required for social reads");
+    var after=Math.max(0,Number(afterValue || 0));
+    var results=await window.NovaTursoDirect.batch(directSocialStatements(channel,after,userId));
+    var rows=(results[0] && results[0].rows || []).map(directExposeMessage);
+    if (!after) rows.reverse();
+    var reactions=directBuildReactions(results[1] && results[1].rows || []);
+    var polls={}, pinnedMessage=null;
+    if (channel === "everyone") {
+      polls=directBuildPolls(results[2] && results[2].rows || []);
+      var pinRow=results[3] && results[3].rows && results[3].rows[0];
+      if (pinRow) { pinnedMessage=directExposeMessage(pinRow); if (polls[String(pinnedMessage.id)]) pinnedMessage.type="poll"; }
+      rows=rows.map(function (message) { return polls[String(message.id)] ? Object.assign({},message,{type:"poll"}) : message; });
+    }
+    directSocialReadsAvailable=true;
+    return { channel:channel, messages:rows, reactions:reactions, polls:polls, pinnedMessage:pinnedMessage };
+  }
+  async function directPublicReactions(channelValue) {
+    var channel=String(channelValue || "everyone");
+    if (!directPublicChannel(channel) || !window.NovaTursoDirect || !window.NovaTursoDirect.ready()) throw new Error("Direct public social reads unavailable");
+    var userId=directSocialUserId();
+    if (!userId) throw new Error("Signed-in user required for social reads");
+    var result=await window.NovaTursoDirect.query(
+      "SELECT r.message_id,r.emoji,COUNT(*) AS reaction_count,MAX(CASE WHEN r.user_id=? THEN 1 ELSE 0 END) AS mine " +
+      "FROM social_message_reactions r WHERE r.message_id IN (SELECT id FROM social_messages WHERE channel_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 200) " +
+      "AND NOT EXISTS (SELECT 1 FROM social_blocks b WHERE (b.blocker_id=? AND b.blocked_id=r.user_id) OR (b.blocker_id=r.user_id AND b.blocked_id=?)) " +
+      "GROUP BY r.message_id,r.emoji ORDER BY MIN(r.created_at) ASC", [userId,channel,userId,userId]);
+    return { channel:channel, reactions:directBuildReactions(result.rows || []) };
+  }
+
   var api = {
     deviceId: deviceId,
     request: request,
@@ -332,13 +436,25 @@
     social: function () { return request("/api/social"); },
     friendPresence: function () { return request("/api/social/presence"); },
     socialRequests: function () { return request("/api/social/requests"); },
-    messages: function (channel, after) { return request("/api/social/messages?channel=" + encodeURIComponent(channel) + "&after=" + (after || 0)); },
+    messages: function (channel, after) {
+      var fallback = function () { return request("/api/social/messages?channel=" + encodeURIComponent(channel) + "&after=" + (after || 0)); };
+      if (directSocialReadsAvailable !== false && directPublicChannel(channel) && window.NovaTursoDirect && window.NovaTursoDirect.ready()) {
+        return directPublicMessages(channel, after).catch(function () { directSocialReadsAvailable = false; return fallback(); });
+      }
+      return fallback();
+    },
     sendMessage: function (body) { return request("/api/social/messages", { method: "POST", body: body }); },
     createEveryonePoll: function (question, options) { return request("/api/social/everyone/polls", { method: "POST", body: { question: question, options: options } }); },
     voteEveryonePoll: function (messageId, optionIndex) { return request("/api/social/everyone/polls/vote", { method: "POST", body: { messageId: messageId, optionIndex: optionIndex } }); },
     endEveryonePoll: function (messageId) { return request("/api/social/everyone/polls/end", { method: "POST", body: { messageId: messageId } }); },
     pinEveryoneMessage: function (messageId) { return request("/api/social/everyone/pin", { method: "POST", body: { messageId: messageId || null } }); },
-    reactions: function (channel) { return request("/api/social/reactions?channel=" + encodeURIComponent(channel)); },
+    reactions: function (channel) {
+      var fallback = function () { return request("/api/social/reactions?channel=" + encodeURIComponent(channel)); };
+      if (directSocialReadsAvailable !== false && directPublicChannel(channel) && window.NovaTursoDirect && window.NovaTursoDirect.ready()) {
+        return directPublicReactions(channel).catch(function () { directSocialReadsAvailable = false; return fallback(); });
+      }
+      return fallback();
+    },
     toggleReaction: function (channel, messageId, emoji) { return request("/api/social/reactions", { method: "POST", body: { channel: channel, messageId: messageId, emoji: emoji } }); },
     typing: function (channel) { return request("/api/social/typing?channel=" + encodeURIComponent(channel)); },
     setTyping: function (channel, typing) { return request("/api/social/typing", { method: "POST", body: { channel: channel, typing: !!typing } }); },
