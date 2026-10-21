@@ -306,10 +306,11 @@
     return { slug: slug, stats: await directReadGameStats(slug, 0) };
   }
 
-  // Everyone and Announcements use the public browser-side Turso database for
-  // reads and writes. Do not silently route these channels through the Worker:
-  // that can split reads and writes across different databases.
-  // DMs and private groups remain on their existing authenticated API.
+  // Everyone, Announcements, DMs, and friend relationships use the public
+  // browser-side Turso database. Direct routes fail closed rather than
+  // silently splitting reads and writes across Turso and the Worker.
+  // DM/friend records in this public database are not private. Private groups
+  // and other privileged social operations still use their existing API.
   var directSocialReadsAvailable = null;
   function directPublicChannel(channel) { return channel === "everyone" || channel === "announcements"; }
   function directSocialUserId() {
