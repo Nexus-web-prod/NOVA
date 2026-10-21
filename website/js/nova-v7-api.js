@@ -506,6 +506,95 @@
     return {ok:true,poll:polls[String(messageId)] || null};
   }
 
+
+  // Public-Turso DM and friend records. These records are public by design here.
+  var directPublicSocialSchemaPromise=null;
+  function directEnsurePublicSocialSchema(){
+    if(!directPublicSocialSchemaPromise) directPublicSocialSchemaPromise=window.NovaTursoDirect.batch([
+      {sql:"CREATE TABLE IF NOT EXISTS nova_public_dm_messages (id INTEGER PRIMARY KEY AUTOINCREMENT,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,sender_username TEXT NOT NULL,recipient_username TEXT NOT NULL,body TEXT NOT NULL,message_type TEXT NOT NULL DEFAULT 'text',created_at INTEGER NOT NULL)",args:[]},
+      {sql:"CREATE INDEX IF NOT EXISTS nova_public_dm_pair_idx ON nova_public_dm_messages(sender_id,recipient_id,id)",args:[]},
+      {sql:"CREATE TABLE IF NOT EXISTS nova_public_friend_requests (from_user_id TEXT NOT NULL,to_user_id TEXT NOT NULL,from_username TEXT NOT NULL,to_username TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(from_user_id,to_user_id))",args:[]},
+      {sql:"CREATE TABLE IF NOT EXISTS nova_public_friends (user_id TEXT NOT NULL,friend_id TEXT NOT NULL,username TEXT NOT NULL,friend_username TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,friend_id))",args:[]}
+    ]).catch(function(e){directPublicSocialSchemaPromise=null;throw e;});
+    return directPublicSocialSchemaPromise;
+  }
+  function directPublicIdentity(){
+    var u=window.__novaV7User||{},id=u.id==null?"":String(u.id),username=String(u.username||"").trim().toLowerCase();
+    if(!id||!username) throw new Error("Sign in before using direct public DMs or friends.");
+    return {id:id,username:username};
+  }
+  async function directPublicFindUser(value){
+    var username=String(value||"").trim().toLowerCase();
+    if(!/^[a-z0-9_.-]{2,32}$/.test(username)) throw new Error("Enter a valid username.");
+    var r=await window.NovaTursoDirect.query("SELECT id,username FROM users WHERE lower(username)=? LIMIT 1",[username]);
+    if(!r.rows||!r.rows.length) throw new Error("That NOVA user was not found in public Turso.");
+    return {id:String(r.rows[0].id),username:String(r.rows[0].username||username).toLowerCase()};
+  }
+  function directPublicDMChannel(value){var m=/^dm:([a-z0-9_.-]{2,32})$/i.exec(String(value||""));return m?m[1].toLowerCase():"";}
+  async function directPublicDMMessages(channel,afterValue){
+    if(!window.NovaTursoDirect||!window.NovaTursoDirect.ready()) throw new Error("Public Turso unavailable; DM Worker fallback is disabled.");
+    await directEnsurePublicSocialSchema();
+    var me=directPublicIdentity(),peerName=directPublicDMChannel(channel),peer=await directPublicFindUser(peerName),after=Math.max(0,Number(afterValue||0));
+    var r=await window.NovaTursoDirect.query("SELECT id,sender_username,body,message_type,created_at FROM nova_public_dm_messages WHERE ((sender_id=? AND recipient_id=?) OR (sender_id=? AND recipient_id=?)) AND id>? ORDER BY id DESC LIMIT 200",[me.id,peer.id,peer.id,me.id,after]);
+    var rows=(r.rows||[]).map(function(x){return {id:Number(x.id),channel:"dm:"+peerName,from:String(x.sender_username||""),displayName:String(x.sender_username||""),avatarUrl:"",body:String(x.body||""),type:x.message_type||"text",replyToId:null,replyFrom:"",replyBody:"",replyType:"",createdAt:Number(x.created_at||0),ts:Number(x.created_at||0)};}).reverse();
+    return {channel:"dm:"+peerName,messages:rows,reactions:{},polls:{},pinnedMessage:null,database:"public-turso"};
+  }
+  async function directPublicSendDM(body){
+    if(!window.NovaTursoDirect||!window.NovaTursoDirect.ready()) throw new Error("Public Turso unavailable; DM was not sent.");
+    await directEnsurePublicSocialSchema();
+    var me=directPublicIdentity(),peerName=directPublicDMChannel(body&&body.channel);
+    if(!peerName) throw new Error("A valid DM recipient is required.");
+    var peer=await directPublicFindUser(peerName); if(peer.id===me.id) throw new Error("You cannot message yourself.");
+    var text=String(body&&body.body||"").replace(/\s+/g," ").trim(),type=body&&body.messageType==="image"?"image":"text";
+    if(type==="image"){if(!/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(text)||text.length>125000)throw new Error("Image must be a compressed JPEG, PNG, or WebP under 90 KB.");}
+    else if(text.length>2000)text=text.slice(0,2000);
+    if(!text)throw new Error("Message cannot be empty.");
+    var now=Date.now(),ins=await window.NovaTursoDirect.execute("INSERT INTO nova_public_dm_messages(sender_id,recipient_id,sender_username,recipient_username,body,message_type,created_at) VALUES(?,?,?,?,?,?,?) RETURNING id",[me.id,peer.id,me.username,peer.username,text,type,now]);
+    var id=Number(ins&&ins.rows&&ins.rows[0]&&ins.rows[0].id);
+    if(!Number.isSafeInteger(id)||id<=0)throw new Error("Public Turso did not confirm the DM ID.");
+    var check=await window.NovaTursoDirect.query("SELECT id FROM nova_public_dm_messages WHERE id=? AND sender_id=? LIMIT 1",[id,me.id]);
+    if(!check.rows||!check.rows.length)throw new Error("DM insert could not be verified.");
+    return {message:{id:id,channel:"dm:"+peerName,from:me.username,displayName:me.username,avatarUrl:"",body:text,type:type,createdAt:now,ts:now},database:"public-turso",verified:true};
+  }
+  async function directPublicFriendRequest(value){
+    await directEnsurePublicSocialSchema();var me=directPublicIdentity(),peer=await directPublicFindUser(value);
+    if(peer.id===me.id)throw new Error("Cannot add yourself.");
+    var f=await window.NovaTursoDirect.query("SELECT 1 AS found FROM nova_public_friends WHERE user_id=? AND friend_id=? LIMIT 1",[me.id,peer.id]);
+    if(f.rows&&f.rows.length)throw new Error("You are already friends.");
+    await window.NovaTursoDirect.execute("INSERT INTO nova_public_friend_requests(from_user_id,to_user_id,from_username,to_username,created_at) VALUES(?,?,?,?,?) ON CONFLICT(from_user_id,to_user_id) DO NOTHING",[me.id,peer.id,me.username,peer.username,Date.now()]);
+    return {ok:true,database:"public-turso"};
+  }
+  async function directPublicRespondFriendRequest(value,actionValue){
+    await directEnsurePublicSocialSchema();var me=directPublicIdentity(),peer=await directPublicFindUser(value),action=String(actionValue||"").toLowerCase();
+    if(action!=="accept"&&action!=="decline")throw new Error("Choose accept or decline.");
+    var q=await window.NovaTursoDirect.query("SELECT 1 AS found FROM nova_public_friend_requests WHERE from_user_id=? AND to_user_id=? LIMIT 1",[peer.id,me.id]);
+    if(!q.rows||!q.rows.length)throw new Error("Friend request not found in public Turso.");
+    if(action==="accept"){var now=Date.now();await window.NovaTursoDirect.batch([
+      {sql:"INSERT INTO nova_public_friends(user_id,friend_id,username,friend_username,created_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,friend_id) DO NOTHING",args:[me.id,peer.id,me.username,peer.username,now]},
+      {sql:"INSERT INTO nova_public_friends(user_id,friend_id,username,friend_username,created_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,friend_id) DO NOTHING",args:[peer.id,me.id,peer.username,me.username,now]},
+      {sql:"DELETE FROM nova_public_friend_requests WHERE from_user_id=? AND to_user_id=?",args:[peer.id,me.id]}
+    ]);}else await window.NovaTursoDirect.execute("DELETE FROM nova_public_friend_requests WHERE from_user_id=? AND to_user_id=?",[peer.id,me.id]);
+    return {ok:true,action:action,database:"public-turso"};
+  }
+  async function directPublicSocialRequests(){
+    await directEnsurePublicSocialSchema();var me=directPublicIdentity();
+    var r=await window.NovaTursoDirect.query("SELECT from_username AS username,created_at FROM nova_public_friend_requests WHERE to_user_id=? ORDER BY created_at DESC LIMIT 200",[me.id]);
+    return {incoming:(r.rows||[]).map(function(x){return {username:x.username,createdAt:Number(x.created_at||0)};}),groupInvites:[],database:"public-turso"};
+  }
+  async function directPublicFriendPresence(){
+    await directEnsurePublicSocialSchema();var me=directPublicIdentity();
+    var r=await window.NovaTursoDirect.query("SELECT friend_username AS username FROM nova_public_friends WHERE user_id=? ORDER BY lower(friend_username) LIMIT 1000",[me.id]);
+    return {friends:(r.rows||[]).map(function(x){return {username:String(x.username||""),presenceState:"offline",activityType:"",activityLabel:""};}),database:"public-turso"};
+  }
+  async function directPublicRemoveFriend(value){
+    await directEnsurePublicSocialSchema();var me=directPublicIdentity(),peer=await directPublicFindUser(value);
+    await window.NovaTursoDirect.batch([
+      {sql:"DELETE FROM nova_public_friends WHERE user_id=? AND friend_id=?",args:[me.id,peer.id]},
+      {sql:"DELETE FROM nova_public_friends WHERE user_id=? AND friend_id=?",args:[peer.id,me.id]}
+    ]);
+    return {ok:true,database:"public-turso"};
+  }
+
   var api = {
     deviceId: deviceId,
     request: request,
@@ -529,11 +618,12 @@
     publicProfile: function (username) { return request("/api/profiles/" + encodeURIComponent(username)); },
     publicProfiles: function (usernames) { return request("/api/profiles?usernames=" + encodeURIComponent(usernames.join(","))); },
     searchProfiles: function (query) { return request("/api/profiles/search?q=" + encodeURIComponent(String(query || ""))); },
-    social: function () { return request("/api/social"); },
-    friendPresence: function () { return request("/api/social/presence"); },
-    socialRequests: function () { return request("/api/social/requests"); },
+    social: function () { return window.NovaTursoDirect && window.NovaTursoDirect.ready() ? directPublicFriendPresence() : Promise.reject(new Error("Public Turso unavailable; social Worker fallback is disabled.")); },
+    friendPresence: function () { return window.NovaTursoDirect && window.NovaTursoDirect.ready() ? directPublicFriendPresence() : Promise.reject(new Error("Public Turso unavailable; friend-presence Worker fallback is disabled.")); },
+    socialRequests: function () { return window.NovaTursoDirect && window.NovaTursoDirect.ready() ? directPublicSocialRequests() : Promise.reject(new Error("Public Turso unavailable; friend-request Worker fallback is disabled.")); },
     messages: function (channel, after) {
       var fallback = function () { return request("/api/social/messages?channel=" + encodeURIComponent(channel) + "&after=" + (after || 0)); };
+      if (directPublicDMChannel(channel)) return directPublicDMMessages(channel, after);
       if (directPublicChannel(channel)) {
         if (!window.NovaTursoDirect || !window.NovaTursoDirect.ready()) {
           return Promise.reject(new Error("Public Turso is not configured; public messages were not loaded."));
@@ -546,6 +636,7 @@
       return fallback();
     },
     sendMessage: function (body) {
+      if (directPublicDMChannel(body && body.channel)) return directPublicSendDM(body);
       if (directPublicChannel(body && body.channel || "everyone")) return directPublicSendMessage(body);
       return request("/api/social/messages", { method: "POST", body: body });
     },
@@ -572,9 +663,9 @@
     },
     typing: function (channel) { return request("/api/social/typing?channel=" + encodeURIComponent(channel)); },
     setTyping: function (channel, typing) { return request("/api/social/typing", { method: "POST", body: { channel: channel, typing: !!typing } }); },
-    friendRequest: function (username) { return request("/api/social/friend-request", { method: "POST", body: { username: username } }); },
-    respondFriendRequest: function (username, action) { return request("/api/social/friend-request/respond", { method: "POST", body: { username: username, action: action } }); },
-    removeFriend: function (username) { return request("/api/social/friend", { method: "DELETE", body: { username: username } }); },
+    friendRequest: function (username) { return window.NovaTursoDirect && window.NovaTursoDirect.ready() ? directPublicFriendRequest(username) : Promise.reject(new Error("Public Turso unavailable; friend-request Worker fallback is disabled.")); },
+    respondFriendRequest: function (username, action) { return window.NovaTursoDirect && window.NovaTursoDirect.ready() ? directPublicRespondFriendRequest(username, action) : Promise.reject(new Error("Public Turso unavailable; friend-request Worker fallback is disabled.")); },
+    removeFriend: function (username) { return window.NovaTursoDirect && window.NovaTursoDirect.ready() ? directPublicRemoveFriend(username) : Promise.reject(new Error("Public Turso unavailable; friend Worker fallback is disabled.")); },
     socialBlocks: function () { return request("/api/social/blocks"); },
     blockUser: function (username, reason) { return request("/api/social/blocks", { method: "POST", body: { username: username, reason: reason || "" } }); },
     unblockUser: function (username) { return request("/api/social/blocks", { method: "DELETE", body: { username: username } }); },
