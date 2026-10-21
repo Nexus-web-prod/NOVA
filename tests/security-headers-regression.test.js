@@ -12,6 +12,9 @@ test("Cloudflare Web Analytics is explicitly allowed by the Nova CSP", () => {
   assert.match(policyLine, /script-src[^;]*https:\/\/static\.cloudflareinsights\.com/);
   assert.match(policyLine, /connect-src[^;]*https:\/\/cloudflareinsights\.com/);
   assert.doesNotMatch(policyLine, /script-src[^;]*https:\/\/\*\.cloudflareinsights\.com/);
+  assert.match(policyLine, /script-src[^;]*https:\/\/challenges\.cloudflare\.com/);
+  assert.match(policyLine, /connect-src[^;]*https:\/\/challenges\.cloudflare\.com/);
+  assert.match(policyLine, /frame-src[^;]*https:\/\/challenges\.cloudflare\.com/);
 });
 
 test("proxy runtime resources keep explicit same-origin CORP overrides", () => {
