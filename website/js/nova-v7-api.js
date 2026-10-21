@@ -306,12 +306,10 @@
     return { slug: slug, stats: await directReadGameStats(slug, 0) };
   }
 
-  // Keep social reads on the authenticated Worker until public-channel writes and
-  // their related operations (reactions, polls, pins, moderation) are migrated
-  // together. Reading public Turso while writes still target the private Worker
-  // database makes newly sent messages appear to vanish after refresh.
-  // Game stats/ratings continue to use direct Turso independently.
-  var directSocialReadsAvailable = false;
+  // Public social channels read from browser-side public Turso. Writes must be
+  // migrated to the same database before this path is considered complete.
+  // DMs and private groups remain on their existing authenticated API.
+  var directSocialReadsAvailable = null;
   function directPublicChannel(channel) { return channel === "everyone" || channel === "announcements"; }
   function directSocialUserId() {
     var user = window.__novaV7User || null;
