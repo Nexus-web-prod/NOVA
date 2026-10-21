@@ -25,3 +25,14 @@ test('health check explicitly identifies and validates the private Worker databa
   assert.match(worker, /database: "private-nova-db"/);
   assert.doesNotMatch(worker, /targetHost:.*TURSO_AUTH_TOKEN/);
 });
+
+test('health endpoint bypasses schema initialization so it can diagnose startup failures', () => {
+  const worker = fs.readFileSync(path.join(root, '_worker.js'), 'utf8');
+  const apiStart = worker.indexOf('if (url.pathname.startsWith("/api/"))');
+  const healthBypass = worker.indexOf('if (url.pathname === "/api/health" && request.method === "GET")', apiStart);
+  const configGate = worker.indexOf('if (!hasDatabaseConfig(env))', apiStart);
+  const schemaInit = worker.indexOf('await ensureTursoSchema(getDb(env))', apiStart);
+  assert.ok(apiStart >= 0 && healthBypass > apiStart, 'API dispatcher should include a dedicated health route');
+  assert.ok(configGate > healthBypass, 'health diagnostics must run before the generic configuration gate');
+  assert.ok(schemaInit > healthBypass, 'health diagnostics must run before schema initialization');
+});
