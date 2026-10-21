@@ -851,6 +851,7 @@ async function routeApi(request, env, url) {
   if (pathname === "/api/admin/chat/restrictions" && method === "POST") return adminCreateChatRestriction(request, getDb(env));
   if (pathname === "/api/admin/chat/restrictions" && method === "DELETE") return adminRevokeChatRestriction(request, getDb(env));
   if (pathname === "/api/admin/chat/everyone/clear" && method === "DELETE") return adminClearEveryoneChat(request, getDb(env));
+  if (pathname === "/api/admin/chat/everyone/clear/authorize" && method === "POST") return authorizeAdminEveryoneClear(request, getDb(env));
   if (pathname === "/api/admin/chat/announcements/clear" && method === "DELETE") return adminClearAnnouncementsChat(request, getDb(env));
   if (pathname === "/api/admin/reports" && method === "GET") return adminReports(request, url, getDb(env));
   if (pathname === "/api/admin/reports/action" && method === "POST") return adminReportAction(request, getDb(env));
@@ -5426,6 +5427,20 @@ async function adminChatMessages(request, url, db) {
   return apiJson({ messages: (result.results || []).map(row => ({ ...row, body: row.messageType === "image" ? "[Image]" : cleanText(row.body, 1000), createdAt: Number(row.createdAt || 0) })), filteredEvents: events.results || [] });
 }
 
+
+async function authorizeAdminEveryoneClear(request, db) {
+  requireSameOrigin(request);
+  const auth = await requireRole(request, db, ADMIN_ROLES);
+  const body = await readJson(request);
+  const reason = cleanText(body.reason, 240);
+  if (!reason) return apiError("REASON_REQUIRED", "An audit reason is required", 400);
+
+  await audit(db, auth.id, "chat.everyone_clear_authorized", "social_channel", "everyone", reason, {
+    database: "public-turso",
+    phase: "authorization"
+  });
+  return apiJson({ ok: true, database: "public-turso" });
+}
 
 async function adminClearEveryoneChat(request, db) {
   requireSameOrigin(request);
