@@ -1029,25 +1029,10 @@ async function health(env) {
 
   const db = getDb(env);
   try {
-    // Validate the live application schema rather than querying
-    // nova_schema_meta, which is not created by the checked-in NOVA migrations.
-    // A missing metadata table made a healthy private database look offline.
-    const [tableResult, columnResult] = await db.batch([
-      db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('users','user_profiles','user_settings','user_stats','user_roles')"),
-      db.prepare("SELECT COUNT(*) AS count FROM pragma_table_info('users') WHERE name IN ('id','username','password_hash','password_salt','account_status')")
-    ]);
-    const requiredTables = Number(tableResult.results?.[0]?.count || 0);
-    const userColumns = Number(columnResult.results?.[0]?.count || 0);
-    if (requiredTables !== 5 || userColumns !== 5) {
-      return apiError("DATABASE_SCHEMA_MISMATCH", "The private NOVA database is reachable but is missing required Nova account tables or columns", 503, {
-        database: "private-nova-db",
-        targetHost: target.host,
-        expectedTables: 5,
-        actualTables: requiredTables,
-        expectedUserColumns: 5,
-        actualUserColumns: userColumns
-      });
-    }
+    // Health checks connectivity only. Account/schema validation belongs in
+    // migrations and feature-specific checks; hard-coding guessed table names
+    // here can report a healthy database as offline.
+    await db.batch([db.prepare("SELECT 1 AS reachable")]);
     return apiJson({
       ok: true,
       backend: "turso-libsql",
