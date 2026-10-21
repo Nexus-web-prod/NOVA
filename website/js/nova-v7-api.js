@@ -306,8 +306,9 @@
     return { slug: slug, stats: await directReadGameStats(slug, 0) };
   }
 
-  // Public social channels read from browser-side public Turso. Writes must be
-  // migrated to the same database before this path is considered complete.
+  // Everyone and Announcements use the public browser-side Turso database for
+  // reads and writes. Do not silently route these channels through the Worker:
+  // that can split reads and writes across different databases.
   // DMs and private groups remain on their existing authenticated API.
   var directSocialReadsAvailable = null;
   function directPublicChannel(channel) { return channel === "everyone" || channel === "announcements"; }
@@ -398,6 +399,61 @@
     directSocialReadsAvailable=true;
     return { channel:channel, messages:rows, reactions:reactions, polls:polls, pinnedMessage:pinnedMessage };
   }
+  async function directPublicSendMessage(body) {
+    if (!window.NovaTursoDirect || !window.NovaTursoDirect.ready()) {
+      throw new Error("Public Turso is unavailable. Message was not sent.");
+    }
+    body = body || {};
+    var channel = String(body.channel || "everyone");
+    if (!directPublicChannel(channel)) throw new Error("Direct public send only supports public channels.");
+    var userId = directSocialUserId();
+    if (!userId) throw new Error("Sign in before sending a message.");
+    var type = body.messageType === "image" ? "image" : "text";
+    var text = String(body.body || "");
+    if (type === "image") {
+      if (!/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(text) || text.length > 125000) {
+        throw new Error("Image must be a compressed JPEG, PNG, or WebP under 90 KB.");
+      }
+    } else {
+      text = text.replace(/\s+/g, " ").trim();
+      if (text.length > 2000) text = text.slice(0, 2000);
+    }
+    if (!text) throw new Error("Message cannot be empty.");
+    var replyToId = Math.max(0, Number(body.replyToId || 0)) || null;
+    if (replyToId) {
+      var parent = await window.NovaTursoDirect.query(
+        "SELECT id FROM social_messages WHERE id=? AND channel_id=? AND deleted_at IS NULL LIMIT 1",
+        [replyToId, channel]
+      );
+      if (!parent.rows || !parent.rows.length) replyToId = null;
+    }
+    var now = Date.now();
+    var inserted = await window.NovaTursoDirect.execute(
+      "INSERT INTO social_messages(channel_id,sender_id,body,message_type,reply_to_id,created_at) VALUES(?,?,?,?,?,?)",
+      [channel, userId, text, type, replyToId, now]
+    );
+    var id = Number(inserted.lastInsertRowid);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new Error("Public Turso did not confirm the new message ID.");
+    }
+    // Read-after-write verification detects a wrong database, failed insert, or
+    // schema mismatch instead of reporting success based only on the insert.
+    var verify = await window.NovaTursoDirect.query(
+      "SELECT m.id,m.channel_id,m.body,m.message_type,m.reply_to_id,m.created_at," +
+      "u.username,COALESCE(p.display_name,u.username) AS display_name,COALESCE(p.avatar_url,'') AS avatar_url," +
+      "ru.username AS reply_username,rm.body AS reply_body,rm.message_type AS reply_type " +
+      "FROM social_messages m JOIN users u ON u.id=m.sender_id LEFT JOIN user_profiles p ON p.user_id=u.id " +
+      "LEFT JOIN social_messages rm ON rm.id=m.reply_to_id AND rm.deleted_at IS NULL LEFT JOIN users ru ON ru.id=rm.sender_id " +
+      "WHERE m.id=? AND m.channel_id=? AND m.deleted_at IS NULL LIMIT 1",
+      [id, channel]
+    );
+    if (!verify.rows || !verify.rows.length) {
+      throw new Error("Message insert was accepted, but read-after-write verification failed on public Turso.");
+    }
+    directSocialReadsAvailable = true;
+    return { message: directExposeMessage(verify.rows[0]), database: "public-turso", verified: true };
+  }
+
   async function directPublicReactions(channelValue) {
     var channel=String(channelValue || "everyone");
     if (!directPublicChannel(channel) || !window.NovaTursoDirect || !window.NovaTursoDirect.ready()) throw new Error("Direct public social reads unavailable");
@@ -439,20 +495,35 @@
     socialRequests: function () { return request("/api/social/requests"); },
     messages: function (channel, after) {
       var fallback = function () { return request("/api/social/messages?channel=" + encodeURIComponent(channel) + "&after=" + (after || 0)); };
-      if (directSocialReadsAvailable !== false && directPublicChannel(channel) && window.NovaTursoDirect && window.NovaTursoDirect.ready()) {
-        return directPublicMessages(channel, after).catch(function () { directSocialReadsAvailable = false; return fallback(); });
+      if (directPublicChannel(channel)) {
+        if (!window.NovaTursoDirect || !window.NovaTursoDirect.ready()) {
+          return Promise.reject(new Error("Public Turso is not configured; public messages were not loaded."));
+        }
+        return directPublicMessages(channel, after).catch(function (error) {
+          directSocialReadsAvailable = false;
+          throw new Error("Public Turso read failed; Worker fallback is disabled for public channels. " + (error && error.message || ""));
+        });
       }
       return fallback();
     },
-    sendMessage: function (body) { return request("/api/social/messages", { method: "POST", body: body }); },
+    sendMessage: function (body) {
+      if (directPublicChannel(body && body.channel || "everyone")) return directPublicSendMessage(body);
+      return request("/api/social/messages", { method: "POST", body: body });
+    },
     createEveryonePoll: function (question, options) { return request("/api/social/everyone/polls", { method: "POST", body: { question: question, options: options } }); },
     voteEveryonePoll: function (messageId, optionIndex) { return request("/api/social/everyone/polls/vote", { method: "POST", body: { messageId: messageId, optionIndex: optionIndex } }); },
     endEveryonePoll: function (messageId) { return request("/api/social/everyone/polls/end", { method: "POST", body: { messageId: messageId } }); },
     pinEveryoneMessage: function (messageId) { return request("/api/social/everyone/pin", { method: "POST", body: { messageId: messageId || null } }); },
     reactions: function (channel) {
       var fallback = function () { return request("/api/social/reactions?channel=" + encodeURIComponent(channel)); };
-      if (directSocialReadsAvailable !== false && directPublicChannel(channel) && window.NovaTursoDirect && window.NovaTursoDirect.ready()) {
-        return directPublicReactions(channel).catch(function () { directSocialReadsAvailable = false; return fallback(); });
+      if (directPublicChannel(channel)) {
+        if (!window.NovaTursoDirect || !window.NovaTursoDirect.ready()) {
+          return Promise.reject(new Error("Public Turso is not configured; public reactions were not loaded."));
+        }
+        return directPublicReactions(channel).catch(function (error) {
+          directSocialReadsAvailable = false;
+          throw new Error("Public Turso reactions failed; Worker fallback is disabled for public channels. " + (error && error.message || ""));
+        });
       }
       return fallback();
     },
