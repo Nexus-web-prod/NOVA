@@ -429,10 +429,13 @@
     }
     var now = Date.now();
     var inserted = await window.NovaTursoDirect.execute(
-      "INSERT INTO social_messages(channel_id,sender_id,body,message_type,reply_to_id,created_at) VALUES(?,?,?,?,?,?)",
+      "INSERT INTO social_messages(channel_id,sender_id,body,message_type,reply_to_id,created_at) VALUES(?,?,?,?,?,?) RETURNING id",
       [channel, userId, text, type, replyToId, now]
     );
-    var id = Number(inserted.lastInsertRowid);
+    // libSQL HTTP responses can omit last_insert_rowid for writes. RETURNING
+    // supplies the inserted ID in the same statement to avoid a false failure.
+    var returnedId = inserted && inserted.rows && inserted.rows.length ? inserted.rows[0].id : null;
+    var id = Number(returnedId != null ? returnedId : inserted.lastInsertRowid);
     if (!Number.isSafeInteger(id) || id <= 0) {
       throw new Error("Public Turso did not confirm the new message ID.");
     }
