@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  var POLL_INTERVAL_MS = 15000;
+  var POLL_INTERVAL_MS = 30000;
   var state = {
     poll: null,
     current: null,
