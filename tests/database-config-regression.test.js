@@ -14,3 +14,14 @@ test('server-side NOVA config uses the private nova-db database', () => {
 test('Turso auth token is never stored in source configuration', () => {
   assert.doesNotMatch(config, /^TURSO_AUTH_TOKEN\s*=/m);
 });
+
+
+test('health check explicitly identifies and validates the private Worker database', () => {
+  const worker = fs.readFileSync(path.join(root, '_worker.js'), 'utf8');
+  assert.match(worker, /const expectedHost = "nova-db-nexuswebprod\\.aws-us-east-2\\.turso\\.io"/);
+  assert.match(worker, /DATABASE_CONFIG_MISSING/);
+  assert.match(worker, /DATABASE_CONFIG_MISMATCH/);
+  assert.match(worker, /DATABASE_CONNECTION_FAILED/);
+  assert.match(worker, /database: "private-nova-db"/);
+  assert.doesNotMatch(worker, /targetHost:.*TURSO_AUTH_TOKEN/);
+});
