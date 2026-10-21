@@ -980,27 +980,81 @@ async function browserDownload(request, db) {
   return new Response(upstream.body, { status: 200, headers });
 }
 
-async function health(env) {
-  const db = getDb(env);
-  const [schemaResult, columnResult] = await db.batch([
-    db.prepare("SELECT version, applied_at FROM nova_schema_meta WHERE id = 1"),
-    db.prepare("SELECT COUNT(*) AS count FROM pragma_table_info('users') WHERE name IN ('id','username','password_hash','password_salt','account_status')")
-  ]);
-  const schema = schemaResult.results?.[0] || null;
-  const userColumns = Number(columnResult.results?.[0]?.count || 0);
-  if (!schema || Number(schema.version) < 717 || userColumns !== 5) {
-    return apiError("DATABASE_SCHEMA_MISMATCH", "Nova's database needs the clean Nova 7 schema", 503);
+function databaseHealthTarget(env) {
+  const raw = String(env?.TURSO_DATABASE_URL || "").trim();
+  if (!raw) return { configured: false, host: null };
+  try {
+    const parsed = new URL(raw.replace(/^libsql:\/\//i, "https://"));
+    return { configured: true, host: parsed.hostname.toLowerCase() };
+  } catch {
+    return { configured: true, host: "invalid-url" };
   }
-  return apiJson({
-    ok: true,
-    backend: "turso-libsql",
-    dbBound: true,
-    voiceBound: !!env.VOICE_ROOMS,
-    voiceRelayBound: true,
-    voiceRelayProvider: "open-relay",
-    schema: "nova-7",
-    schemaVersion: Number(schema.version)
-  });
+}
+
+async function health(env) {
+  const target = databaseHealthTarget(env);
+  const tokenConfigured = !!String(env?.TURSO_AUTH_TOKEN || "").trim();
+  const expectedHost = "nova-db-nexuswebprod.aws-us-east-2.turso.io";
+
+  // Health intentionally verifies the private server-side nova-db. The public
+  // browser database is a separate data path and must not be used as a fallback
+  // for authentication, sessions, or other trusted Worker operations.
+  if (!target.configured || !tokenConfigured) {
+    return apiError("DATABASE_CONFIG_MISSING", "The private NOVA database URL or token is not configured", 503, {
+      database: "private-nova-db",
+      targetHost: target.host,
+      urlConfigured: target.configured,
+      tokenConfigured
+    });
+  }
+  if (target.host !== expectedHost) {
+    return apiError("DATABASE_CONFIG_MISMATCH", "The NOVA Worker is not pointed at the expected private database", 503, {
+      database: "private-nova-db",
+      targetHost: target.host
+    });
+  }
+
+  const db = getDb(env);
+  try {
+    const [schemaResult, columnResult] = await db.batch([
+      db.prepare("SELECT version, applied_at FROM nova_schema_meta WHERE id = 1"),
+      db.prepare("SELECT COUNT(*) AS count FROM pragma_table_info('users') WHERE name IN ('id','username','password_hash','password_salt','account_status')")
+    ]);
+    const schema = schemaResult.results?.[0] || null;
+    const userColumns = Number(columnResult.results?.[0]?.count || 0);
+    if (!schema || Number(schema.version) < 717 || userColumns !== 5) {
+      return apiError("DATABASE_SCHEMA_MISMATCH", "The private NOVA database is reachable but does not have the expected Nova 7 schema", 503, {
+        database: "private-nova-db",
+        targetHost: target.host,
+        schemaVersion: schema ? Number(schema.version) : null,
+        requiredSchemaVersion: 717,
+        expectedUserColumns: 5,
+        actualUserColumns: userColumns
+      });
+    }
+    return apiJson({
+      ok: true,
+      backend: "turso-libsql",
+      database: "private-nova-db",
+      targetHost: target.host,
+      dbBound: true,
+      voiceBound: !!env.VOICE_ROOMS,
+      voiceRelayBound: true,
+      voiceRelayProvider: "open-relay",
+      schema: "nova-7",
+      schemaVersion: Number(schema.version)
+    });
+  } catch (error) {
+    // Report only safe routing/configuration metadata. Never return the raw
+    // database error because it may contain sensitive connection details.
+    console.error("NOVA health database check failed", error);
+    return apiError("DATABASE_CONNECTION_FAILED", "The configured private NOVA database could not be queried", 503, {
+      database: "private-nova-db",
+      targetHost: target.host,
+      urlConfigured: true,
+      tokenConfigured: true
+    });
+  }
 }
 
 async function deviceStatus(request, db) {
