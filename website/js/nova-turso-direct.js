@@ -1,7 +1,7 @@
 /* NOVA direct Turso HTTP client.
  * This is a browser-side client for the libSQL HTTP pipeline API.
  * Configure window.NOVA_TURSO_CONFIG before this file with:
- *   { url: "https://public-nova-db-nexuswebprod.aws-us-east-2.turso.io",
+ *   { url: "https://public2-nova-db-nexuswebprod.aws-us-east-2.turso.io",
  *     authToken: "YOUR PUBLIC DATABASE TOKEN" }
  * The token is intentionally client-visible in this architecture.
  *
