@@ -34,3 +34,15 @@ test("Everyone chat exposes accessible poll and pin controls", () => {
   assert.match(social, /Only admins can create polls/);
   assert.match(social, /data-poll-end/);
 });
+
+
+test("Public chat reads can use direct Turso while private channels stay on the Worker", () => {
+  assert.match(api, /function directPublicChannel\(channel\) \{ return channel === "everyone" \|\| channel === "announcements"; \}/);
+  assert.match(api, /directPublicMessages\(channel, after\)/);
+  assert.match(api, /directPublicReactions\(channel\)/);
+  assert.match(api, /return fallback\(\);/);
+  assert.match(api, /DMs and private groups always remain behind the authenticated Worker API/);
+  assert.match(api, /social_polls/);
+  assert.match(api, /social_channel_pins/);
+  assert.match(html, /nova-v7-api\.js\?v=20261020-direct-social-r1/);
+});
