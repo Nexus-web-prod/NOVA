@@ -746,7 +746,37 @@
     adminChatRestrictions: function (username) { return request("/api/admin/chat/restrictions?username=" + encodeURIComponent(username || "")); },
     adminCreateChatRestriction: function (body) { return request("/api/admin/chat/restrictions", { method: "POST", body: body }); },
     adminRevokeChatRestriction: function (body) { return request("/api/admin/chat/restrictions", { method: "DELETE", body: body }); },
-    adminClearEveryoneChat: function (reason) { return request("/api/admin/chat/everyone/clear", { method: "DELETE", body: { reason: reason } }); },
+    adminClearEveryoneChat: async function (reason) {
+      if (!window.NovaTursoDirect || !window.NovaTursoDirect.ready()) {
+        throw new Error("Public Turso is unavailable; Everyone chat was not cleared.");
+      }
+      var authorization = await request("/api/admin/chat/everyone/clear/authorize", {
+        method: "POST",
+        body: { reason: reason }
+      });
+      if (!authorization || !authorization.ok) {
+        throw new Error("Admin authorization failed; Everyone chat was not cleared.");
+      }
+      var before = await window.NovaTursoDirect.query(
+        "SELECT COUNT(*) AS count FROM social_messages WHERE channel_id='everyone' AND deleted_at IS NULL",
+        []
+      );
+      var deletedMessages = Number(before.rows && before.rows[0] && before.rows[0].count || 0);
+      if (deletedMessages > 0) {
+        await window.NovaTursoDirect.execute(
+          "UPDATE social_messages SET deleted_at=? WHERE channel_id='everyone' AND deleted_at IS NULL",
+          [Date.now()]
+        );
+      }
+      var after = await window.NovaTursoDirect.query(
+        "SELECT COUNT(*) AS count FROM social_messages WHERE channel_id='everyone' AND deleted_at IS NULL",
+        []
+      );
+      if (Number(after.rows && after.rows[0] && after.rows[0].count || 0) !== 0) {
+        throw new Error("Public Turso did not confirm that Everyone chat was cleared.");
+      }
+      return { ok: true, deletedMessages: deletedMessages, database: "public-turso", verified: true };
+    },
     adminClearAnnouncementsChat: function (reason) { return request("/api/admin/chat/announcements/clear", { method: "DELETE", body: { reason: reason } }); },
     adminReports: function (status) { return request("/api/admin/reports?status=" + encodeURIComponent(status || "")); },
     adminReportAction: function (body) { return request("/api/admin/reports/action", { method: "POST", body: body }); },
