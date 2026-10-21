@@ -14,6 +14,8 @@ test("Cloudflare Web Analytics is explicitly allowed by the Nova CSP", () => {
   assert.doesNotMatch(policyLine, /script-src[^;]*https:\/\/\*\.cloudflareinsights\.com/);
   assert.match(policyLine, /script-src[^;]*https:\/\/challenges\.cloudflare\.com/);
   assert.match(policyLine, /connect-src[^;]*https:\/\/challenges\.cloudflare\.com/);
+  assert.match(policyLine, /connect-src[^;]*https:\/\/public2-nova-db-nexuswebprod\.aws-us-east-2\.turso\.io/);
+  assert.doesNotMatch(policyLine, /public-nova-db-nexuswebprod\.aws-us-east-2\.turso\.io/);
   assert.match(policyLine, /frame-src[^;]*https:\/\/challenges\.cloudflare\.com/);
 });
 
