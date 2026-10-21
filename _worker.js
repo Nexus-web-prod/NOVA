@@ -456,6 +456,19 @@ export default {
 
     if (url.pathname.startsWith("/api/")) {
       if (request.method === "OPTIONS") return apiJson(null, 204);
+
+      // Health must bypass schema initialization, cleanup, device checks, and
+      // maintenance reads. Otherwise a failed startup DDL statement masks the
+      // actual database configuration/connectivity diagnosis and makes health
+      // return only the generic API error.
+      if (url.pathname === "/api/health" && request.method === "GET") {
+        try { return await health(env); }
+        catch (error) {
+          console.error("NOVA health route failed unexpectedly", error);
+          return apiError("DATABASE_HEALTH_FAILED", "Nova could not complete its database health check", 503);
+        }
+      }
+
       if (!hasDatabaseConfig(env)) return apiError("DATABASE_UNAVAILABLE", "Missing Turso database configuration", 503);
       try {
         await ensureTursoSchema(getDb(env));
