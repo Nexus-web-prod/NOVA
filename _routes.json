@@ -1,20 +1,7 @@
 {
   "version": 1,
   "include": [
-    "/*"
+    "/api/*"
   ],
-  "exclude": [
-    "/website/css/*",
-    "/website/js/*",
-    "/website/images/*",
-    "/website/img/*",
-    "/website/fonts/*",
-    "/website/icons/*",
-    "/website/audio/*",
-    "/website/video/*",
-    "/favicon.ico",
-    "/favicon.png",
-    "/favicon.svg",
-    "/apple-touch-icon.png"
-  ]
+  "exclude": []
 }
