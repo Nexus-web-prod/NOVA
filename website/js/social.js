@@ -117,7 +117,7 @@ function _bindVisibility(){
 
 // ── Exponential backoff for chat (saves egress on idle convos) ─────────────────
 let _chatEmptyStreak=0;
-const CHAT_BASE_MS=6500, CHAT_MAX_MS=30000;
+const CHAT_BASE_MS=12000, CHAT_MAX_MS=60000;
 let _chatCurrentMs=CHAT_BASE_MS;
 function _chatBackoff(hadMessages){
   if(hadMessages){_chatEmptyStreak=0;_chatCurrentMs=CHAT_BASE_MS;}
@@ -148,7 +148,7 @@ function startFriendsPolling(){
   _friendsPollTimer=setInterval(async()=>{
     if(document.hidden||!getAccount()||!_isSocialPollLeader())return;
     await _pollFriendsList();
-  },30000);
+  },45000);
 }
 function stopFriendsPolling(){clearInterval(_friendsPollTimer);_friendsPollTimer=null;}
 
@@ -177,7 +177,7 @@ function startChatPolling(){
 }
 function stopChatPolling(){clearTimeout(_chatPollTimer);_chatPollTimer=null;stopReactionPolling();}
 
-// Reactions stay on a fixed 3-second refresh independent of message backoff.
+// Reactions refresh less often than messages to reduce idle database traffic.
 async function _pollReactions(){
   if(_reactionPollBusy||document.hidden||!getAccount()||activePane==="none")return;
   const channel=currentPaneChannel();
@@ -191,7 +191,7 @@ async function _pollReactions(){
 function startReactionPolling(){
   stopReactionPolling();
   _pollReactions();
-  _reactionPollTimer=setInterval(_pollReactions,7000);
+  _reactionPollTimer=setInterval(_pollReactions,20000);
 }
 function stopReactionPolling(){clearInterval(_reactionPollTimer);_reactionPollTimer=null;}
 
@@ -219,7 +219,7 @@ async function pollTyping(){
 }
 function startTypingPolling(){
   stopTypingPolling();if(!typingChannel())return;
-  pollTyping();_typingPollTimer=setInterval(pollTyping,5000);
+  pollTyping();_typingPollTimer=setInterval(pollTyping,10000);
 }
 function stopTypingPolling(){
   clearInterval(_typingPollTimer);_typingPollTimer=null;clearTimeout(_typingStopTimer);_typingStopTimer=null;
@@ -243,7 +243,7 @@ function startSocialPolling(){
   _socialPollTimer=setInterval(async()=>{
     if(document.hidden||!getAccount()||!_isSocialPollLeader())return;
     await _pollSocialData();
-  },30000);
+  },45000);
 }
 function stopSocialPolling(){clearInterval(_socialPollTimer);_socialPollTimer=null;}
 
