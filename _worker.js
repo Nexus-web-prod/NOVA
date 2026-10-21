@@ -213,9 +213,6 @@ class TursoDatabase {
   async _send(requests, baton = null, endpoint = this.url) {
     const body = { requests };
     if (baton) body.baton = baton;
-    // Temporary diagnostic: proves this Pages Worker is making an outbound Turso request.
-    // Deliberately logs only the host; never log credentials or SQL.
-    console.log("[DB-PROOF] Pages Worker -> Turso", { host: new URL(endpoint).host });
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
