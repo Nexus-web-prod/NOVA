@@ -147,9 +147,9 @@ async function enterRoom(room,host){
 }
 async function startTimers(){
   stopTimers(false);
-  S.poll=setInterval(function(){if(!document.hidden)pollState(false)},5000);
-  S.signalTimer=setInterval(function(){if(!document.hidden)pollSignals()},2500);
-  S.chatTimer=setInterval(function(){if(!document.hidden)pollChat()},5000);
+  S.poll=setInterval(function(){if(!document.hidden)pollState(false)},8000);
+  S.signalTimer=setInterval(function(){if(!document.hidden)pollSignals()},5000);
+  S.chatTimer=setInterval(function(){if(!document.hidden)pollChat()},10000);
 }
 function stopTimers(closeAudio){
   clearInterval(S.poll);clearInterval(S.signalTimer);clearInterval(S.chatTimer);
@@ -175,7 +175,6 @@ async function pollState(first){
       if(!S.stream&&!S.mesh)await startAudio();
       if(S.mesh)await S.mesh.ensurePeers(S.room.peers||S.room.members||[]);
       updateAudioStatus();
-      pollSignals();pollChat();
     }
   }catch(e){
     if(["VOICE_ROOM_NOT_FOUND","VOICE_NOT_JOINED","VOICE_NOT_ADMITTED"].includes(e.code)){toastMsg("Voice room ended","info");resetRoom()}
