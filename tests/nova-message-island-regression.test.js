@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(root, 'website/js/nova-message-island.j
 const html = fs.readFileSync(path.join(root, 'website/html/index.html'), 'utf8');
 
 test('message island uses one low-rate recent-message poll', () => {
-  assert.match(source, /var POLL_INTERVAL_MS = 15000;/);
+  assert.match(source, /var POLL_INTERVAL_MS = 30000;/);
   assert.match(source, /setInterval\(poll, POLL_INTERVAL_MS\)/);
   assert.match(source, /\/api\/message-island\/recent\?/);
   assert.doesNotMatch(source, /else state\.lastPollResult = await pollStreams/);
