@@ -11,11 +11,11 @@ test('public game counts match the current catalog', () => {
   const index = read('website/html/index.html');
   const onboarding = read('website/js/nova-onboarding-tour-v7.js');
   const ai = read('website/js/nova-ai.js');
-  assert.equal(games.length, 94);
+  assert.equal(games.length, 96);
   assert.doesNotMatch(index, /89 games|home-stat-num">89/);
-  assert.match(index, /94 games to play/);
-  assert.match(onboarding, /gameCount:94/);
-  assert.match(ai, /platform with 94 games/);
+  assert.match(index, /96 games to play/);
+  assert.match(onboarding, /gameCount:96/);
+  assert.match(ai, /platform with 96 games/);
 });
 
 test('catalog no longer contains confirmed dead destinations', () => {
