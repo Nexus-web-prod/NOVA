@@ -470,6 +470,42 @@
     return { channel:channel, reactions:directBuildReactions(result.rows || []) };
   }
 
+  async function directPublicToggleReaction(channelValue, messageIdValue, emojiValue) {
+    var channel=String(channelValue || "everyone");
+    var messageId=Math.max(0,Number(messageIdValue || 0));
+    var emoji=String(emojiValue || "");
+    var allowed=["❤️","👍","😂","😮","😢","🔥"];
+    if (!directPublicChannel(channel)) throw new Error("Direct reactions only support public channels.");
+    if (!Number.isSafeInteger(messageId) || messageId <= 0 || allowed.indexOf(emoji) < 0) throw new Error("Choose a valid message and supported reaction.");
+    if (!window.NovaTursoDirect || !window.NovaTursoDirect.ready()) throw new Error("Public Turso is unavailable; reaction was not changed.");
+    var userId=directSocialUserId();
+    if (!userId) throw new Error("Sign in before reacting.");
+    var message=await window.NovaTursoDirect.query("SELECT id FROM social_messages WHERE id=? AND channel_id=? AND deleted_at IS NULL LIMIT 1",[messageId,channel]);
+    if (!message.rows || !message.rows.length) throw new Error("Public message was not found.");
+    var existing=await window.NovaTursoDirect.query("SELECT 1 AS found FROM social_message_reactions WHERE message_id=? AND user_id=? AND emoji=? LIMIT 1",[messageId,userId,emoji]);
+    if (existing.rows && existing.rows.length) {
+      await window.NovaTursoDirect.execute("DELETE FROM social_message_reactions WHERE message_id=? AND user_id=? AND emoji=?",[messageId,userId,emoji]);
+    } else {
+      await window.NovaTursoDirect.execute("INSERT INTO social_message_reactions(message_id,user_id,emoji,created_at) VALUES(?,?,?,?)",[messageId,userId,emoji,Date.now()]);
+    }
+    var result=await directPublicReactions(channel);
+    return {ok:true,messageId:messageId,reactions:(result.reactions || {})[String(messageId)] || []};
+  }
+  async function directPublicVotePoll(messageIdValue, optionIndexValue) {
+    var messageId=Math.max(0,Number(messageIdValue || 0));
+    var optionIndex=Number(optionIndexValue);
+    if (!Number.isSafeInteger(messageId) || messageId <= 0 || !Number.isSafeInteger(optionIndex) || optionIndex < 0) throw new Error("Choose a valid poll option.");
+    if (!window.NovaTursoDirect || !window.NovaTursoDirect.ready()) throw new Error("Public Turso is unavailable; vote was not saved.");
+    var userId=directSocialUserId();
+    if (!userId) throw new Error("Sign in before voting.");
+    var option=await window.NovaTursoDirect.query("SELECT o.option_index FROM social_poll_options o JOIN social_polls p ON p.message_id=o.poll_message_id JOIN social_messages m ON m.id=p.message_id WHERE p.message_id=? AND o.option_index=? AND p.closed_at IS NULL AND m.channel_id='everyone' AND m.deleted_at IS NULL LIMIT 1",[messageId,optionIndex]);
+    if (!option.rows || !option.rows.length) throw new Error("That poll choice is unavailable.");
+    await window.NovaTursoDirect.execute("INSERT INTO social_poll_votes(poll_message_id,user_id,option_index,created_at) VALUES(?,?,?,?) ON CONFLICT(poll_message_id,user_id) DO UPDATE SET option_index=excluded.option_index,created_at=excluded.created_at",[messageId,userId,optionIndex,Date.now()]);
+    var pollRows=await window.NovaTursoDirect.query("SELECT p.message_id,p.question,p.closed_at,o.option_index,o.label,COUNT(v.user_id) AS vote_count,MAX(CASE WHEN v.user_id=? THEN 1 ELSE 0 END) AS mine FROM social_polls p JOIN social_messages m ON m.id=p.message_id AND m.channel_id='everyone' AND m.deleted_at IS NULL JOIN social_poll_options o ON o.poll_message_id=p.message_id LEFT JOIN social_poll_votes v ON v.poll_message_id=p.message_id AND v.option_index=o.option_index WHERE p.message_id=? GROUP BY p.message_id,p.question,p.closed_at,o.option_index,o.label ORDER BY o.option_index",[userId,messageId]);
+    var polls=directBuildPolls(pollRows.rows || []);
+    return {ok:true,poll:polls[String(messageId)] || null};
+  }
+
   var api = {
     deviceId: deviceId,
     request: request,
@@ -514,7 +550,7 @@
       return request("/api/social/messages", { method: "POST", body: body });
     },
     createEveryonePoll: function (question, options) { return request("/api/social/everyone/polls", { method: "POST", body: { question: question, options: options } }); },
-    voteEveryonePoll: function (messageId, optionIndex) { return request("/api/social/everyone/polls/vote", { method: "POST", body: { messageId: messageId, optionIndex: optionIndex } }); },
+    voteEveryonePoll: function (messageId, optionIndex) { return directPublicVotePoll(messageId, optionIndex); },
     endEveryonePoll: function (messageId) { return request("/api/social/everyone/polls/end", { method: "POST", body: { messageId: messageId } }); },
     pinEveryoneMessage: function (messageId) { return request("/api/social/everyone/pin", { method: "POST", body: { messageId: messageId || null } }); },
     reactions: function (channel) {
@@ -530,7 +566,10 @@
       }
       return fallback();
     },
-    toggleReaction: function (channel, messageId, emoji) { return request("/api/social/reactions", { method: "POST", body: { channel: channel, messageId: messageId, emoji: emoji } }); },
+    toggleReaction: function (channel, messageId, emoji) {
+      if (directPublicChannel(channel)) return directPublicToggleReaction(channel, messageId, emoji);
+      return request("/api/social/reactions", { method: "POST", body: { channel: channel, messageId: messageId, emoji: emoji } });
+    },
     typing: function (channel) { return request("/api/social/typing?channel=" + encodeURIComponent(channel)); },
     setTyping: function (channel, typing) { return request("/api/social/typing", { method: "POST", body: { channel: channel, typing: !!typing } }); },
     friendRequest: function (username) { return request("/api/social/friend-request", { method: "POST", body: { username: username } }); },
