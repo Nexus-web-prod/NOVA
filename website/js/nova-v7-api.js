@@ -584,8 +584,18 @@
   }
   async function directPublicFriendPresence(){
     await directEnsurePublicSocialSchema();var me=directPublicIdentity();
-    var r=await window.NovaTursoDirect.query("SELECT friend_username AS username FROM nova_public_friends WHERE user_id=? ORDER BY lower(friend_username) LIMIT 1000",[me.id]);
-    return {friends:(r.rows||[]).map(function(x){return {username:String(x.username||""),presenceState:"offline",activityType:"",activityLabel:""};}),database:"public-turso"};
+    // Existing NOVA accounts already have friendships in the public database's
+    // legacy `friends(username, friend)` table. Read those rows as well as the
+    // newer ID-keyed table so switching the client to direct Turso does not
+    // make every existing friend disappear.
+    var results=await Promise.all([
+      window.NovaTursoDirect.query("SELECT friend AS username FROM friends WHERE lower(username)=lower(?) ORDER BY lower(friend) LIMIT 1000",[me.username]),
+      window.NovaTursoDirect.query("SELECT friend_username AS username FROM nova_public_friends WHERE user_id=? ORDER BY lower(friend_username) LIMIT 1000",[me.id])
+    ]);
+    var seen=Object.create(null),names=[];
+    results.forEach(function(r){(r.rows||[]).forEach(function(x){var name=String(x.username||"").trim(),key=name.toLowerCase();if(name&& !seen[key]){seen[key]=true;names.push(name);}});});
+    names.sort(function(a,b){return a.localeCompare(b,undefined,{sensitivity:"base"});});
+    return {friends:names.map(function(username){return {username:username,presenceState:"offline",activityType:"",activityLabel:""};}),database:"public-turso"};
   }
   async function directPublicRemoveFriend(value){
     await directEnsurePublicSocialSchema();var me=directPublicIdentity(),peer=await directPublicFindUser(value);
