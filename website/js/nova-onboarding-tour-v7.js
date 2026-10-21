@@ -4,7 +4,7 @@ var KEY='nova_onboarding_v7',SETUP_KEY='nova_setup_v7_complete',SETUP_VERSION='7
 var OLD_KEYS=['nova_tour_v7_complete','nova_tour_complete','nova_onboarding_complete','nova_onboarding_v7_complete'];
 var OLD_CLASSES=['nova-tour-active','nova-tour-visible','nova-tour-running','nova-tour-target'];
 var BASE={version:1,completed:false,currentStep:'welcome',socialCompleted:false,skipped:false,featureTips:true,legacyCleaned:false};
-var run={active:false,offered:false,steps:[],index:0,target:null,cleanup:null,host:null,shadow:null,ui:null,raf:0,gameCount:94,focusCleanup:null};
+var run={active:false,offered:false,steps:[],index:0,target:null,cleanup:null,host:null,shadow:null,ui:null,raf:0,gameCount:96,focusCleanup:null};
 function q(s,r){return(r||document).querySelector(s)}function shown(e){return!!(e&&e.getClientRects&&e.getClientRects().length)}
 function page(n){return shown(q('#page-'+n+'.active'))}function setupDone(){return localStorage.getItem(SETUP_KEY)===SETUP_VERSION}
 function setupActive(){var h=document.documentElement;return window.__novaSetupV7Active===true||h.classList.contains('nova-setup-active')||h.classList.contains('nova-setup-pending')}
