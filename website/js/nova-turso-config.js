@@ -6,7 +6,7 @@
 (function (global) {
   "use strict";
   global.NOVA_TURSO_CONFIG = Object.freeze({
-    url: "https://public-nova-db-nexuswebprod.aws-us-east-2.turso.io",
-    authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI1NTE2NDMsImlkIjoiMDFhMTU1ODgtMzIwMS03NzUyLWI1MzEtMTM1MWU5MWUyMTIyIiwia2lkIjoiUjFRX01ZWGxFMnQtdDRFMGU5dXAwZHZQWEJCRWR1R2dUdmI5YWVpeG05cyIsInJpZCI6IjE2NWJhMTFhLWJlZjYtNDlhMS04OTMwLTA2NmNkMTM5NjU2OCJ9.hFSbtGdTLBp2jkVzieKJ4LniiVqNFEJCX2w4ObBXxFsV7G4SfxoDbpuIejmmzq8dMfml1YulpVlBD2Zf9qHJCQ"
+    url: "https://public2-nova-db-nexuswebprod.aws-us-east-2.turso.io",
+    authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI1NTQxNzgsImlkIjoiMDFhMTVjOGMtYjgwMS03MjE0LThmNjItZDllMDBlZjljYjk4Iiwia2lkIjoiUjFRX01ZWGxFMnQtdDRFMGU5dXAwZHZQWEJCRWR1R2dUdmI5YWVpeG05cyIsInJpZCI6ImMxZmY0ZDcyLTRlNDYtNGFlZS05MWYxLTlhYWM5MzkwY2ZjMyJ9.qjImDTWq6D5vUpSalsMwnI1AtQ3qcwIsUKTR8dOr3Z5KH6yvvL-ZOYSVVOA--OnlKKQN6y3RBTjy-u4BqR8cDg"
   });
 })(window);
