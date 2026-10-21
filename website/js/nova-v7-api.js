@@ -515,7 +515,8 @@
       {sql:"CREATE TABLE IF NOT EXISTS nova_public_dm_messages (id INTEGER PRIMARY KEY AUTOINCREMENT,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,sender_username TEXT NOT NULL,recipient_username TEXT NOT NULL,body TEXT NOT NULL,message_type TEXT NOT NULL DEFAULT 'text',created_at INTEGER NOT NULL)",args:[]},
       {sql:"CREATE INDEX IF NOT EXISTS nova_public_dm_pair_idx ON nova_public_dm_messages(sender_id,recipient_id,id)",args:[]},
       {sql:"CREATE TABLE IF NOT EXISTS nova_public_friend_requests (from_user_id TEXT NOT NULL,to_user_id TEXT NOT NULL,from_username TEXT NOT NULL,to_username TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(from_user_id,to_user_id))",args:[]},
-      {sql:"CREATE TABLE IF NOT EXISTS nova_public_friends (user_id TEXT NOT NULL,friend_id TEXT NOT NULL,username TEXT NOT NULL,friend_username TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,friend_id))",args:[]}
+      {sql:"CREATE TABLE IF NOT EXISTS nova_public_friends (user_id TEXT NOT NULL,friend_id TEXT NOT NULL,username TEXT NOT NULL,friend_username TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,friend_id))",args:[]},
+      {sql:"CREATE TABLE IF NOT EXISTS nova_public_social_migrations (user_id TEXT PRIMARY KEY,friends_migrated_at INTEGER NOT NULL)",args:[]}
     ]).catch(function(e){directPublicSocialSchemaPromise=null;throw e;});
     return directPublicSocialSchemaPromise;
   }
@@ -584,16 +585,36 @@
   }
   async function directPublicFriendPresence(){
     await directEnsurePublicSocialSchema();var me=directPublicIdentity();
-    // Existing NOVA accounts already have friendships in the public database's
-    // legacy `friends(username, friend)` table. Read those rows as well as the
-    // newer ID-keyed table so switching the client to direct Turso does not
-    // make every existing friend disappear.
-    var results=await Promise.all([
-      window.NovaTursoDirect.query("SELECT friend AS username FROM friends WHERE lower(username)=lower(?) ORDER BY lower(friend) LIMIT 1000",[me.username]),
-      window.NovaTursoDirect.query("SELECT friend_username AS username FROM nova_public_friends WHERE user_id=? ORDER BY lower(friend_username) LIMIT 1000",[me.id])
-    ]);
-    var seen=Object.create(null),names=[];
-    results.forEach(function(r){(r.rows||[]).forEach(function(x){var name=String(x.username||"").trim(),key=name.toLowerCase();if(name&& !seen[key]){seen[key]=true;names.push(name);}});});
+    var r=await window.NovaTursoDirect.query("SELECT friend_username AS username FROM nova_public_friends WHERE user_id=? ORDER BY lower(friend_username) LIMIT 1000",[me.id]);
+    var names=[],seen=Object.create(null);
+    function addName(value){var name=String(value||"").trim(),key=name.toLowerCase();if(name&&!seen[key]){seen[key]=true;names.push(name);}}
+    (r.rows||[]).forEach(function(x){addName(x.username);});
+
+    // The original friend graph lives behind the legacy Social endpoint, not
+    // in this newly provisioned public database. Import it once per account,
+    // then keep normal friend-list reads on public Turso.
+    var migrated=await window.NovaTursoDirect.query("SELECT 1 AS done FROM nova_public_social_migrations WHERE user_id=? LIMIT 1",[me.id]);
+    if(!migrated.rows||!migrated.rows.length){
+      var legacy=await request("/api/social",{noCache:true});
+      var legacyFriends=Array.isArray(legacy&&legacy.friends)?legacy.friends:[];
+      var inserts=[],allResolved=true,legacyNames=[];
+      for(var i=0;i<legacyFriends.length;i++){
+        var item=legacyFriends[i],name=String(typeof item==="string"?item:item&&item.username||"").trim();
+        if(!name)continue;
+        legacyNames.push(name);addName(name);
+        try{
+          var peer=await directPublicFindUser(name),now=Date.now();
+          if(peer.id!==me.id){
+            inserts.push({sql:"INSERT INTO nova_public_friends(user_id,friend_id,username,friend_username,created_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,friend_id) DO NOTHING",args:[me.id,peer.id,me.username,peer.username,now]});
+            inserts.push({sql:"INSERT INTO nova_public_friends(user_id,friend_id,username,friend_username,created_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,friend_id) DO NOTHING",args:[peer.id,me.id,peer.username,me.username,now]});
+          }
+        }catch(error){allResolved=false;}
+      }
+      if(inserts.length)await window.NovaTursoDirect.batch(inserts);
+      if(allResolved){
+        await window.NovaTursoDirect.execute("INSERT INTO nova_public_social_migrations(user_id,friends_migrated_at) VALUES(?,?) ON CONFLICT(user_id) DO NOTHING",[me.id,Date.now()]);
+      }
+    }
     names.sort(function(a,b){return a.localeCompare(b,undefined,{sensitivity:"base"});});
     return {friends:names.map(function(username){return {username:username,presenceState:"offline",activityType:"",activityLabel:""};}),database:"public-turso"};
   }
